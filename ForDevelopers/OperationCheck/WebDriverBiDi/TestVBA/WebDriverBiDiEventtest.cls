@@ -25,7 +25,7 @@ Attribute ex_WebDriverBiDi.VB_VarHelpID = -1
 Private Const ThisClassName         As String = "WebDriverBiDiEventtest"             'ログのトレース用
 
 'ステート管理
-Private currentLog                 As StateLog     'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 
 Public EnableBrowserEvents          As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Public targetContext                As String
@@ -142,7 +142,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
@@ -159,7 +159,6 @@ End Function
 Friend Sub Init(Inheritance As WebDriverBiDiCore)
     '継承
     Set ex_WebDriverBiDi = Inheritance
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.DirectControlCDP.ThisCDPCore.LogSettings
 End Sub
 
 '***************************************************************************************************
@@ -172,5 +171,5 @@ Private Sub Class_Initialize()
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    currentLog.LogID = "EVID" & Format(Rnd * 1000, "000")
+    m_LogID = "EVID" & Format(Rnd * 1000, "000")
 End Sub

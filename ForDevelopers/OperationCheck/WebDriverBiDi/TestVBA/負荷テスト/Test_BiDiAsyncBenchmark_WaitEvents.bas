@@ -104,13 +104,14 @@ Public Sub Test_BiDiAsyncBenchmark_WaitEvents()
 '    UserName = ShSetting01_StartBrowser.CurrentUserName
 '
 '    '2. 指定のWebSocketForCDPへ接続
-'    Dim WebSocketCDP As New CDPCoreViaWebSocket
-'    Debug.Print WebSocketCDP.ConnectCDP(UserName, "/session", 49198)
-'    WebSocketCDP.DirectWebDriverBiDiMode = True
+'    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
+'    Debug.Print WebSocketCDP.ConnectCDP(UserName, "/session", 53879)
 '
-'    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+'    '3. 繋げたWebSocketオブジェクトを`ReattachOptions`オブジェクトに渡し、リアタッチ適用
+'    ReattachOptions.Set_DirectWebDriverBiDi = True
+'    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 '    Set mode = New WebDriverBiDiMode
-'    mode.reattach UserName, , WebSocketCDP
+'    mode.reattach ReattachOptions
     '------------------------------------------------
 
     '---------------- Chromium用 --------------------

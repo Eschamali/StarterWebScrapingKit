@@ -69,12 +69,13 @@ End Enum
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'コンテキスト(タブ)制御クラスオブジェクト
-Private main As CDPContext
+'コンテキスト(タブ)制御クラスオブジェクト　※`Protocol`に応じて、どちらか一方のみ使用
+Private mainCDP     As CDPContext           'CDP用
+Private mainBiDi    As WebDriverBiDiContext 'BiDi用
 
 'JavaScript検索結果情報
 Private Type ElementInfos
-    objectId        As String       ' 検索ヒット時の`ObjectId`
+    objectId        As String       ' 検索ヒット時の`ObjectId`　※BiDiの場合は`script.handle`
     ResultVarType   As VbVarType    ' 検索ヒット時の返り値型(https://learn.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/vartype-function)
     SearchJS        As String       ' DOM検索で使ったJavaScript構文（ポーリング用）
     SearchArgs()    As Dictionary   ' DOM検索で使ったJavaScript構文の引数情報（ポーリング用）
@@ -91,7 +92,7 @@ Private m_LogID As String
 '各種便利なJavaScript実行オプション
 Private Type callFunctionOnParameters
     StopException    As Boolean         'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
-    RunAsyncCDP      As Boolean         '非同期実行
+    RunAsync         As Boolean         '非同期実行
     userGesture      As Boolean         '人間が押したかのように偽装するか？
 End Type
 Private RunOption As callFunctionOnParameters
@@ -114,10 +115,39 @@ Private RunOption As callFunctionOnParameters
 '            　・複数取得系(getElementsByXPath等)
 '              ・`GetShadowRoot`メソッドの使用
 '***************************************************************************************************
-Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
+Public Sub InitCDP(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
-    Set main = ThisCDPContext
+    Set mainCDP = ThisCDPContext
 
+    '検索結果の格納
+    SetSearchResult argResultVarType, objectid_, JavaScriptStr
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`WebDriverBiDiContext.cls`で検索実行したJavaScript結果を格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ThisBiDiContext        継承したい`WebDriverBiDiContext`そのもの
+'            argResultVarType       検索実行結果の`VarType` ※`script.handle`の場合は、`vbString`として扱います。
+'            handle_                検索実行結果時の`script.handle`
+'            JavaScriptStr          検索実行したJavaScriptコードそのもの。ポーリング用に使用します。
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・`handle`は、`WebDriverBiDiContext.jsEval`を`Ownership:=True`で実行した際に得られる物を想定しています
+'            ・`Init`と同様、要素がなく、`handle`が返せない場合は、`handle_`は、`StrPtr`チェックで0になります
+'* 注意事項：・BiDiモードで現在対応しているのは、純JavaScriptで完結するメソッドのみです
+'            ・`JavaScriptStr`の扱いは、`Init`と同じです
+'***************************************************************************************************
+Public Sub InitBiDi(ThisBiDiContext As WebDriverBiDiContext, argResultVarType As VbVarType, handle_ As String, Optional JavaScriptStr As String)
+    'コンテキスト(タブ)情報を継承
+    Set mainBiDi = ThisBiDiContext
+
+    '検索結果の格納
+    SetSearchResult argResultVarType, handle_, JavaScriptStr
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`InitCDP`/`InitBiDi`共通の検索結果格納処理です
+'***************************************************************************************************
+Private Sub SetSearchResult(argResultVarType As VbVarType, objectid_ As String, JavaScriptStr As String)
     With CurrentElement
         '実行結果の型タイプ
         .ResultVarType = argResultVarType
@@ -131,9 +161,7 @@ Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, obj
 End Sub
 
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
+    'ログID設定
     m_LogID = "ELID" & Format(Rnd * 1000, "000")
 End Sub
 
@@ -186,10 +214,18 @@ End Sub
 '* 返り値  ：このClassで保持中の`ObjectId`
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
-'* 注意事項：空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
+'* 注意事項：・空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
+'            ・BiDiモードの場合は、`script.handle`が返ります(WebDriverBiDiContext - jsEval の`scriptHandle`に流用可)
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
     CurrentObjectId = CurrentElement.objectId
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClassが、どのプロトコルで要素を制御しているかを返します
+'***************************************************************************************************
+Property Get isBiDi() As Boolean
+    isBiDi = (mainCDP Is Nothing)
 End Property
 
 '***************************************************************************************************
@@ -792,16 +828,16 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
         Dim resultSearch As Variant
         If ParentElement Is Nothing Then
             '2-1. `CDPContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
-            resultSearch = main.jsEval(CurrentElement.SearchJS)
+            resultSearch = mainCDP.jsEval(CurrentElement.SearchJS)
         Else
             '2-1. 引数情報に応じて、分岐
             '※`IsMissing`を機能させるため
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
             If Not Not CurrentElement.SearchArgs Then
                 '引数情報があるので、引数付きで実行
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
             Else
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
             End If
         End If
 
@@ -880,7 +916,7 @@ Public Function getParent() As CDPElement
 
     '3. 結果を`CDPElement.cls`に格納
     Set getParent = New CDPElement
-    getParent.Init main, JsResultVarType, objectId, ParentSearchJS
+    InitChild getParent, JsResultVarType, objectId, ParentSearchJS
 
     '4. 元の親`CDPElement.cls`を適用
     Set getParent.InitParentCDPElement = Me
@@ -913,7 +949,7 @@ Public Function getNextSibling() As CDPElement
 
     '3. 結果を`CDPElement.cls`に格納
     Set getNextSibling = New CDPElement
-    getNextSibling.Init main, JsResultVarType, objectId, NextSiblingSearchJS
+    InitChild getNextSibling, JsResultVarType, objectId, NextSiblingSearchJS
 
     '4. 元の親`CDPElement.cls`を適用
     Set getNextSibling.InitParentCDPElement = Me
@@ -946,7 +982,7 @@ Public Function getPrevSibling() As CDPElement
 
     '3. 結果を`CDPElement.cls`に格納
     Set getPrevSibling = New CDPElement
-    getPrevSibling.Init main, JsResultVarType, objectId, PrevSiblingSearchJS
+    InitChild getPrevSibling, JsResultVarType, objectId, PrevSiblingSearchJS
 
     '4. 元の親`CDPElement.cls`を適用
     Set getPrevSibling.InitParentCDPElement = Me
@@ -979,7 +1015,7 @@ Public Function getFirstChild() As CDPElement
 
     '3. 結果を`CDPElement.cls`に格納
     Set getFirstChild = New CDPElement
-    getFirstChild.Init main, JsResultVarType, objectId, FirstChildSearchJS
+    InitChild getFirstChild, JsResultVarType, objectId, FirstChildSearchJS
 
     '4. 元の親`CDPElement.cls`を適用
     Set getFirstChild.InitParentCDPElement = Me
@@ -1017,7 +1053,7 @@ Public Function getChildren() As Collection
     '3. Get length via callFunctionOn
     Set getChildren = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.length }", collOid)
+    length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
@@ -1032,7 +1068,7 @@ Public Function getChildren() As Collection
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1041,7 +1077,7 @@ Public Function getChildren() As Collection
 
             '4-5. 結果を`CDPElement.cls`に格納
             Set tElement = New CDPElement
-            tElement.Init main, itemResultVarType, itemObjectID
+            InitChild tElement, itemResultVarType, itemObjectID
             getChildren.Add tElement
         End If
     Next
@@ -1083,7 +1119,7 @@ Public Function getElementByID(strID As String) As CDPElement
 
     '4. 結果を`CDPElement.cls`に格納
     Set getElementByID = New CDPElement
-    getElementByID.Init main, JsResultVarType, objectId, ElementByIDSearchJS
+    InitChild getElementByID, JsResultVarType, objectId, ElementByIDSearchJS
 
     '5. 元の親`CDPElement.cls`を適用
     Set getElementByID.InitParentCDPElement(args) = Me
@@ -1131,7 +1167,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 
     '4. 結果を`CDPElement.cls`に格納
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init main, JsResultVarType, objectId, ElementByQuerySearchJS
+    InitChild getElementByQuery, JsResultVarType, objectId, ElementByQuerySearchJS
 
     '5. 元の親`CDPElement.cls`を適用
     Set getElementByQuery.InitParentCDPElement(args) = Me
@@ -1175,7 +1211,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '3. Get length and each item's objectId
     Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.length }", collOid)
+    length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
 
     '4. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
@@ -1190,7 +1226,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1199,7 +1235,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
             '4-5. 結果を`CDPElement.cls`に格納
             Set tElement = New CDPElement
-            tElement.Init main, itemResultVarType, itemObjectID
+            InitChild tElement, itemResultVarType, itemObjectID
             getElementsByQuery.Add tElement
         End If
     Next
@@ -1275,7 +1311,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
     '6. 結果を`CDPElement.cls`に格納
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init main, JsResultVarType, objectId, ElementByXPathSearchJS
+    InitChild getElementByXPath, JsResultVarType, objectId, ElementByXPathSearchJS
 
     '7. 元の親`CDPElement.cls`を適用
     Set getElementByXPath.InitParentCDPElement(args) = Me
@@ -1339,7 +1375,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '6. Get snapshotLength and each item's objectId
     Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.snapshotLength }", collOid)
+    length_ = mainCDP.jsEval("function(){ return this.snapshotLength }", collOid)
 
     '7. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
@@ -1354,7 +1390,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         Set itemArgs(0) = itemArg
 
         '7-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
+        itemResult = mainCDP.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
 
         '7-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1363,7 +1399,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
             '7-5. 結果を`CDPElement.cls`に格納
             Set tElement = New CDPElement
-            tElement.Init main, itemResultVarType, itemObjectID
+            InitChild tElement, itemResultVarType, itemObjectID
             getElementsByXPath.Add tElement
         End If
     Next
@@ -1378,6 +1414,17 @@ Property Set InitParentCDPElement(Optional Arguments As Variant, Parent As CDPEl
     Set ParentElement = Parent
     If Not IsMissing(Arguments) Then CurrentElement.SearchArgs = Arguments
 End Property
+
+'***************************************************************************************************
+'* 機能　　：相対検索で得た子要素の`CDPElement.cls`を、このClassと同じプロトコルで初期化します
+'***************************************************************************************************
+Private Sub InitChild(child As CDPElement, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
+    If mainCDP Is Nothing Then
+        child.InitBiDi mainBiDi, argResultVarType, objectid_, JavaScriptStr
+    Else
+        child.InitCDP mainCDP, argResultVarType, objectid_, JavaScriptStr
+    End If
+End Sub
 
 
 
@@ -1426,7 +1473,7 @@ Public Function getIFrame() As CDPElement
 
     '4. 結果を`CDPElement.cls`に格納
     Set getIFrame = New CDPElement
-    getIFrame.Init main, JsResultVarType, objectId, getIFrameSearchJS
+    InitChild getIFrame, JsResultVarType, objectId, getIFrameSearchJS
 
     '5. 元の親`CDPElement.cls`を適用
     Set getIFrame.InitParentCDPElement = Me
@@ -1497,7 +1544,7 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
 
     '8. `CDPElement`に必要な情報を継承して返却
     Set GetShadowRoot = New CDPElement
-    GetShadowRoot.Init main, vbString, shadowRootObjectID   '※前述で、`Exists`チェックしてるので、`vbString`直代入する
+    InitChild GetShadowRoot, vbString, shadowRootObjectID   '※前述で、`Exists`チェックしてるので、`vbString`直代入する
 End Function
 
 '***************************************************************************************************
@@ -1557,7 +1604,7 @@ Public Function GetShadowRoots() As Collection
 
         '5-5. `CDPElement`に必要な情報を継承
         Dim GetShadowRoot As CDPElement: Set GetShadowRoot = New CDPElement
-        GetShadowRoot.Init main, vbString, shadowRootObjectID '※前述で、`Exists`チェックしてるので、`vbString`直代入する
+        InitChild GetShadowRoot, vbString, shadowRootObjectID '※前述で、`Exists`チェックしてるので、`vbString`直代入する
 
         '5-6. できあがった`CDPElement`をCollectionに蓄積
         GetShadowRoots.Add GetShadowRoot
@@ -1587,7 +1634,7 @@ Public Sub SetFileInputFiles(files As Collection)
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '3. 別途ログ化
-    If main.LogSettings.seeRawSendMsgDbg Then
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then
         printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(files), FromProcedureName
     Else
         printMsg info_, "Attachment complete.", FromProcedureName
@@ -1600,10 +1647,11 @@ End Sub
 '                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+    'ログファイル拡張子は、制御中のプロトコルに合わせる
+    Dim LogFileExtension As String
+    LogFileExtension = IIf(mainCDP Is Nothing, ".bidi.log", ".cdp.log")
 
-
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, main.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -1612,13 +1660,21 @@ End Sub
 '                             ■■■ CDPContext.cls 直通メソッド ■■■
 '***************************************************************************************************
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
-    Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
+    Set ExecuteCDP = mainCDP.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 
 '***************************************************************************************************
 '* 機能　　：見つけた`objectId`に対して、高度なことをしたい方向け
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・当然、`objectId`は固定してます
+'* 引数　　：objectArguments    制御中のプロトコルに合わせた形式で組み立ててください。変換は行いません
+'                               CDP ：`CallArgument`形式(`{"value": ...}`)
+'                               BiDi：`script.LocalValue`形式(`{"type": ..., "value": ...}`)
+'            returnByValue      BiDiモードの場合は、`Ownership:= Not returnByValue`として扱います
+'            serializationOptions   プロトコルごとに形式が異なるため、制御中のプロトコルに合わせて組み立ててください
+'            generatePreview    CDPモードのみ有効です。BiDiモードでは無視されます
+'            returnByDetails    `True`で、`JsEvalResult`(JavaScript実行結果の詳細オブジェクト)として返却します。CDP/BiDi共通
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・当然、`objectId`(BiDiの場合は`script.handle`)は固定してます
 '            ・一部引数は、プロパティメソッドから変更する必要があります
 '            ・Class内でもこれを経由して使用しています
 '***************************************************************************************************
@@ -1627,6 +1683,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
                        Optional awaitPromise As Boolean, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
+                       Optional returnByDetails As Boolean, _
                        Optional StopApiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
@@ -1634,31 +1691,33 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
     '1. `objectId`がない場合は、エラー停止
     If StrPtr(CurrentElement.objectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
-    '2. 実行
-    SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
-                                    returnByValue, _
-                                    awaitPromise, _
-                                    RunOption.userGesture, _
-                                    True, _
-                                    serializationOptions, _
-                                    generatePreview, _
-                                    RunOption.RunAsyncCDP, _
-                                    RunOption.StopException, _
-                                    StopApiError)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：JavaScript実行結果にて`SET`or`LET`判定によるヘルパーメソッド
-'***************************************************************************************************
-Private Property Let SetVar(ByRef outVariable As Variant, ByRef inExpression As Variant)
-    'IsObject で判定し、`Set`or`Let`で反映させる
-    '※特定のオブジェクト(`vbDataObject`)では`IsObject`が`False`になるが、そういったのは返さないので省略
-    If IsObject(inExpression) Then
-        Set outVariable = inExpression
+    '2. プロトコルに応じたJS実行
+    If mainCDP Is Nothing Then
+        '2-1. BiDi：`script.handle`で返るよう、`Ownership`を指定して実行
+        CDPHelpers.SetVar(jsEval) = mainBiDi.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
+                                        Not returnByValue, _
+                                        awaitPromise, _
+                                        RunOption.userGesture, _
+                                        serializationOptions, _
+                                        returnByDetails, _
+                                        RunOption.RunAsync, _
+                                        RunOption.StopException, _
+                                        StopApiError)
     Else
-        Let outVariable = inExpression
+        '2-1. そのまま実行
+        CDPHelpers.SetVar(jsEval) = mainCDP.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
+                                        returnByValue, _
+                                        awaitPromise, _
+                                        RunOption.userGesture, _
+                                        True, _
+                                        serializationOptions, _
+                                        generatePreview, _
+                                        returnByDetails, _
+                                        RunOption.RunAsync, _
+                                        RunOption.StopException, _
+                                        StopApiError)
     End If
-End Property
+End Function
 
 
 
@@ -1676,8 +1735,8 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：必要な場面で使い終わったら必ず、`False`に戻すこと。面倒ごとになります
 '***************************************************************************************************
-Property Let SetOptionRunAsyncCDP(v As Boolean)
-    RunOption.RunAsyncCDP = v
+Property Let SetOptionRunAsync(v As Boolean)
+    RunOption.RunAsync = v
 End Property
 
 '***************************************************************************************************
@@ -1698,6 +1757,6 @@ Private Sub Class_Terminate()
     If StrPtr(CurrentElement.objectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", CurrentElement.objectId
-        main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
+        mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
     End If
 End Sub

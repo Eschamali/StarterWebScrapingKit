@@ -13,14 +13,17 @@ Option Explicit
 Sub Test()
     '1. 指定のWebSocketForCDPへ接続
     Const UserNameBrowser As String = "User Data"
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
     WebSocketCDP.ReConnectCDP UserNameBrowser
 
-    '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim b As New CDPBrowser
-    b.reattachWebSocket UserNameBrowser, WebSocketCDP
+    '2. 繋げたWebSocketオブジェクトを、WebSocketモードとして設定
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserNameBrowser
 
-    '3. テストタブに接続
+    '3. 再接続情報を`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    b.reattach ReattachOptions
+
+    '4. テストタブに接続
     Dim br As CDPContext
     Set br = b.getTab(setMain:=True, tabName:="Shadow DOM")
 

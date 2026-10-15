@@ -1,6 +1,6 @@
 # CDP 拡張機能テンプレート
 
-`CDPBrowser.cls` に対して独自の機能拡張を追加するためのテンプレート集です。\
+`CDPContext.cls` / `CDPBrowser.cls` に対して独自の機能拡張を追加するためのテンプレート集です。\
 用途に応じて **Normal** と **Advanced** の2種類から選んでご利用ください。
 
 ***
@@ -28,32 +28,34 @@ ForDevelopers/TemplateExtensions/CDP/
 
 * CDP の非同期イベントを受け取り、何らかの処理を行いたいとき
 
-* `invokeMethod` を使って CDP コマンドを送信したいとき
+* 継承した `CDPContext`（`ex_CDPContext.ExecuteCDP`）を使って CDP コマンドを送信したいとき
 
 * **ほとんどのケースはこちらで十分です**
 
 ### 仕組み
 
 ```
-CDPBrowser.cls
-  └── WithEvents ex_CDPBrowser
-        └── detectionCDPEvent → あなたの処理をここに書く
+CDPContext / CDPBrowser
+  └── ExEventCore ──→ WithEvents ex_CDPCore（CDPCore）
+        ├── CDPContextEvent → タブ向けの処理をここに書く
+        └── CDPBrowserEvent → ブラウザ向けの処理をここに書く
 ```
 
-`CDPBrowser` を `WithEvents` で保持し、ブラウザから非同期イベントが届いたとき、\
-`ex_CDPBrowser_detectionCDPEvent` が呼び出されます。\
+`Init` で受け取った `CDPContext` の `ExEventCore` を `WithEvents` で保持し、ブラウザから非同期イベントが届いたとき、\
+`ex_CDPCore_CDPContextEvent`（タブ向け）/ `ex_CDPCore_CDPBrowserEvent`（ブラウザ向け）が呼び出されます。\
 `TakeEvents` を手動で呼ぶことでイベントをポーリングします。
 
 ### 主な構成要素
 
-| プロシージャ / プロパティ                    | 役割                        |
-| --------------------------------- | ------------------------- |
-| `Init(Inheritance As CDPBrowser)` | `CDPBrowser` を継承する初期化メソッド |
-| `EnableEvents` プロパティ              | 非同期イベント処理の ON/OFF スイッチ    |
-| `ex_CDPBrowser_detectionCDPEvent` | 非同期イベントのハンドラ（ここに実装する）     |
-| `Main01`                          | 独自機能の実装場所（自由に追加・改名してOK）   |
-| `invokeMethod`                    | CDP コマンド送信のラッパー           |
-| `TakeEvents`                      | イベントをポーリングして発火させる         |
+| プロシージャ / プロパティ                    | 役割                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| `Init(Inheritance As CDPContext)`  | `CDPContext` を継承する初期化メソッド。イベント受け取り用の `CDPCore` は `ExEventCore` から取得します |
+| `EnableEvents` プロパティ               | 非同期イベント処理の ON/OFF スイッチ                                             |
+| `ex_CDPCore_CDPContextEvent`       | タブ向けの非同期イベントのハンドラ（ここに実装する）                                         |
+| `ex_CDPCore_CDPBrowserEvent`       | ブラウザ向けの非同期イベントのハンドラ（ここに実装する）                                       |
+| `Main01`                           | 独自機能の実装場所（自由に追加・改名してOK）                                            |
+| `printMsg`                         | ログ出力のラッパー。ログの設定はツール全体で共通で、この拡張側は識別ID（`m_LogID`）だけ持ちます              |
+| `TakeEvents`                       | イベントをポーリングして発火させる                                                  |
 
 ### 導入ファイル
 
@@ -78,9 +80,10 @@ exCDP_Template.cls  ← これだけインポートすればOK
 ### 仕組み
 
 ```
-CDPBrowser.cls
-  └── WithEvents ex_CDPBrowser
-        └── detectionCDPEvent → あなたの処理をここに書く
+CDPContext / CDPBrowser
+  └── ExEventCore ──→ WithEvents ex_CDPCore（CDPCore）
+        ├── CDPContextEvent → タブ向けの処理をここに書く
+        └── CDPBrowserEvent → ブラウザ向けの処理をここに書く
 
 SafeTimer.cls  ← Windows SetTimer API による定期タイマー
   └── WithEvents st
@@ -145,8 +148,11 @@ flowchart TD
 
 ```vba
 ' 使用例（呼び出し元）
+Dim t As CDPContext
+Set t = ShSetting01_StartBrowser.StartCDPModeContext
+
 Dim ex As New exCDP_Template
-ex.Init CDPBrowserInstance   ' CDPBrowser を継承
+ex.Init t                    ' CDPContext を継承
 ex.Main01 "arg1", "arg2"
 ```
 
@@ -154,8 +160,11 @@ ex.Main01 "arg1", "arg2"
 
 ```vba
 ' 使用例（呼び出し元）
+Dim t As CDPContext
+Set t = ShSetting01_StartBrowser.StartCDPModeContext
+
 Dim ex As New exCDP_TemplateWithSafeTimer
-ex.Init CDPBrowserInstance           ' CDPBrowser を継承
+ex.Init t                            ' CDPContext を継承
 ex.StartCheckAsyncEvents 50          ' 50ms 間隔でイベント自動監視開始
 ex.Main01 "arg1", "arg2"
 ```
@@ -167,7 +176,7 @@ ex.Main01 "arg1", "arg2"
 1. 対応するフォルダのファイルを `StarterWebScrapingKit`にインポートする
 2. クラス名を用途に合わせてリネームする（例: `exCDP_DownloadWatcher`）
 3. `ThisClassName` 定数もリネームに合わせて変更する
-4. `ex_CDPBrowser_detectionCDPEvent` の `Select Case` に、\
+4. `ex_CDPCore_CDPContextEvent`（タブ向け）/ `ex_CDPCore_CDPBrowserEvent`（ブラウザ向け）の `Select Case` に、\
    監視したい CDP イベント名（例: `"Page.downloadWillBegin"`）を追加する
 5. `Main01` などのパブリックメソッドに、独自のロジックを実装する
 
