@@ -14,7 +14,8 @@ Sub Test()
     '1. 指定のWebSocketForCDPへ接続
     Const UserNameBrowser As String = "User Data"
     Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
-    WebSocketCDP.ReConnectCDP UserNameBrowser
+    BrowserCapabilities.Set_UserDataDirName = UserNameBrowser
+    WebSocketCDP.AutoConnectDevToolsActivePort BrowserCapabilities
 
     '2. 繋げたWebSocketオブジェクトを、WebSocketモードとして設定
     ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserNameBrowser
@@ -125,4 +126,3 @@ Sub Test()
     Sleep 1
     WebSocketCDP.DisconnectCDP
 End Sub
-
