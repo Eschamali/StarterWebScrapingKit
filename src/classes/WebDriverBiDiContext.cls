@@ -320,6 +320,10 @@ End Property
 '
 '            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
 '
+'            returnByDetails                True ：専用のJavaScript実行結果関連情報Classオブジェトとして返却します。`script.RemoteValue`内のパラメーターとして呼ぶ必要がありますが、より詳細なパラメータ情報に`Get`として、アクセスしやすくします
+'                                           False：基本は、`script.RemoteValue - value`のみ返却し、優先順位に応じて最適な値を返します。VarType等である程度のJavaScript結果の型判定が可能です(既定)
+'                                           ※`RunAsyncBiDi:=True`時は無視されます
+'
 '            RunAsyncBiDi                   True ：結果を待たないBiDiで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
 '                                           False：結果を待つCDPで実行します。基本はこれでOK
 '
@@ -354,6 +358,7 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
                        Optional awaitPromise As Boolean, _
                        Optional userActivation As Boolean, _
                        Optional serializationOptions As Dictionary, _
+                       Optional returnByDetails As Boolean, _
                        Optional RunAsyncBiDi As Boolean, _
                        Optional StopException As Boolean, _
                        Optional StopBiDiError As Boolean = True) As Variant
@@ -425,13 +430,16 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     '----------------------------------------------------------------------------------------
 
 
-    'JavaScript実行結果部分の解析フェーズに移ります -------------------------------------------------------------------------------------------
-    Dim strLogValue As String
+    'JavaScript実行結果部分の解析を委託 -------------------------------------------------------------------------------------------
+    Dim JsAnalysis As JsEvalResult
+    If returnByDetails Then Set JsAnalysis = New JsEvalResult Else Set JsAnalysis = JsEvalResult    '引数に応じて新規オブジェクトするか使い回すかをする
+    JsAnalysis.InitForReturnObject False, scriptEvaluateResult, IFEXCEPTION, JavaScriptStr          '※`IFEXCEPTION`は`Variant`なので、省略情報も引き継げるので、IF分岐せず直接代入
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
-    If scriptEvaluateResult.StringKey("type") = "exception" Then
+    Dim strLogValue As String
+    If JsAnalysis.isException Then
         '最後の詳細例外情報を記録
-        Set lastExceptionDetailsJS = scriptEvaluateResult.NodeKey("exceptionDetails")
+        Set lastExceptionDetailsJS = JsAnalysis.rawException
 
         '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
         strLogValue = LogFormat(JavaScriptStr, 100)
@@ -443,7 +451,10 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
             '`StopException`が無効の場合は、簡易部分の例外内容を出す
-            printMsg WARN_, "ExceptionDescription: " & lastExceptionDetailsJS.StringKey("text"), FromProcedureName
+            printMsg WARN_, "ExceptionDescription: " & JsAnalysis.ExceptionText, FromProcedureName
+
+            '詳細モードの場合は一律、専用オブジェクトとして返却し、抜けます
+            If returnByDetails Then Set jsEval = JsAnalysis: Exit Function
 
             '返り値判定
             If IsMissing(IFEXCEPTION) Then
@@ -462,16 +473,18 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     End If
 
     'If the return type has a specific type we can return the result -------------------------------------------
-    Dim tmp
-    If JSresultAnalysis(scriptEvaluateResult.NodeKey("result"), tmp) Then
-        Set jsEval = tmp
+    If returnByDetails Then
+        '詳細モードの場合は、先ほどの結果オブジェクトを渡して、抜ける
+        Set jsEval = JsAnalysis
+        Exit Function
     Else
-        Let jsEval = tmp
+        If JsAnalysis.ResultTypeForVBA = vbObject Then Set jsEval = JsAnalysis.value Else jsEval = JsAnalysis.value
     End If
     '-----------------------------------------------------------------------------------------------------------
 
     'Output to Immediate Window if enabled -------------------------------------------------------------------
     ' VarTypeを使って型ごとにログ用の文字列を作る
+    '※primitive values の場合は、結果値も付ける
     Select Case VarType(jsEval)
         Case vbDouble
             strLogValue = "[Double] " & jsEval
@@ -495,98 +508,6 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     ' 最終的なデバッグ出力　※実行scriptも、100文字以内にしておく
     printMsg Debug_, "Script executed: " & LogFormat(JavaScriptStr, 100) & " | Returned: " & strLogValue, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
-
-End Function
-
-'***************************************************************************************************
-'* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：scriptRemoteValue  `script.RemoteValue`でのJson-Nodeを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
-'            ReturnValue        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
-'
-'* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：返す優先順位は、`script.Handle` > `value`です
-'***************************************************************************************************
-Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef ReturnValue As Variant) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
-
-
-    '------------------------ 1. 特定項目有無チェック ------------------------
-    ' 格納型情報を取得
-    Dim ValueType   As String: ValueType = scriptRemoteValue.StringKey("type")
-
-    '`script.Handle`があったらそれを優先に返します。
-    '※type=object系で、`resultOwnership`:="root"時、ここを通ります
-    If scriptRemoteValue.ExistsKey("handle") Then
-        ReturnValue = scriptRemoteValue.StringKey("handle")
-        printMsg info_, "JS-Return type: " & ValueType, FromProcedureName
-        printMsg info_, "It is returned as script.Handle.", FromProcedureName
-        printMsg Debug_, "handle: " & ReturnValue, FromProcedureName
-
-        Exit Function
-    End If
-
-
-    '------------------------ 2. JsonNodeの取得を試みる ------------------------
-    '参考：https://w3c.github.io/webdriver-bidi/#type-script-RemoteValue
-    '以降は、`resultOwnership:="none"`でないと通りません
-    printMsg info_, "JS-Return type: " & ValueType, FromProcedureName
-
-    Select Case ValueType
-        Case "symbol", "function", "weakmap", "weakset", "generator", "error", "proxy", "promise", "typedarray", "arraybuffer"
-            '`value`がないので、`Nothing`として返却
-            Set ReturnValue = Nothing
-            printMsg WARN_, "`" & ValueType & "` cannot be returned as a `value`.", FromProcedureName
-
-        Case "array", "object", "map", "set", "nodelist", "htmlcollection", "window", "regexp", "node"
-            'Json文字列として生成されるので、Node形式のObjectとして返却
-            Set ReturnValue = scriptRemoteValue.NodeKey("value")
-
-        Case "undefined"
-            ' JSの undefined は VBAでは Empty が一番近い
-            ReturnValue = Empty
-
-        Case "null"
-            ReturnValue = Null
-
-        Case "string"
-            ' 文字列として認識するように返す
-            ReturnValue = scriptRemoteValue.StringKey("value")
-
-        Case "number"
-            '1. 一旦おまかせで取る
-            ReturnValue = scriptRemoteValue("value")
-
-            '2. VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で上書き
-            If VarType(ReturnValue) = vbString Then
-                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & ReturnValue, FromProcedureName
-                ReturnValue = CVErr(xlErrNum)
-            Else
-                ReturnValue = CDbl(ReturnValue)
-            End If
-
-        Case "boolean"
-            ' boolean型として認識するように返す
-            ReturnValue = scriptRemoteValue.BoolKey("value")
-
-        Case "bigint"
-            ' BigInt は JSON に変換できない巨大整数のため、値を文字列としてそのまんま返却します
-            ReturnValue = scriptRemoteValue.StringKey("value")
-            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue, FromProcedureName
-
-        Case "date"
-            'BiDiの場合、`date`は文字列として返却されるため、VBAの`vbDate`として返してあげる
-            ReturnValue = UtcConverter.ParseIso(scriptRemoteValue.StringKey("value"))
-
-        Case Else
-            'ドキュメント化されてない型があったら、安全のため。止めておく
-            printMsg ERROR_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName, doRaiseError:=True
-
-    End Select
-
-    'SETステートメントするかの判定を用意する
-    JSresultAnalysis = IsObject(ReturnValue)
 
 End Function
 
