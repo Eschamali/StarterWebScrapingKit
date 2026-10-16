@@ -285,9 +285,9 @@ Public Function click() As Boolean
         'BiDi：`Input.insertText`相当がないため、JavaScriptの`focus`で代用
         jsEval "function(){ this.focus() }"
     Else
-    Dim params As New Dictionary
-    params("text") = ""
-    ExecuteCDP "Input.insertText", params
+        Dim params As New Dictionary
+        params("text") = ""
+        ExecuteCDP "Input.insertText", params
     End If
 
    'Perform click
@@ -405,25 +405,25 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
 
     Else
         'CDP：Set focus on the node
-    Dim params As New Dictionary
-    params("objectId") = CurrentElement.objectId
-    ExecuteCDP "DOM.focus", params
+        Dim params As New Dictionary
+        params("objectId") = CurrentElement.objectId
+        ExecuteCDP "DOM.focus", params
 
-    'Send key down event to the browser
-    params.RemoveAll
-    params("type") = "keyDown"
-    params("windowsVirtualKeyCode") = Key
-    params("altKey") = altKey
-    ExecuteCDP "Input.dispatchKeyEvent", params
+        'Send key down event to the browser
+        params.RemoveAll
+        params("type") = "keyDown"
+        params("windowsVirtualKeyCode") = Key
+        params("altKey") = altKey
+        ExecuteCDP "Input.dispatchKeyEvent", params
 
-    'Send key up event to the browser to release the key
-    params.RemoveAll
-    params("type") = "keyUp"
-    params("windowsVirtualKeyCode") = Key
-    params("altKey") = False
-    ExecuteCDP "Input.dispatchKeyEvent", params
+        'Send key up event to the browser to release the key
+        params.RemoveAll
+        params("type") = "keyUp"
+        params("windowsVirtualKeyCode") = Key
+        params("altKey") = False
+        ExecuteCDP "Input.dispatchKeyEvent", params
 
-    printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendKey = True
@@ -467,16 +467,16 @@ Public Function sendString(textToSend As String) As Boolean
         printMsg info_, "Executed sendString(""" & textToSend & """) successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
     Else
         'CDP：Set focus on the node
-    Dim params As New Dictionary
-    params("objectId") = CurrentElement.objectId
-    ExecuteCDP "DOM.focus", params
+        Dim params As New Dictionary
+        params("objectId") = CurrentElement.objectId
+        ExecuteCDP "DOM.focus", params
 
-    'Sendkeys to the node
-    params.RemoveAll
-    params("text") = textToSend
-    ExecuteCDP "Input.insertText", params
+        'Sendkeys to the node
+        params.RemoveAll
+        params("text") = textToSend
+        ExecuteCDP "Input.insertText", params
 
-    printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendString = True
@@ -843,13 +843,17 @@ Public Function sendHover() As Boolean
         Dim x As Long, y As Long
         CDPInViewCenter x, y
 
-    Dim params As New Dictionary
-    params("type") = "mouseMoved"
-    params("x") = x
-    params("y") = y
-    ExecuteCDP "Input.dispatchMouseEvent", params
+        Dim params As New Dictionary
+        params("type") = "mouseMoved"
+        params("x") = x
+        params("y") = y
+        params("button") = "none"
+        params("buttons") = 0
+        params("clickCount") = 0
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
 
-    printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendHover = True
@@ -1695,34 +1699,34 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     Else
         'CDP：
         '1-1. `objectId`に対して、直下のNode情報を取得
-    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
-    Set paramsCDP = New Dictionary
-    paramsCDP.Add "objectId", CurrentElement.objectId
-    paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
-    paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
-    Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
+        Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
+        Set paramsCDP = New Dictionary
+        paramsCDP.Add "objectId", CurrentElement.objectId
+        paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
+        paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
+        Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
 
-    '2. `shadowRoots`の存在確認
-    If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
-    If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
+        '1-2. `shadowRoots`の存在確認
+        If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `PageElement`.", FromProcedureName: Exit Function
+        If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `PageElement`.", FromProcedureName: Exit Function
 
-    '3. 指定Index圏内か？
-    Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
-    If Nodes_shadowRoots.Count <= Index Then printMsg WARN_, "shadowRoots-Index out of range.", FromProcedureName: Exit Function
+        '1-3. 指定Index圏内か？
+        Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
+        If Nodes_shadowRoots.Count <= Index Then printMsg WARN_, "shadowRoots-Index out of range.", FromProcedureName: Exit Function
 
-    '4. 指定位置の`shadowRoots`の`backendNodeId`を取得
-    Dim shadowRootNodeId As Long
-    shadowRootNodeId = Nodes_shadowRoots.NodeIndex(Index).NumberKey("backendNodeId")
-    printMsg Debug_, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
+        '1-4. 指定位置の`shadowRoots`の`backendNodeId`を取得
+        Dim shadowRootNodeId As Long
+        shadowRootNodeId = Nodes_shadowRoots.NodeIndex(Index).NumberKey("backendNodeId")
+        printMsg Debug_, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
 
-    '5. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
-    paramsCDP.RemoveAll
-    paramsCDP.Add "backendNodeId", shadowRootNodeId
-    Set ResultCDP = ExecuteCDP("DOM.resolveNode", paramsCDP)
+        '1-5. 得た`backendNodeId`を`PageElement`で使える`ObjectID`に変換
+        paramsCDP.RemoveAll
+        paramsCDP.Add "backendNodeId", shadowRootNodeId
+        Set ResultCDP = ExecuteCDP("DOM.resolveNode", paramsCDP)
 
-    '6. `Runtime.RemoteObject`の存在確認
-    If Not ResultCDP.ExistsKey("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
-    If Not ResultCDP.NodeKey("object").ExistsKey("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
+        '1-6. `Runtime.RemoteObject`の存在確認
+        If Not ResultCDP.ExistsKey("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
+        If Not ResultCDP.NodeKey("object").ExistsKey("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
 
         '1-7. `objectId`を取得
         shadowRootId = ResultCDP.NodeKey("object").StringKey("objectId")
@@ -1827,8 +1831,8 @@ Public Sub SetFileInputFiles(files As Collection)
         params.Add "element", BiDiSharedReference()
         mainBiDi.ExecuteBiDi "input.setFiles", params
     Else
-    params.Add "objectId", CurrentElement.objectId
-    ExecuteCDP "DOM.setFileInputFiles", params
+        params.Add "objectId", CurrentElement.objectId
+        ExecuteCDP "DOM.setFileInputFiles", params
     End If
 
     '3. 別途ログ化
@@ -2070,8 +2074,8 @@ Private Sub Class_Terminate()
     'BiDi：`script.SharedId`はブラウザ側で保持されないため、解放不要
     If mainCDP Is Nothing Then Exit Sub
 
-        'CDP：`Runtime.releaseObject`で`objectId`を解放
+    'CDP：`Runtime.releaseObject`で`objectId`を解放
     Dim paramsAPI As New Dictionary
-        paramsAPI.Add "objectId", CurrentElement.objectId
-        mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsAPI, False
+    paramsAPI.Add "objectId", CurrentElement.objectId
+    mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsAPI, False
 End Sub
