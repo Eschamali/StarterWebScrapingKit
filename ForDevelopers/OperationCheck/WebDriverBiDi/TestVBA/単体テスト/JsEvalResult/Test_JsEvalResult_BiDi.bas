@@ -236,7 +236,7 @@ Private Sub Test05_NonSpecTypes(br As WebDriverBiDiContext)
 End Sub
 
 '==============================================================================
-' ⑥ Ownership:=True（resultOwnership:"root"）→ handle で返る
+' ⑥ Ownership:=True（resultOwnership:"root"）→ handle で返る（nodeは sharedId が優先）
 '==============================================================================
 Private Sub Test06_Ownership(br As WebDriverBiDiContext)
     PrintSection "⑥ Ownership:=True"
@@ -252,7 +252,7 @@ Private Sub Test06_Ownership(br As WebDriverBiDiContext)
     PrintSummary "array(Ownership)", r
     Stop
 
-    'node → handle と sharedId の両方（value は handle が優先）
+    'node → handle と sharedId の両方（value は sharedId が優先）
     Set r = br.jsEval("document.body", Ownership:=True, returnByDetails:=True)
     PrintSummary "node(Ownership)", r
     Stop
@@ -318,16 +318,16 @@ Private Sub Test08_AwaitPromise(br As WebDriverBiDiContext)
 End Sub
 
 '==============================================================================
-' ⑨ script.callFunction 経由（scriptHandle / objectArguments）
+' ⑨ script.callFunction 経由（scriptSharedId / objectArguments）
 '==============================================================================
 Private Sub Test09_CallFunction(br As WebDriverBiDiContext)
     PrintSection "⑨ script.callFunction"
     Dim r As JsEvalResult
 
-    'scriptHandle を this にして実行（簡易モードで得た handle を流用）
-    Dim bodyHandle As String: bodyHandle = br.jsEval("document.body", Ownership:=True)
-    Set r = br.jsEval("function(){ return this.tagName }", scriptHandle:=bodyHandle, returnByDetails:=True)
-    PrintSummary "callFunction(scriptHandle)→string", r
+    'scriptSharedId を this にして実行（簡易モードで得た sharedId を流用）
+    Dim bodySharedId As String: bodySharedId = br.jsEval("document.body")
+    Set r = br.jsEval("function(){ return this.tagName }", scriptSharedId:=bodySharedId, returnByDetails:=True)
+    PrintSummary "callFunction(scriptSharedId)→string", r
     Stop
 
     'objectArguments（script.LocalValue形式）のみ指定

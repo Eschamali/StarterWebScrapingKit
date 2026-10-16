@@ -179,12 +179,12 @@ Public Sub Test_Value_Date()
 End Sub
 
 Public Sub Test_Value_Node()
-    'nodeは Ownership:=False だと、value はNode(BiDiCDPJson)。sharedId はプロパティから取得できる
+    'nodeは Ownership:=False でも sharedId が付き、それが value になる
     Dim r As JsEvalResult: Set r = Details("document.body")
-    CheckType r, "node", vbObject
+    CheckType r, "node", vbDataObject
     AssertTrue Len(r.sharedId) > 0, "sharedIdがあること"
     AssertSame "", r.handle, "handle"
-    AssertSame "BiDiCDPJson", TypeName(r.value), "TypeName(value)"
+    AssertSame r.sharedId, r.value, "value = sharedId"
 End Sub
 
 
@@ -233,10 +233,14 @@ Public Sub Test_Ownership_Promise()
     CheckHandle "promise", "Promise.resolve(1)"
 End Sub
 
-Public Sub Test_Ownership_Node_HandlePreferred()
-    'nodeは handle と sharedId の両方が付くが、value は handle が優先
-    Dim r As JsEvalResult: Set r = CheckHandle("node", "document.body")
-    AssertTrue Len(r.sharedId) > 0, "sharedIdもあること"
+Public Sub Test_Ownership_Node_SharedIdPreferred()
+    'nodeは handle と sharedId の両方が付くが、value は sharedId が優先(jsEvalの`scriptSharedId`に合わせるため)
+    Dim r As JsEvalResult
+    Set r = br.jsEval("document.body", Ownership:=True, returnByDetails:=True)
+    CheckType r, "node", vbDataObject
+    AssertTrue Len(r.handle) > 0, "handleもあること"
+    AssertSame r.sharedId, r.value, "value = sharedId"
+    AssertTrue Len(r.sharedId) > 0, "sharedIdがあること"
 End Sub
 
 Public Sub Test_Ownership_Primitive_NoHandle()
@@ -256,7 +260,7 @@ Public Sub Test_Serialization_MaxDomDepth()
     Dim opt As New Dictionary: opt.Add "maxDomDepth", 1
     Dim r As JsEvalResult
     Set r = br.jsEval("document.body", serializationOptions:=opt, returnByDetails:=True)
-    CheckType r, "node", vbObject
+    CheckType r, "node", vbDataObject
     AssertSame "BiDiCDPJson", TypeName(r.rawValue), "TypeName(rawValue)"
     AssertTrue r.rawValue.ExistsKey("children"), "childrenが含まれること"
 End Sub
@@ -265,7 +269,7 @@ Public Sub Test_Serialization_IncludeShadowTree_Closed()
     Dim opt As New Dictionary: opt.Add "maxDomDepth", 1: opt.Add "includeShadowTree", "all"
     Dim r As JsEvalResult
     Set r = br.jsEval("(() => { const h = document.createElement('div'); h.attachShadow({ mode: 'closed' }).innerHTML = '<b>x</b>'; return h })()", serializationOptions:=opt, returnByDetails:=True)
-    CheckType r, "node", vbObject
+    CheckType r, "node", vbDataObject
     AssertTrue Not r.rawValue.NodeKey("shadowRoot") Is Nothing, "closedのshadowRootが含まれること"
 End Sub
 
@@ -286,10 +290,10 @@ End Sub
 '==============================================================================
 ' ⑨ script.callFunction 経由
 '==============================================================================
-Public Sub Test_CallFunction_ScriptHandle()
-    Dim bodyHandle As String: bodyHandle = br.jsEval("document.body", Ownership:=True)
+Public Sub Test_CallFunction_ScriptSharedId()
+    Dim bodySharedId As String: bodySharedId = br.jsEval("document.body")
     Dim r As JsEvalResult
-    Set r = br.jsEval("function(){ return this.tagName }", scriptHandle:=bodyHandle, returnByDetails:=True)
+    Set r = br.jsEval("function(){ return this.tagName }", scriptSharedId:=bodySharedId, returnByDetails:=True)
     CheckType r, "string", vbString
     AssertSame "BODY", r.value, "value"
 End Sub
@@ -377,7 +381,7 @@ End Sub
 '==============================================================================
 Public Sub Test_SimpleMode_ValueOnly()
     AssertSame 42.5, br.jsEval("42.5"), "number"
-    AssertTrue Len(br.jsEval("document.body", Ownership:=True)) > 0, "handle文字列"
+    AssertTrue Len(br.jsEval("document.body", Ownership:=True)) > 0, "sharedId文字列"
     AssertTrue IsError(br.jsEval("throw 1")), "例外はCVErr"
 End Sub
 
