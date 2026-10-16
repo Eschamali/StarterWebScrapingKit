@@ -693,23 +693,23 @@ End Property
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPElement.cls`継承準備 ■■■
+'                           ■■■ `PageElement.cls`継承準備 ■■■
 '***************************************************************************************************
-'* 機能　　：ID属性値で要素を検索し、`CDPElement`として返却します
+'* 機能　　：ID属性値で要素を検索し、`PageElement`として返却します
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`CDPContext.getElementByID`のBiDi版です。返される`CDPElement`は、BiDiモード(`InitBiDi`)で初期化されます
-'* 注意事項：BiDiモードの`CDPElement`で現在対応しているのは、純JavaScriptで完結するメソッドのみです
+'* 詳細説明：`CDPContext.getElementByID`のBiDi版です。返される`PageElement`は、BiDiモード(`InitBiDi`)で初期化されます
+'* 注意事項：BiDiモードの`PageElement`では、`getIFrame`(`WebDriverBiDiMode.getTab`を使用)と`GetShadowRoots`(`GetShadowRoot`を使用)が非対応です
 '***************************************************************************************************
-Public Function getElementByID(strID As String) As CDPElement
+Public Function getElementByID(strID As String) As PageElement
     Set getElementByID = SearchElement("document.getElementById(""" & strID & """)")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：XPathで要素を検索し、`CDPElement`として返却します
+'* 機能　　：XPathで要素を検索し、`PageElement`として返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`CDPContext.getElementByXPath`のBiDi版です。XPathの書き方は、そちらの例を参照してください
 '***************************************************************************************************
-Public Function getElementByXPath(strXPath As String) As CDPElement
+Public Function getElementByXPath(strXPath As String) As PageElement
     'People normally get this wrong when using XPath
     If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
 
@@ -717,70 +717,73 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 End Function
 
 '***************************************************************************************************
-'* 機能　　：XPathで要素を複数検索し、`CDPElement`のコレクションとして返却します
+'* 機能　　：XPathで要素を複数検索し、`PageElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 返り値  ：`PageElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
 '* 注意事項：・コレクションのIndexは、1始まりです
-'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
     'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
     Set getElementsByXPath = SearchElements("document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)", _
-                                            "function(){ return this.snapshotLength }", _
-                                            "function(n){ return this.snapshotItem(n) }")
+                                            "function(c){ return c.snapshotLength }", _
+                                            "function(c, n){ return c.snapshotItem(n) }")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：QuerySelectorで要素を検索し、`CDPElement`として返却します
+'* 機能　　：QuerySelectorで要素を検索し、`PageElement`として返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`CDPContext.getElementByQuery`のBiDi版です。セレクターの書き方は、そちらの例を参照してください
 '***************************************************************************************************
-Public Function getElementByQuery(strQuery As String) As CDPElement
+Public Function getElementByQuery(strQuery As String) As PageElement
     Set getElementByQuery = SearchElement("document.querySelector(""" & strQuery & """)")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：QuerySelectorAllで要素を複数検索し、`CDPElement`のコレクションとして返却します
+'* 機能　　：QuerySelectorAllで要素を複数検索し、`PageElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 返り値  ：`PageElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
 '* 注意事項：・コレクションのIndexは、1始まりです
-'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByQuery(strQuery As String) As Collection
     Set getElementsByQuery = SearchElements("document.querySelectorAll(""" & (strQuery) & """)", _
-                                            "function(){ return this.length }", _
-                                            "function(n){ return this.item(n) }")
+                                            "function(c){ return c.length }", _
+                                            "function(c, n){ return c.item(n) }")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`CDPElement`に格納します
+'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`PageElement`に格納します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：SearchJS   検索JavaScript。`CDPElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
-'* 詳細説明：`script.handle`を得るため、`Ownership:=True`で実行します。要素がない場合は`Null`が返るため、`vbNull`として格納されます
+'* 引数　　：SearchJS   検索JavaScript。`PageElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
+'* 詳細説明：nodeは`Ownership`の指定なしでも`script.SharedId`が返るため、そのまま実行します。要素がない場合は`Null`が返るため、`vbNull`として格納されます
 '***************************************************************************************************
-Private Function SearchElement(SearchJS As String) As CDPElement
+Private Function SearchElement(SearchJS As String) As PageElement
     '1. 検索実行
     Dim resultSearch As Variant
-    resultSearch = jsEval(SearchJS, Ownership:=True)
+    resultSearch = jsEval(SearchJS)
 
-    '2. 結果を判定。文字型なら、`script.handle`を確保
-    Dim elementHandle As String, JsResultVarType As VbVarType
+    '2. 結果を判定。文字型なら、`script.SharedId`を確保
+    Dim elementSharedId As String, JsResultVarType As VbVarType
     JsResultVarType = VarType(resultSearch)
-    If JsResultVarType = vbString Then elementHandle = resultSearch
+    If JsResultVarType = vbString Then elementSharedId = resultSearch
 
-    '3. 結果を`CDPElement.cls`に格納
-    Set SearchElement = New CDPElement
-    SearchElement.InitBiDi Me, JsResultVarType, elementHandle, SearchJS
+    '3. 結果を`PageElement.cls`に格納
+    Set SearchElement = New PageElement
+    SearchElement.InitBiDi Me, JsResultVarType, elementSharedId, SearchJS
 End Function
 
 '***************************************************************************************************
-'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`CDPElement`に格納します
+'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`PageElement`に格納します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：SearchJS   コレクション(NodeList/XPathResult等)を返す検索JavaScript
-'            LengthJS   コレクションの要素数を返す`function(){ return this... }`
-'            ItemJS     n番目の要素を返す`function(n){ return this...(n) }`
+'            LengthJS   コレクションの要素数を返す`function(c){ return c... }`         ※`c`はコレクション
+'            ItemJS     n番目の要素を返す`function(c, n){ return c...(n) }`           ※`c`はコレクション
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：コレクションはnodeではないため`script.SharedId`を持たず、`script.Handle`で受け取ります
+'            `scriptSharedId`は要素専用のため、コレクションは`objectArguments`の第1引数として渡します
 '***************************************************************************************************
 Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS As String) As Collection
     '1. 検索実行
@@ -798,32 +801,35 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
     '4. 要素数を取得
     Set SearchElements = New Collection
     Dim length_ As Long, N As Long
-    length_ = jsEval(LengthJS, scriptHandle:=collHandle)
+    Dim lengthArgs(0) As Dictionary
+    Set lengthArgs(0) = collRef
+    length_ = jsEval(LengthJS, objectArguments:=lengthArgs)
 
-    '4. 要素数分、ループで順次取得していく
-    Dim tElement As CDPElement
-    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
+    '5. 要素数分、ループで順次取得していく
+    Dim tElement As PageElement
+    Dim itemArgs(1) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemResultVarType As VbVarType
+    Set itemArgs(0) = collRef
     For N = 0 To length_ - 1
-        '4-1. `script.callFunction`に渡す引数(`script.LocalValue`形式)をセット
+        '5-1. `script.callFunction`に渡す引数(`script.LocalValue`形式)をセット
         Set itemArg = New Dictionary
         itemArg.Add "type", "number"
         itemArg.Add "value", N
-        Set itemArgs(0) = itemArg
+        Set itemArgs(1) = itemArg
 
-        '4-2. 引数付きで実行
-        itemResult = jsEval(ItemJS, scriptHandle:=collHandle, objectArguments:=itemArgs, Ownership:=True)
+        '5-2. 引数付きで実行　※nodeは`script.SharedId`で返る
+        itemResult = jsEval(ItemJS, objectArguments:=itemArgs)
 
-        '4-3. 念のため、有効な`script.handle`かチェックし、`CDPElement.cls`に格納
+        '5-3. 念のため、有効な`script.SharedId`かチェックし、`PageElement.cls`に格納
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
-            Set tElement = New CDPElement
+            Set tElement = New PageElement
             tElement.InitBiDi Me, itemResultVarType, CStr(itemResult)
             SearchElements.Add tElement
         End If
     Next
 
-    '5. 用済みとなったコレクションの`script.handle`を非同期解放
+    '6. 用済みとなったコレクションの`script.Handle`を非同期解放
     Dim paramsDisown As New Dictionary, scriptTarget As New Dictionary
     scriptTarget.Add "context", InfoList.context
     paramsDisown.Add "handles", Array(collHandle)
