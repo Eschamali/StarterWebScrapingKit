@@ -787,11 +787,15 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
     Dim resultsSearch As Variant
     resultsSearch = jsEval(SearchJS, Ownership:=True)
 
-    '2. 結果を判定。文字型なら、コレクションの`script.handle`を確保。ない場合は、即抜け
+    '2. 結果を判定。文字型なら、コレクションの`script.Handle`を確保。ない場合は、即抜け
     Dim collHandle As String
     If VarType(resultsSearch) = vbString Then collHandle = resultsSearch Else Exit Function
 
-    '3. 要素数を取得
+    '3. コレクションを引数として渡すための参照(`script.RemoteReference`)を用意
+    Dim collRef As New Dictionary
+    collRef.Add "handle", collHandle
+
+    '4. 要素数を取得
     Set SearchElements = New Collection
     Dim length_ As Long, N As Long
     length_ = jsEval(LengthJS, scriptHandle:=collHandle)
