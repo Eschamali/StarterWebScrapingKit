@@ -1831,18 +1831,11 @@ Private Sub Class_Terminate()
     '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
     If StrPtr(CurrentElement.objectId) = 0 Then Exit Sub
 
-    Dim paramsAPI As New Dictionary
-    If mainCDP Is Nothing Then
-        'BiDi：`script.disown`で`script.handle`を解放
-        '※`WebDriverBiDiContext.ExecuteBiDiAsync`は`context`を自動付与してしまうため、`WebDriverBiDiMode`側から直接送信
-        Dim scriptTarget As New Dictionary
-        scriptTarget.Add "context", mainBiDi.context
-        paramsAPI.Add "handles", Array(CurrentElement.objectId)
-        paramsAPI.Add "target", scriptTarget
-        mainBiDi.ThisWebDriverBiDiMode.ExecuteBiDiAsync "script.disown", paramsAPI, False
-    Else
+    'BiDi：`script.SharedId`はブラウザ側で保持されないため、解放不要
+    If mainCDP Is Nothing Then Exit Sub
+
         'CDP：`Runtime.releaseObject`で`objectId`を解放
+    Dim paramsAPI As New Dictionary
         paramsAPI.Add "objectId", CurrentElement.objectId
         mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsAPI, False
-    End If
 End Sub
