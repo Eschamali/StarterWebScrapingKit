@@ -53,9 +53,12 @@ Public Sub RunAll_BiDiElement_Tests()
     Test11_GetChildren_ElementsByQuery_ElementsByXPath br
     Test12_ElementByID_Query_XPath_Scoped br
     Test13_IsExist_IfExist_OnExist_OnExistNot br
-    Test14_GetIFrame br
+    Test14_IFrame_GetTab br
     Test15_Diagnostics_And_Options br
-    Test16_UnsupportedMethods br
+    Test16_SendClick_SendKey br
+    Test17_SendHover_HoverReveal br
+    Test18_SetFileInputFiles br
+    Test19_ShadowRoot_Open_Closed br
 
     PrintHeader "テスト結果: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
 
@@ -97,18 +100,26 @@ Private Sub Test01_ContextSearch(br As WebDriverBiDiContext)
 End Sub
 
 '==============================================================================
-' ② value / clearValue
+' ② value / sendString / clearValue
 '==============================================================================
 Private Sub Test02_Value_ClearValue(br As WebDriverBiDiContext)
-    PrintSection "② value / clearValue"
+    PrintSection "② value / sendString / clearValue"
 
-    Dim el As CDPElement: Set el = br.getElementByID("testInput")
+    Dim el As PageElement: Set el = br.getElementByID("testInput")
 
     el.value = "Hello VBA"
     AssertEq "value(Let→Get)", el.value, "Hello VBA"
 
     el.value = "改行" & vbLf & "や""引用符""を含む値"
     AssertEq "value(特殊文字)", el.value, "改行" & "や""引用符""を含む値"
+
+    'sendString（input.performActions で1文字ずつ入力）
+    el.sendString "Real Key Input"
+    AssertEq "sendString後のvalue", el.value, "Real Key Input"
+
+    '日本語・サロゲートペア(絵文字)を含む文字列
+    el.sendString "日本語" & ChrW(&HD83D) & ChrW(&HDE00)
+    AssertEq "sendString(日本語・絵文字)後のvalue", el.value, "日本語" & ChrW(&HD83D) & ChrW(&HDE00)
 
     el.clearValue
     AssertEq "clearValue後のvalue", el.value, ""
@@ -306,15 +317,28 @@ Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As WebDriverBiDiContext
 End Sub
 
 '==============================================================================
-' ⑭ getIFrame（同一オリジンiframe）
+' ⑭ iframe（BiDiでは getIFrame 非対応 → getTab で browsingContext として取得）
 '==============================================================================
-Private Sub Test14_GetIFrame(br As WebDriverBiDiContext)
-    PrintSection "⑭ getIFrame"
+Private Sub Test14_IFrame_GetTab(br As WebDriverBiDiContext)
+    PrintSection "⑭ iframe（getTab）"
 
     CDPHelpers.Sleep 0.5
 
-    Dim iframeDoc As CDPElement: Set iframeDoc = br.getElementByID("testIFrame").getIFrame
-    AssertEq "iframe内要素のinnerText", iframeDoc.getElementByID("iframeTarget").innerText, "iframe content"
+    '1. getIFrame は、BiDiモードでは代替手段を案内するエラーで止まること
+    Dim errNum As Long, unusedFrame As PageElement
+    On Error Resume Next
+    Err.Clear
+    Set unusedFrame = br.getElementByID("testIFrame").getIFrame
+    errNum = Err.Number
+    On Error GoTo 0
+    AssertTrue "getIFrameがBiDiモードではエラーになること", (errNum <> 0)
+
+    '2. iframe は独立した browsingContext のため、getTab(maxDepth:=1) で取得し、その中で検索できること
+    '※srcdoc の iframe なので、URLは about:srcdoc になる
+    Dim iframeCtx As WebDriverBiDiContext
+    Set iframeCtx = br.ThisWebDriverBiDiMode.getTab("about:srcdoc", maxDepth:=1, doRetrySecond:=3)
+    AssertTrue "getTab(maxDepth:=1)でiframeのcontextが取れること", Not (iframeCtx Is Nothing)
+    If Not (iframeCtx Is Nothing) Then AssertEq "iframe内要素のinnerText", iframeCtx.getElementByID("iframeTarget").innerText, "iframe content"
 End Sub
 
 '==============================================================================
@@ -342,11 +366,11 @@ Private Sub Test15_Diagnostics_And_Options(br As WebDriverBiDiContext)
     Set nullArg(0) = New Dictionary: nullArg(0).Add "type", "null"
     AssertEq "Null引数の受け渡し", CStr(el.jsEval("function(v){ return v === null ? 'null' : 'x' }", nullArg)), "null"
 
-    el.SetOptionRunAsyncCDP = True
+    el.SetOptionRunAsync = True
     Dim asyncResult As Variant
     asyncResult = el.jsEval("function(){ return 1 }")
-    el.SetOptionRunAsyncCDP = False
-    AssertTrue "SetOptionRunAsyncCDP=True時、戻り値が非同期コマンドIDであること", (IsNumeric(asyncResult) And CLng(asyncResult) > 0)
+    el.SetOptionRunAsync = False
+    AssertTrue "SetOptionRunAsync=True時、戻り値が非同期コマンドIDであること", (IsNumeric(asyncResult) And CLng(asyncResult) > 0)
 
     el.SetOptionStopException = True
     Dim exNumber As Long
@@ -370,21 +394,89 @@ Private Sub Test15_Diagnostics_And_Options(br As WebDriverBiDiContext)
 End Sub
 
 '==============================================================================
-' ⑯ BiDiモード未対応メソッドが、エラーで止まること
+' ⑯ sendClick / sendKey（input.performActions）
 '==============================================================================
-Private Sub Test16_UnsupportedMethods(br As WebDriverBiDiContext)
-    PrintSection "⑯ BiDiモード未対応メソッド"
+Private Sub Test16_SendClick_SendKey(br As WebDriverBiDiContext)
+    PrintSection "⑯ sendClick / sendKey"
 
-    Dim el As CDPElement: Set el = br.getElementByID("testSendClickBtn")
-    Dim errNum As Long
+    Dim scBtn As PageElement: Set scBtn = br.getElementByID("testSendClickBtn")
+    AssertEq "sendClick前のクリック回数", scBtn.getAttribute("data-clickcount"), "0"
+    scBtn.sendClick
+    AssertEq "sendClick後のクリック回数", scBtn.getAttribute("data-clickcount"), "1"
 
+    Dim ki As PageElement: Set ki = br.getElementByID("testKeyInput")
+    ki.sendKey keyEnter
+    AssertEq "sendKey(keyEnter)後のkeyCode", ki.getAttribute("data-lastkeycode"), "13"
+
+    ki.sendKey keyBackspace
+    AssertEq "sendKey(keyBackspace)後のkeyCode", ki.getAttribute("data-lastkeycode"), "8"
+End Sub
+
+'==============================================================================
+' ⑰ sendHover / ホバーで出現するボタン（input.performActions）
+'==============================================================================
+Private Sub Test17_SendHover_HoverReveal(br As WebDriverBiDiContext)
+    PrintSection "⑰ sendHover / ホバーで出現するボタン"
+
+    Dim hv As PageElement: Set hv = br.getElementByID("testHoverTarget")
+    AssertEq "sendHover前のhovered状態", hv.getAttribute("data-hovered"), "false"
+    hv.sendHover
+    AssertEq "sendHover後のhovered状態", hv.getAttribute("data-hovered"), "true"
+    AssertEq "sendHover後のhover回数", hv.getAttribute("data-hovercount"), "1"
+
+    Dim container As PageElement: Set container = br.getElementByID("hoverRevealContainer")
+    Dim revealBtn As PageElement: Set revealBtn = br.getElementByID("hoverRevealBtn")
+    AssertEq "ホバー前のクリック回数", revealBtn.getAttribute("data-clickcount"), "0"
+    container.sendHover
+    Dim waitResult As String: waitResult = WaitUntilClickable(revealBtn)
+    AssertTrue "ホバー後、ボタンがクリック可能になること(DOM安定待機)" & IIf(waitResult = "OK", "", " / " & waitResult), (waitResult = "OK")
+    revealBtn.sendClick
+    AssertEq "ホバー→sendClick後のクリック回数", revealBtn.getAttribute("data-clickcount"), "1"
+End Sub
+
+'==============================================================================
+' ⑱ SetFileInputFiles（input.setFiles）
+'==============================================================================
+Private Sub Test18_SetFileInputFiles(br As WebDriverBiDiContext)
+    PrintSection "⑱ SetFileInputFiles"
+
+    Dim files As New Collection
+    files.Add WorkspacePath & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html"
+
+    Dim fileInput As PageElement: Set fileInput = br.getElementByID("testFileInput")
+    fileInput.SetFileInputFiles files
+
+    AssertEq "SetFileInputFiles後のfiles[0].name", CStr(fileInput.jsEval("function(){ return this.files.length > 0 ? this.files[0].name : '' }")), "CDPElementTest.html"
+End Sub
+
+'==============================================================================
+' ⑲ GetShadowRoot（open / closed、includeShadowTree:="all"）／ GetShadowRoots は BiDi 非対応
+'==============================================================================
+Private Sub Test19_ShadowRoot_Open_Closed(br As WebDriverBiDiContext)
+    PrintSection "⑲ GetShadowRoot（open / closed）"
+
+    Dim rootOpen As PageElement: Set rootOpen = br.getElementByID("shadowHostOpen").GetShadowRoot()
+    AssertTrue "GetShadowRoot(open)が取得できること", Not (rootOpen Is Nothing)
+    If Not (rootOpen Is Nothing) Then AssertEq "shadow(open)内要素の内容", rootOpen.getElementByQuery(".shadow-content").innerText, "Shadow content (open)"
+
+    Dim rootClosed As PageElement: Set rootClosed = br.getElementByID("shadowHostClosed").GetShadowRoot()
+    AssertTrue "GetShadowRoot(closed)が取得できること", Not (rootClosed Is Nothing)
+    If Not (rootClosed Is Nothing) Then AssertEq "shadow(closed)内要素の内容", rootClosed.getElementByQuery(".shadow-content").innerText, "Shadow content (closed)"
+
+    'Index 1以上は、BiDiでは対象外(Nothing)となること
+    AssertTrue "GetShadowRoot(Index:=1)はNothing", (br.getElementByID("shadowHostOpen").GetShadowRoot(1) Is Nothing)
+
+    'GetShadowRoots は、BiDiモードでは代替手段を案内するエラーで止まること
+    Dim errNum As Long, unusedRoots As Collection
     On Error Resume Next
     Err.Clear
-    el.sendClick
+    Set unusedRoots = br.getElementByID("shadowHostClosed").GetShadowRoots()
     errNum = Err.Number
     On Error GoTo 0
-    AssertTrue "sendClickが未対応エラーになること", (errNum <> 0)
-    AssertEq "sendClickでCDPが送信されていないこと", el.getAttribute("data-clickcount"), "0"
+    AssertTrue "GetShadowRootsがBiDiモードではエラーになること", (errNum <> 0)
+
+    'Shadow-rootがない要素では、Nothingが返ること　※<input>等はブラウザ組み込みのShadow-rootを持つため、divで確認
+    AssertTrue "Shadow-rootがない要素ではNothing", (br.getElementByID("testTextDiv").GetShadowRoot() Is Nothing)
 End Sub
 
 '==============================================================================
@@ -394,6 +486,47 @@ Private Sub RecordFail(Name As String)
     failCount = failCount + 1
     failNames = failNames & vbLf & "  - " & Name
 End Sub
+
+'==============================================================================
+' DOMが落ち着いた(要素がクリック可能になった)かの待機
+'  ・実行中のアニメーション/トランジションがない
+'  ・visibility:visible かつ opacity:1
+'  ・要素の中心座標の最前面が、その要素自身(Shadow DOM内は、そのShadow-root側で判定)
+'  上記を満たした時点で即 "OK" を返す。上限時間内に満たさない場合は、失敗時の状態(診断情報)を返す(固定秒数の待機ではない)
+'  診断情報：ページの表示/フォーカス状態、親要素の:hover状態、ボタンのスタイル、各中心座標の最前面要素 等
+'  【メモ】失敗時の診断で visibilityState=hidden かつ runningAnimations>0 のまま opacity=0 の場合は、ホバーは届いているが、
+'          ブラウザの画面が他のウィンドウの裏に隠れていて、アニメーションの描画が止まっている状態(環境要因・テスト対象の不具合ではない)
+'          → 起動時の追加引数に `--disable-backgrounding-occluded-windows` `--disable-renderer-backgrounding` を付けると安定する
+'            (2026/10/16 xlflow経由の5回連続実行で、引数なし：15回中9回失敗 → 引数あり：15回すべて合格)
+'==============================================================================
+Private Function WaitUntilClickable(el As PageElement, Optional timeoutMs As Long = 5000) As String
+    Dim waitJS As String
+    waitJS = "function(){" & _
+             "  const el = this, root = el.getRootNode(), parent = el.parentElement, deadline = performance.now() + " & timeoutMs & ";" & _
+             "  const desc = n => !n ? 'null' : (n.tagName || n.nodeName) + (n.id ? '#' + n.id : '') + (n.className && typeof n.className === 'string' ? '.' + n.className.trim().replace(/\s+/g, '.') : '');" & _
+             "  const center = n => { const r = n.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };" & _
+             "  const hitAt = n => { const c = center(n); return root.elementFromPoint(c[0], c[1]); };" & _
+             "  const running = () => el.getAnimations().filter(a => a.playState === 'running').length;" & _
+             "  const diag = () => { const s = getComputedStyle(el), r = el.getBoundingClientRect(); return [" & _
+             "    'visibilityState=' + document.visibilityState, 'hasFocus=' + document.hasFocus()," & _
+             "    'viewport=' + window.innerWidth + 'x' + window.innerHeight," & _
+             "    'parentHover=' + (parent ? parent.matches(':hover') : 'n/a'), 'parentClass=' + (parent ? parent.className : 'n/a')," & _
+             "    'btnVisibility=' + s.visibility, 'btnOpacity=' + s.opacity, 'runningAnimations=' + running()," & _
+             "    'btnRect=' + [r.left, r.top, r.width, r.height].map(Math.round).join(',')," & _
+             "    'hitAtBtn=' + desc(hitAt(el)), 'hitAtParent=' + (parent ? desc(hitAt(parent)) : 'n/a')" & _
+             "  ].join(' | '); };" & _
+             "  return new Promise(resolve => {" & _
+             "    const check = () => {" & _
+             "      const s = getComputedStyle(el), hit = hitAt(el);" & _
+             "      const ok = running() === 0 && s.visibility === 'visible' && Number(s.opacity) >= 1 && !!hit && (hit === el || el.contains(hit));" & _
+             "      if (ok) { resolve('OK'); } else if (performance.now() > deadline) { resolve(diag()); } else { setTimeout(check, 16); }" & _
+             "    };" & _
+             "    check();" & _
+             "  });" & _
+             "}"
+
+    WaitUntilClickable = CStr(el.jsEval(waitJS, IFEXCEPTION:="exception while waiting", awaitPromise:=True))
+End Function
 
 Private Sub AssertEq(Name As String, actual As Variant, expected As Variant)
     If CStr(actual) = CStr(expected) Then
