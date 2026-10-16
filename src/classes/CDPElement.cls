@@ -338,23 +338,37 @@ Public Function sendClick() As Boolean
         Dim x As Long, y As Long
         CDPInViewCenter x, y
 
-    Dim params As New Dictionary
-    params("type") = "mousePressed"
-    params("x") = x
-    params("y") = y
-    params("button") = "left"
-    params("clickCount") = 1
-    ExecuteCDP "Input.dispatchMouseEvent", params
+        Dim params As New Dictionary
+        params("type") = "mouseMoved"
+        params("x") = x
+        params("y") = y
+        params("button") = "none"
+        params("buttons") = 0
+        params("clickCount") = 0
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
 
-    params.RemoveAll
-    params("type") = "mouseReleased"
-    params("x") = x
-    params("y") = y
-    params("button") = "left"
-    params("clickCount") = 1
-    ExecuteCDP "Input.dispatchMouseEvent", params
+        params.RemoveAll
+        params("type") = "mousePressed"
+        params("x") = x
+        params("y") = y
+        params("button") = "left"
+        params("buttons") = 1
+        params("clickCount") = 1
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
 
-    printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        params.RemoveAll
+        params("type") = "mouseReleased"
+        params("x") = x
+        params("y") = y
+        params("button") = "left"
+        params("buttons") = 0
+        params("clickCount") = 1
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
+
+        printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendClick = True
