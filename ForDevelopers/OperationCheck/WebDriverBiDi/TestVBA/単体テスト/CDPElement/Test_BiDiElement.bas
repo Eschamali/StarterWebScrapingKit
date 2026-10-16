@@ -1,10 +1,10 @@
 Attribute VB_Name = "Test_BiDiElement"
 '==============================================================================
-' CDPElement.cls（BiDiモード）動作確認 ＋ WebDriverBiDiContext の検索口テスト
+' PageElement.cls（BiDiモード）動作確認 ＋ WebDriverBiDiContext の検索口テスト
 ' ・HTML: ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html（CDP版と共用）
 ' ・WORKSPACE_PATH をルートに設定してから RunAll_BiDiElement_Tests を実行
 ' 　※空の場合は、このブックの1つ上の階層をルートとみなします（build\配下に置いてる想定）
-' ・BiDiモードで未対応のメソッド（CDPコマンド直叩き系）は、エラーで止まることを確認します
+' ・CDPコマンド依存だったメソッド（sendClick / sendKey / sendString / sendHover / SetFileInputFiles / GetShadowRoot）は、BiDiコマンドでの動作を確認します
 '==============================================================================
 Option Explicit
 
@@ -38,7 +38,7 @@ Public Sub RunAll_BiDiElement_Tests()
 
     passCount = 0: failCount = 0: failNames = vbNullString
 
-    PrintHeader "CDPElement(BiDiモード) 検証テスト 開始"
+    PrintHeader "PageElement(BiDiモード) 検証テスト 開始"
 
     Test01_ContextSearch br
     Test02_Value_ClearValue br
@@ -73,7 +73,7 @@ End Sub
 Private Sub Test01_ContextSearch(br As WebDriverBiDiContext)
     PrintSection "① WebDriverBiDiContext 検索口"
 
-    Dim byId As CDPElement: Set byId = br.getElementByID("testInput")
+    Dim byId As PageElement: Set byId = br.getElementByID("testInput")
     AssertTrue "getElementByID: isExist", byId.isExist
     AssertTrue "getElementByID: BiDiモードであること", byId.isBiDi
 
@@ -120,12 +120,12 @@ End Sub
 Private Sub Test03_InnerText_InnerHTML(br As WebDriverBiDiContext)
     PrintSection "③ innerText / innerHTML"
 
-    Dim txtEl As CDPElement: Set txtEl = br.getElementByID("testTextDiv")
+    Dim txtEl As PageElement: Set txtEl = br.getElementByID("testTextDiv")
     AssertEq "innerText初期値", txtEl.innerText, "initial text"
     txtEl.innerText = "changed text"
     AssertEq "innerText変更後", txtEl.innerText, "changed text"
 
-    Dim htmlEl As CDPElement: Set htmlEl = br.getElementByID("testHtmlDiv")
+    Dim htmlEl As PageElement: Set htmlEl = br.getElementByID("testHtmlDiv")
     AssertContains "innerHTML初期値", htmlEl.innerHTML, "bold"
     htmlEl.innerHTML = "<i>italic</i>"
     AssertContains "innerHTML変更後", htmlEl.innerHTML, "italic"
@@ -137,7 +137,7 @@ End Sub
 Private Sub Test04_Checked(br As WebDriverBiDiContext)
     PrintSection "④ checked"
 
-    Dim cb As CDPElement: Set cb = br.getElementByID("testCheckbox")
+    Dim cb As PageElement: Set cb = br.getElementByID("testCheckbox")
 
     cb.checked = True
     AssertTrue "checked=True設定後", cb.checked
@@ -152,7 +152,7 @@ End Sub
 Private Sub Test05_Selected_SetSelection(br As WebDriverBiDiContext)
     PrintSection "⑤ selected / setSelection"
 
-    Dim sel As CDPElement: Set sel = br.getElementByID("testSelect")
+    Dim sel As PageElement: Set sel = br.getElementByID("testSelect")
 
     sel.setSelection "opt2"
     AssertEq "setSelection後のvalue", sel.value, "opt2"
@@ -169,7 +169,7 @@ End Sub
 Private Sub Test06_Click_SimpleClick_FireEvent(br As WebDriverBiDiContext)
     PrintSection "⑥ click / SimpleClick / fireEvent"
 
-    Dim btn As CDPElement: Set btn = br.getElementByID("testClickBtn")
+    Dim btn As PageElement: Set btn = br.getElementByID("testClickBtn")
 
     AssertEq "初期クリック回数", btn.getAttribute("data-clickcount"), "0"
 
@@ -189,7 +189,7 @@ End Sub
 Private Sub Test07_GetAttribute_SetAttribute(br As WebDriverBiDiContext)
     PrintSection "⑦ getAttribute / setAttribute"
 
-    Dim el As CDPElement: Set el = br.getElementByID("testAttrTarget")
+    Dim el As PageElement: Set el = br.getElementByID("testAttrTarget")
 
     AssertEq "getAttribute初期値", el.getAttribute("data-foo"), "bar"
 
@@ -203,11 +203,11 @@ End Sub
 Private Sub Test08_Focus_SelectText(br As WebDriverBiDiContext)
     PrintSection "⑧ focus / selectText"
 
-    Dim fi As CDPElement: Set fi = br.getElementByID("testFocusInput")
+    Dim fi As PageElement: Set fi = br.getElementByID("testFocusInput")
     fi.focus
     AssertEq "focus後のdocument.activeElement.id", CStr(br.jsEval("document.activeElement.id")), "testFocusInput"
 
-    Dim st As CDPElement: Set st = br.getElementByID("testSelectTextTarget")
+    Dim st As PageElement: Set st = br.getElementByID("testSelectTextTarget")
     st.selectText
     AssertEq "selectText後の選択文字列", CStr(br.jsEval("window.getSelection().toString()")), "Select this whole text"
 End Sub
@@ -228,12 +228,12 @@ End Sub
 Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As WebDriverBiDiContext)
     PrintSection "⑩ getParent / getNextSibling / getPrevSibling / getFirstChild"
 
-    Dim parentEl As CDPElement: Set parentEl = br.getElementByID("traversalParent")
-    Dim child1 As CDPElement: Set child1 = parentEl.getFirstChild
+    Dim parentEl As PageElement: Set parentEl = br.getElementByID("traversalParent")
+    Dim child1 As PageElement: Set child1 = parentEl.getFirstChild
     AssertEq "getFirstChildのid", child1.getAttribute("id"), "child1"
     AssertTrue "相対検索の子もBiDiモードであること", child1.isBiDi
 
-    Dim child2 As CDPElement: Set child2 = child1.getNextSibling
+    Dim child2 As PageElement: Set child2 = child1.getNextSibling
     AssertEq "getNextSiblingのid", child2.getAttribute("id"), "child2"
 
     AssertEq "getPrevSiblingのid", br.getElementByID("child3").getPrevSibling.getAttribute("id"), "child2"
@@ -246,7 +246,7 @@ End Sub
 Private Sub Test11_GetChildren_ElementsByQuery_ElementsByXPath(br As WebDriverBiDiContext)
     PrintSection "⑪ getChildren / getElementsByQuery / getElementsByXPath"
 
-    Dim ul As CDPElement: Set ul = br.getElementByID("collectionList")
+    Dim ul As PageElement: Set ul = br.getElementByID("collectionList")
 
     AssertEq "getChildrenの件数", CStr(ul.getChildren.Count), "5"
 
@@ -263,7 +263,7 @@ End Sub
 Private Sub Test12_ElementByID_Query_XPath_Scoped(br As WebDriverBiDiContext)
     PrintSection "⑫ getElementByID / getElementByQuery / getElementByXPath（スコープ検索）"
 
-    Dim ul As CDPElement: Set ul = br.getElementByID("collectionList")
+    Dim ul As PageElement: Set ul = br.getElementByID("collectionList")
 
     AssertEq "getElementByID(スコープ)の内容", ul.getElementByID("collectionItem3").innerText, "C"
     AssertEq "getElementByQuery(スコープ)の内容", ul.getElementByQuery("[data-n='2']").innerText, "B"
@@ -276,7 +276,7 @@ End Sub
 Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As WebDriverBiDiContext)
     PrintSection "⑬ isExist / ifExist / onExist / onExistNot"
 
-    Dim dyn As CDPElement: Set dyn = br.getElementByID("dynamicElement")
+    Dim dyn As PageElement: Set dyn = br.getElementByID("dynamicElement")
     AssertFalse "追加前のisExist", dyn.isExist
 
     Dim errBefore As Long
@@ -289,18 +289,18 @@ Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As WebDriverBiDiContext
 
     'HTML側で1秒後に要素を追加 → onExist（親なし＝document起点の再検索）で検知
     br.getElementByID("btnAddDynamic").click
-    Dim dyn2 As CDPElement: Set dyn2 = br.getElementByID("dynamicElement").onExist(timeOutInSeconds:=5)
+    Dim dyn2 As PageElement: Set dyn2 = br.getElementByID("dynamicElement").onExist(timeOutInSeconds:=5)
     AssertTrue "追加後のonExist成功", Not (dyn2 Is Nothing)
     If Not (dyn2 Is Nothing) Then AssertTrue "onExist後のisExist", dyn2.isExist
 
     '相対検索(引数あり)のonExist：親要素起点 + SearchArgsの再利用
-    Dim scoped As CDPElement: Set scoped = br.getElementByQuery("body").getElementByID("dynamicElement").onExist(timeOutInSeconds:=5)
+    Dim scoped As PageElement: Set scoped = br.getElementByQuery("body").getElementByID("dynamicElement").onExist(timeOutInSeconds:=5)
     AssertTrue "相対検索のonExist成功", Not (scoped Is Nothing)
 
     br.getElementByID("btnRemoveDynamic").click
     If Not (dyn2 Is Nothing) Then AssertTrue "削除後のonExistNot成功", dyn2.onExistNot(timeOutInSeconds:=5)
 
-    Dim ghost As CDPElement
+    Dim ghost As PageElement
     Set ghost = br.getElementByID("doesNotExist12345").onExist(timeOutInSeconds:=1, raiseTimeoutError:=False)
     AssertTrue "存在しない要素のonExistタイムアウトでNothingが返ること", (ghost Is Nothing)
 End Sub
@@ -323,7 +323,7 @@ End Sub
 Private Sub Test15_Diagnostics_And_Options(br As WebDriverBiDiContext)
     PrintSection "⑮ 診断プロパティ / 実行オプション"
 
-    Dim el As CDPElement: Set el = br.getElementByID("testInput")
+    Dim el As PageElement: Set el = br.getElementByID("testInput")
 
     AssertContains "UseSearchJSに検索構文が含まれること", el.UseSearchJS, "getElementById"
     AssertTrue "varResultがvbStringであること", (el.varResult = vbString)
