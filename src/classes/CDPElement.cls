@@ -281,9 +281,14 @@ Public Function click() As Boolean
 
    'Some fields require the browser to manually focus before allowing
    'the click action, such as the input type 'file' field.
+    If mainCDP Is Nothing Then
+        'BiDi：`Input.insertText`相当がないため、JavaScriptの`focus`で代用
+        jsEval "function(){ this.focus() }"
+    Else
     Dim params As New Dictionary
     params("text") = ""
     ExecuteCDP "Input.insertText", params
+    End If
 
    'Perform click
     jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }"
@@ -316,13 +321,22 @@ Public Function sendClick() As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
 
-    'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
-    Dim x As Double, y As Double
+    'Viewport 内に収める
     jsEval "function(){ this.scrollIntoView(false) }"
 
-    '中心座標として返却
-    x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
-    y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
+    If mainCDP Is Nothing Then
+        'BiDi：要素の中心へ移動 → 左ボタン押下 → 解放　※`origin`に要素を指定すると、座標計算は不要
+        Dim pointerActions As New Collection
+        pointerActions.Add BiDiPointerMoveToThis()
+        pointerActions.Add BiDiAction("pointerDown", "button", 0)
+        pointerActions.Add BiDiAction("pointerUp", "button", 0)
+        BiDiPerformActions "pointer", pointerActions
+
+        printMsg info_, "Executed sendClick successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
+    Else
+        'CDP：表示中の中心座標へ移動 → 左ボタン押下 → 解放　※BiDi(`input.performActions`)と同じ流れ
+        Dim x As Long, y As Long
+        CDPInViewCenter x, y
 
     Dim params As New Dictionary
     params("type") = "mousePressed"
@@ -340,8 +354,10 @@ Public Function sendClick() As Boolean
     params("clickCount") = 1
     ExecuteCDP "Input.dispatchMouseEvent", params
 
-    sendClick = True
     printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+    End If
+
+    sendClick = True
 
 End Function
 
@@ -359,7 +375,22 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     If checkExist Then If Not isExist Then Exit Function
 
 
-    'Set focus on the node
+    If mainCDP Is Nothing Then
+        'BiDi：フォーカスはJavaScriptで当て、キーは`input.performActions`で押下 → 解放
+        jsEval "function(){ this.focus() }"
+
+        Dim keyValue As String: keyValue = BiDiKeyValue(Key)
+        Dim keyActions As New Collection
+        If altKey Then keyActions.Add BiDiAction("keyDown", "value", ChrW(&HE00A))   'Alt
+        keyActions.Add BiDiAction("keyDown", "value", keyValue)
+        keyActions.Add BiDiAction("keyUp", "value", keyValue)
+        If altKey Then keyActions.Add BiDiAction("keyUp", "value", ChrW(&HE00A))     'Alt
+        BiDiPerformActions "key", keyActions
+
+        printMsg info_, "Executed sendKey successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
+
+    Else
+        'CDP：Set focus on the node
     Dim params As New Dictionary
     params("objectId") = CurrentElement.objectId
     ExecuteCDP "DOM.focus", params
@@ -378,8 +409,10 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     params("altKey") = False
     ExecuteCDP "Input.dispatchKeyEvent", params
 
-    sendKey = True
     printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+    End If
+
+    sendKey = True
 
 End Function
 
@@ -398,7 +431,28 @@ Public Function sendString(textToSend As String) As Boolean
     'First clear the current text of the field
     jsEval "function(){ this.value = '' }"
 
-    'Set focus on the node
+    If mainCDP Is Nothing Then
+        'BiDi：`Input.insertText`相当がないため、1文字ずつキーを押下 → 解放する(全文字を1回の`input.performActions`で送信)
+        jsEval "function(){ this.focus() }"
+
+        Dim keyActions As New Collection
+        Dim i As Long, oneChar As String
+        i = 1
+        Do While i <= Len(textToSend)
+            '1. 1文字取り出す　※サロゲートペア(上位)の場合は、下位とセットで1文字とする
+            oneChar = Mid$(textToSend, i, 1)
+            If (AscW(oneChar) And &HFC00&) = &HD800& Then oneChar = Mid$(textToSend, i, 2)
+
+            '2. 押下 → 解放
+            keyActions.Add BiDiAction("keyDown", "value", oneChar)
+            keyActions.Add BiDiAction("keyUp", "value", oneChar)
+            i = i + Len(oneChar)
+        Loop
+        If keyActions.Count > 0 Then BiDiPerformActions "key", keyActions
+
+        printMsg info_, "Executed sendString(""" & textToSend & """) successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
+    Else
+        'CDP：Set focus on the node
     Dim params As New Dictionary
     params("objectId") = CurrentElement.objectId
     ExecuteCDP "DOM.focus", params
@@ -408,8 +462,10 @@ Public Function sendString(textToSend As String) As Boolean
     params("text") = textToSend
     ExecuteCDP "Input.insertText", params
 
-    sendString = True
     printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+    End If
+
+    sendString = True
 
 End Function
 
@@ -758,23 +814,31 @@ Public Function sendHover() As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
 
-    'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
-    Dim x As Double, y As Double
+    'Viewport 内に収める
     jsEval "function(){ this.scrollIntoView(false) }"
 
-    '中心座標として返却
-    x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
-    y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
+    If mainCDP Is Nothing Then
+        'BiDi：要素の中心へ移動するだけ（これでホバー状態になる）
+        Dim pointerActions As New Collection
+        pointerActions.Add BiDiPointerMoveToThis()
+        BiDiPerformActions "pointer", pointerActions
 
-    '物理マウスをその要素の中心座標へ移動（これでホバー状態になる）
+        printMsg info_, "Executed sendHover successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
+    Else
+        'CDP：表示中の中心座標へ移動するだけ（これでホバー状態になる）　※BiDi(`input.performActions`)と同じ送信内容
+        Dim x As Long, y As Long
+        CDPInViewCenter x, y
+
     Dim params As New Dictionary
     params("type") = "mouseMoved"
     params("x") = x
     params("y") = y
     ExecuteCDP "Input.dispatchMouseEvent", params
 
-    sendHover = True
     printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+    End If
+
+    sendHover = True
 
 End Function
 
@@ -1516,13 +1580,18 @@ End Sub
 '             may work. For further reference, visit w3 info:
 '              https://www.w3schools.com/jsref/prop_frame_contentdocument.asp
 '
-'* 注意事項：iframeのURLが親サイトと1文字でも違えば（例：Yahooに貼ってあるGoogleの広告など）、このメソッドは機能しません
-'            その場合は、`CDPBrowser - getTab`か`CDPContext - getIFrameContextID → getIFrame`からご利用ください
+'* 注意事項：・iframeのURLが親サイトと1文字でも違えば（例：Yahooに貼ってあるGoogleの広告など）、このメソッドは機能しません
+'            　その場合は、`CDPBrowser - getTab`か`CDPContext - getIFrameContextID → getIFrame`からご利用ください
+'            ・BiDiモードでは使用できません。iframeは独立した`browsingContext`のため、`WebDriverBiDiMode - getTab(URL, maxDepth:=1)`で取得してください
+'              ※`contentDocument`の`script.SharedId`はiframe側の文書に属するため、親の`context`からは操作できません
 '***************************************************************************************************
 Public Function getIFrame() As CDPElement
     Const FromProcedureName As String = ThisClassName & ".getIFrame"
     Const getIFrameSearchJS As String = "function(){ return this.contentDocument }"
 
+
+    'BiDiモードでは、iframeを`browsingContext`として扱うため、ここでは対応しない
+    If mainCDP Is Nothing Then printMsg ERROR_, "`getIFrame` is not available in BiDi mode. Use `WebDriverBiDiMode.getTab(URL, maxDepth:=1)` to get the iframe as a `WebDriverBiDiContext`.", FromProcedureName, doRaiseError:=True: Exit Function
 
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
@@ -1566,6 +1635,7 @@ End Function
 '
 '* 注意事項：・あくまでも、今の`CDPElement`直下の子Shadow-Root取得のみ対応します。事前にその手前での要素を取得の上、ご利用ください。
 '            ・複数ある場合は、次項の`GetShadowRoots`をご利用ください。ただし、場所が固定されてるのがわかってる場合は、引数にて調整可能です
+'            ・BiDiモードでは、要素ごとに1つのShadow-rootのみ取得できるため、`Index`は0のみ有効です(`GetShadowRoots`も非対応)
 '            ・失敗時は、`nothing`となります。これを目印に、存在確認を行ってください
 '            ・CDPによるShadowDOM侵入の都合上、親情報を引き継がないため、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
@@ -1582,7 +1652,35 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     End If
 
 
-    '1. `objectId`に対して、直下のNode情報を取得
+    '1. 経路に応じたShadowRoot情報を取得する
+    Dim shadowRootId As String  'Shadow-rootのID　※CDP:`objectId` / BiDi:`script.SharedId`
+    If mainCDP Is Nothing Then
+        'BiDi：要素自身のシリアライズ結果から、Shadow-root(open/close)の`script.SharedId`を取得
+        '1-1. BiDiでは要素ごとに1つのShadow-rootのみ取得できるため、`Index`は0のみ有効
+        If Index > 0 Then printMsg WARN_, "shadowRoots-Index out of range. In BiDi mode, only Index 0 is available.", FromProcedureName: Exit Function
+
+        '1-2. 要素自身を、Shadow-rootを含めてシリアライズ　※`includeShadowTree:="all"`で、closedも含まれる
+        Dim serializeOption As New Dictionary
+        serializeOption.Add "maxDomDepth", 1
+        serializeOption.Add "includeShadowTree", "all"
+
+        Dim nodeResult As JsEvalResult
+        Set nodeResult = jsEval("function(){ return this }", returnByValue:=True, serializationOptions:=serializeOption, returnByDetails:=True)
+        If nodeResult.isException Or nodeResult.ResultType <> "node" Then printMsg WARN_, "The current `PageElement` could not be serialized as a node.", FromProcedureName: Exit Function
+
+        '1-3. `shadowRoot`の存在確認　※ない場合は`null`
+        Dim NodeValue As BiDiCDPJson: Set NodeValue = nodeResult.rawValue
+        Dim shadowRootNode As Variant
+        If NodeValue.ExistsKey("shadowRoot") Then CDPHelpers.SetVar(shadowRootNode) = NodeValue.Item("shadowRoot")
+        If Not IsObject(shadowRootNode) Then printMsg WARN_, "The `Shadow-Root` was not found in the current `PageElement`.", FromProcedureName: Exit Function
+
+        '1-4. `script.SharedId`を取得
+        shadowRootId = shadowRootNode.StringKey("sharedId")
+        printMsg info_, "`Successfully infiltrated `Shadow-Root`. sharedId: " & shadowRootId, FromProcedureName
+
+    Else
+        'CDP：
+        '1-1. `objectId`に対して、直下のNode情報を取得
     Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
     Set paramsCDP = New Dictionary
     paramsCDP.Add "objectId", CurrentElement.objectId
@@ -1612,20 +1710,22 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     If Not ResultCDP.ExistsKey("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
     If Not ResultCDP.NodeKey("object").ExistsKey("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
 
-    '7. `objectId`を取得
-    Dim shadowRootObjectID As String
-    shadowRootObjectID = ResultCDP.NodeKey("object").StringKey("objectId")
-    printMsg info_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
+        '1-7. `objectId`を取得
+        shadowRootId = ResultCDP.NodeKey("object").StringKey("objectId")
+        printMsg info_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootId, FromProcedureName
+    End If
 
-    '8. `CDPElement`に必要な情報を継承して返却
-    Set GetShadowRoot = New CDPElement
-    InitChild GetShadowRoot, vbString, shadowRootObjectID   '※前述で、`Exists`チェックしてるので、`vbString`直代入する
+    '2. `PageElement`に必要な情報を継承して返却
+    Set GetShadowRoot = New PageElement
+    InitChild GetShadowRoot, vbString, shadowRootId   '※前述で、存在チェックしてるので、`vbString`直代入する
 End Function
 
 '***************************************************************************************************
 '* 機能　　：`GetShadowRoot`プロシージャの複数取得版です。2つ以上操作する際にどうぞ
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Collectionオブジェクト。中身は、`CDPElement`オブジェクトが詰まってます
+'* 返り値　：Collectionオブジェクト。中身は、`PageElement`オブジェクトが詰まってます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：BiDiモードでは使用できません。要素ごとに1つのShadow-rootのみ取得できるため、`GetShadowRoot`を使用してください
 '***************************************************************************************************
 Public Function GetShadowRoots() As Collection
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoots"
@@ -1634,6 +1734,9 @@ Public Function GetShadowRoots() As Collection
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist And Not isExist Then Exit Function
 
+
+    'BiDiモードでは、要素ごとに1つのShadow-rootしか取得できないため、ここでは対応しない
+    If mainCDP Is Nothing Then printMsg ERROR_, "`GetShadowRoots` is not available in BiDi mode. Use `GetShadowRoot` instead.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '1. `objectId`に対して、直下のNode情報を取得
     Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
@@ -1705,8 +1808,14 @@ Public Sub SetFileInputFiles(files As Collection)
     '2. パラメーターを組み立てて送信
     Dim params As New Dictionary
     params.Add "files", files
+    If mainCDP Is Nothing Then
+        'BiDi：要素は`script.SharedReference`として指定　※`context`は、`WebDriverBiDiContext.ExecuteBiDi`側で付与される
+        params.Add "element", BiDiSharedReference()
+        mainBiDi.ExecuteBiDi "input.setFiles", params
+    Else
     params.Add "objectId", CurrentElement.objectId
     ExecuteCDP "DOM.setFileInputFiles", params
+    End If
 
     '3. 別途ログ化
     If CDPHelpers.currentLog.seeRawSendMsgDbg Then
@@ -1738,6 +1847,119 @@ Private Function ExecuteCDP(methodName As String, Optional params As Dictionary,
     Set ExecuteCDP = mainCDP.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 
+'***************************************************************************************************
+'* 機能　　：このClassの要素の「表示中の部分」の中心座標(整数・CSSピクセル)を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：x, y   取得した座標を格納する変数(参照渡し)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebDriver BiDiの`input.performActions`(要素基準の移動)と同じ計算方法です
+'            `getClientRects()[0]`をビューポート内に切り詰めた上で、その中心を整数で求めます
+'* 注意事項：事前に`scrollIntoView`等で、要素をビューポート内に入れておくこと
+'***************************************************************************************************
+Private Sub CDPInViewCenter(ByRef x As Long, ByRef y As Long)
+    Const InViewCenterJS As String = "function(){" & _
+                                     "  const t = this.getClientRects()[0];" & _
+                                     "  const l = Math.max(0, Math.min(t.x, t.x + t.width)), r = Math.min(window.innerWidth, Math.max(t.x, t.x + t.width));" & _
+                                     "  const u = Math.max(0, Math.min(t.y, t.y + t.height)), d = Math.min(window.innerHeight, Math.max(t.y, t.y + t.height));" & _
+                                     "  return (l + ((r - l) >> 1)) + ',' + (u + ((d - u) >> 1));" & _
+                                     "}"
+
+    Dim xy() As String
+    xy = Split(jsEval(InViewCenterJS), ",")
+    x = CLng(xy(0))
+    y = CLng(xy(1))
+End Sub
+
+
+
+'***************************************************************************************************
+'                         ■■■ WebDriverBiDiContext.cls 直通メソッド ■■■
+'***************************************************************************************************
+'* 機能　　：このClassの要素を指す`script.SharedReference`(`{"sharedId": ...}`)を返します
+'***************************************************************************************************
+Private Function BiDiSharedReference() As Dictionary
+    Set BiDiSharedReference = New Dictionary
+    BiDiSharedReference.Add "sharedId", CurrentElement.objectId
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`input.performActions`の1アクション(`{"type": ..., 任意の項目: 値}`)を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：actionType     "pointerDown" / "keyDown" 等
+'            itemName       追加する項目名(`button` / `value`等)。省略時は`type`のみ
+'            itemValue      追加する項目の値
+'***************************************************************************************************
+Private Function BiDiAction(actionType As String, Optional itemName As String, Optional itemValue As Variant) As Dictionary
+    Set BiDiAction = New Dictionary
+    BiDiAction.Add "type", actionType
+    If LenB(itemName) Then BiDiAction.Add itemName, itemValue
+End Function
+
+'***************************************************************************************************
+'* 機能　　：このClassの要素の中心へ、マウスを移動させるアクションを返します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`origin`に要素を指定すると、ブラウザ側で要素の表示中心が基準になるため、座標計算は不要です
+'* 注意事項：要素が画面外の場合はエラーになるため、事前に`scrollIntoView`しておくこと
+'***************************************************************************************************
+Private Function BiDiPointerMoveToThis() As Dictionary
+    Dim pointerOrigin As New Dictionary
+    pointerOrigin.Add "type", "element"
+    pointerOrigin.Add "element", BiDiSharedReference()
+
+    Set BiDiPointerMoveToThis = BiDiAction("pointerMove")
+    BiDiPointerMoveToThis.Add "x", 0
+    BiDiPointerMoveToThis.Add "y", 0
+    BiDiPointerMoveToThis.Add "origin", pointerOrigin
+End Function
+
+'***************************************************************************************************
+'* 機能　　：1つの入力元(マウス or キーボード)として、アクション群を`input.performActions`で実行します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sourceType     "pointer"：マウス / "key"：キーボード
+'            actions        `BiDiAction`等で作ったアクションのCollection
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`context`は、`WebDriverBiDiContext.ExecuteBiDi`側で付与されます
+'***************************************************************************************************
+Private Sub BiDiPerformActions(sourceType As String, actions As Collection)
+    '1. 入力元を組み立て
+    Dim inputSource As New Dictionary
+    inputSource.Add "type", sourceType
+    inputSource.Add "id", "vba-" & sourceType
+    If sourceType = "pointer" Then
+        Dim pointerParameters As New Dictionary
+        pointerParameters.Add "pointerType", "mouse"
+        inputSource.Add "parameters", pointerParameters
+    End If
+    inputSource.Add "actions", actions
+
+    '2. 実行
+    Dim inputSources As New Collection
+    inputSources.Add inputSource
+    Dim params As New Dictionary
+    params.Add "actions", inputSources
+    mainBiDi.ExecuteBiDi "input.performActions", params
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`keyboardCode`(Windows仮想キーコード)を、WebDriverのキー値に変換します
+'---------------------------------------------------------------------------------------------------
+'* 参考URL ：https://w3c.github.io/webdriver/#keyboard-actions
+'***************************************************************************************************
+Private Function BiDiKeyValue(Key As keyboardCode) As String
+    Select Case Key
+        Case keyEnter:      BiDiKeyValue = ChrW(&HE007)
+        Case keyDelete:     BiDiKeyValue = ChrW(&HE017)
+        Case keyTab:        BiDiKeyValue = ChrW(&HE004)
+        Case keyEsc:        BiDiKeyValue = ChrW(&HE00C)
+        Case keyBackspace:  BiDiKeyValue = ChrW(&HE003)
+        Case Else:          BiDiKeyValue = ChrW(Key)
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
+'                             ■■■ JsEval 直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：見つけた`objectId`に対して、高度なことをしたい方向け
 '---------------------------------------------------------------------------------------------------
