@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 '------------------------------------------------------------------------------------------------
 '       JavaScript操作の基となる`objectId`を使用した便利な様々な要素操作をまとめた物です。
 '  主に`querySelector`や`Xpath`、`ID`といった検索で得た要素(objectId)に対する操作アシストを担います。
-'  `InitBiDi`で初期化した場合は、WebDriverBiDiの`script.handle`を`objectId`の代わりとして扱います。
+'  `InitBiDi`で初期化した場合は、WebDriverBiDiの`script.SharedId`を`objectId`の代わりとして扱います。
 '
 ' Author(s)   :
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
@@ -76,7 +76,7 @@ Private mainBiDi    As WebDriverBiDiContext 'BiDi用
 
 'JavaScript検索結果情報
 Private Type ElementInfos
-    objectId        As String       ' 検索ヒット時の`ObjectId`　※BiDiの場合は`script.handle`
+    objectId        As String       ' 検索ヒット時の`ObjectId`　※BiDiの場合は`script.SharedId`
     ResultVarType   As VbVarType    ' 検索ヒット時の返り値型(https://learn.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/vartype-function)
     SearchJS        As String       ' DOM検索で使ったJavaScript構文（ポーリング用）
     SearchArgs()    As Dictionary   ' DOM検索で使ったJavaScript構文の引数情報（ポーリング用）
@@ -128,21 +128,21 @@ End Sub
 '* 機能　　：`WebDriverBiDiContext.cls`で検索実行したJavaScript結果を格納します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：ThisBiDiContext        継承したい`WebDriverBiDiContext`そのもの
-'            argResultVarType       検索実行結果の`VarType` ※`script.handle`の場合は、`vbString`として扱います。
-'            handle_                検索実行結果時の`script.handle`
+'            argResultVarType       検索実行結果の`VarType` ※`script.SharedId`の場合は、`vbString`として扱います。
+'            sharedId_              検索実行結果時の`script.SharedId`
 '            JavaScriptStr          検索実行したJavaScriptコードそのもの。ポーリング用に使用します。
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：・`handle`は、`WebDriverBiDiContext.jsEval`を`Ownership:=True`で実行した際に得られる物を想定しています
-'            ・`Init`と同様、要素がなく、`handle`が返せない場合は、`handle_`は、`StrPtr`チェックで0になります
-'* 注意事項：・BiDiモードで現在対応しているのは、純JavaScriptで完結するメソッドのみです
+'* 詳細説明：・`sharedId`は、`WebDriverBiDiContext.jsEval`でnodeを返した際に得られる物を想定しています
+'            ・`InitCDP`と同様、要素がなく、`sharedId`が返せない場合は、`sharedId_`は、`StrPtr`チェックで0になります
+'* 注意事項：・BiDiモードでは、`getIFrame`(`WebDriverBiDiMode.getTab`を使用)と`GetShadowRoots`(`GetShadowRoot`を使用)が非対応です
 '            ・`JavaScriptStr`の扱いは、`Init`と同じです
 '***************************************************************************************************
-Public Sub InitBiDi(ThisBiDiContext As WebDriverBiDiContext, argResultVarType As VbVarType, handle_ As String, Optional JavaScriptStr As String)
+Public Sub InitBiDi(ThisBiDiContext As WebDriverBiDiContext, argResultVarType As VbVarType, sharedId_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
     Set mainBiDi = ThisBiDiContext
 
     '検索結果の格納
-    SetSearchResult argResultVarType, handle_, JavaScriptStr
+    SetSearchResult argResultVarType, sharedId_, JavaScriptStr
 End Sub
 
 '***************************************************************************************************
@@ -217,7 +217,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
 '* 注意事項：・空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
-'            ・BiDiモードの場合は、`script.handle`が返ります(WebDriverBiDiContext - jsEval の`scriptHandle`に流用可)
+'            ・BiDiモードの場合は、`script.SharedId`が返ります(WebDriverBiDiContext - jsEval の`scriptSharedId`に流用可)
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
     CurrentObjectId = CurrentElement.objectId
@@ -844,7 +844,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
         If ParentElement Is Nothing Then
             '2-1. `CDPContext.cls`/`WebDriverBiDiContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
             If mainCDP Is Nothing Then
-                resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, Ownership:=True)
+                resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS)
             Else
                 resultSearch = mainCDP.jsEval(CurrentElement.SearchJS)
             End If
@@ -855,9 +855,9 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
             If mainCDP Is Nothing Then
                 If Not Not CurrentElement.SearchArgs Then
                     '引数情報があるので、引数付きで実行
-                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs, Ownership:=True)
+                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
                 Else
-                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, Ownership:=True)
+                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
                 End If
             Else
                 If Not Not CurrentElement.SearchArgs Then
@@ -1082,7 +1082,11 @@ Public Function getChildren() As Collection
     Set getChildren = New Collection
     Dim length_ As Long, N As Long
     If mainCDP Is Nothing Then
-        length_ = mainBiDi.jsEval("function(){ return this.length }", collOid)
+        '※BiDiの`scriptSharedId`は要素専用のため、コレクション(`script.Handle`)は引数側で渡す
+        Dim collRef As Dictionary, collArgs(0) As Dictionary, bidiItemArgs(1) As Dictionary
+        Set collRef = New Dictionary: collRef.Add "handle", collOid
+        Set collArgs(0) = collRef
+        length_ = mainBiDi.jsEval("function(c){ return c.length }", , collArgs)
     Else
         length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
     End If
@@ -1102,7 +1106,8 @@ Public Function getChildren() As Collection
 
         '4-3. 引数付きで実行
         If mainCDP Is Nothing Then
-            itemResult = mainBiDi.jsEval("function(n){ return this.item(n) }", collOid, itemArgs, Ownership:=True)
+            Set bidiItemArgs(0) = collRef: Set bidiItemArgs(1) = itemArg
+            itemResult = mainBiDi.jsEval("function(c, n){ return c.item(n) }", , bidiItemArgs)   'nodeは`script.SharedId`で返る
         Else
             itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
         End If
@@ -1252,7 +1257,11 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
     If mainCDP Is Nothing Then
-        length_ = mainBiDi.jsEval("function(){ return this.length }", collOid)
+        '※BiDiの`scriptSharedId`は要素専用のため、コレクション(`script.Handle`)は引数側で渡す
+        Dim collRef As Dictionary, collArgs(0) As Dictionary, bidiItemArgs(1) As Dictionary
+        Set collRef = New Dictionary: collRef.Add "handle", collOid
+        Set collArgs(0) = collRef
+        length_ = mainBiDi.jsEval("function(c){ return c.length }", , collArgs)
     Else
         length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
     End If
@@ -1272,7 +1281,8 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
         '4-3. 引数付きで実行
         If mainCDP Is Nothing Then
-            itemResult = mainBiDi.jsEval("function(n){ return this.item(n) }", collOid, itemArgs, Ownership:=True)
+            Set bidiItemArgs(0) = collRef: Set bidiItemArgs(1) = itemArg
+            itemResult = mainBiDi.jsEval("function(c, n){ return c.item(n) }", , bidiItemArgs)   'nodeは`script.SharedId`で返る
         Else
             itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
         End If
@@ -1427,7 +1437,11 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
     If mainCDP Is Nothing Then
-        length_ = mainBiDi.jsEval("function(){ return this.snapshotLength }", collOid)
+        '※BiDiの`scriptSharedId`は要素専用のため、コレクション(`script.Handle`)は引数側で渡す
+        Dim collRef As Dictionary, collArgs(0) As Dictionary, bidiItemArgs(1) As Dictionary
+        Set collRef = New Dictionary: collRef.Add "handle", collOid
+        Set collArgs(0) = collRef
+        length_ = mainBiDi.jsEval("function(c){ return c.snapshotLength }", , collArgs)
     Else
         length_ = mainCDP.jsEval("function(){ return this.snapshotLength }", collOid)
     End If
@@ -1447,7 +1461,8 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
         '7-3. 引数付きで実行
         If mainCDP Is Nothing Then
-            itemResult = mainBiDi.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs, Ownership:=True)
+            Set bidiItemArgs(0) = collRef: Set bidiItemArgs(1) = itemArg
+            itemResult = mainBiDi.jsEval("function(c, n){ return c.snapshotItem(n) }", , bidiItemArgs)   'nodeは`script.SharedId`で返る
         Else
             itemResult = mainCDP.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
         End If
@@ -1734,7 +1749,7 @@ End Function
 '            generatePreview    CDPモードのみ有効です。BiDiモードでは無視されます
 '            returnByDetails    `True`で、`JsEvalResult`(JavaScript実行結果の詳細オブジェクト)として返却します。CDP/BiDi共通
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・当然、`objectId`(BiDiの場合は`script.handle`)は固定してます
+'* 注意事項：・当然、`objectId`(BiDiの場合は`script.SharedId`)は固定してます
 '            ・一部引数は、プロパティメソッドから変更する必要があります
 '            ・Class内でもこれを経由して使用しています
 '***************************************************************************************************
@@ -1753,7 +1768,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
 
     '2. プロトコルに応じたJS実行
     If mainCDP Is Nothing Then
-        '2-1. BiDi：`script.handle`で返るよう、`Ownership`を指定して実行
+        '2-1. BiDi：nodeは`script.SharedId`、それ以外のオブジェクトは`script.Handle`で返るよう、`Ownership`を指定して実行
         CDPHelpers.SetVar(jsEval) = mainBiDi.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
                                         Not returnByValue, _
                                         awaitPromise, _

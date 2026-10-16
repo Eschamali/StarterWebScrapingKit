@@ -327,17 +327,28 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：BiDiとしての、JavaScript実行で返ったJsonDictionaryから、最適な結果値を取り出します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：返す優先順位は、`script.Handle` > `value` として、`m_AutoValue`に格納します
+'* 注意事項：返す優先順位は、`script.SharedId` > `script.Handle` > `value` として、`m_AutoValue`に格納します
 '***************************************************************************************************
 Private Sub AnalysisScriptRemoteValue()
     Const FromProcedureName As String = ThisClassName & ".AnalysisScriptRemoteValue"
 
 
     '------------------------ 1. 特定項目有無チェック ------------------------
-    '`script.Handle`があったらそれを優先に返します。
-    '※type=object系で、`resultOwnership`:="root"時、ここを通ります
-    If m_ResultObject.ExistsKey("handle") Then
-        '見つかったので、`handle`を返す
+    '※type=node時、ここを通ります
+    '`script.sharedId`があったらそれを最優先に返します。
+    If m_ResultObject.ExistsKey("sharedId") Then
+        '見つかったので、`script.sharedId`を返す
+        m_AutoValue = m_ResultObject.StringKey("sharedId")
+
+        '`sharedId`であるサインを返し、抜ける
+        m_VarTypeVBA = vbDataObject '見た目は文字列、実態はObjectという特殊性質を表すものとして付与
+        printMsg info_, "JS-Return type: script.sharedId", FromProcedureName
+        Exit Sub
+
+    '※type=objectで、`resultOwnership`:="root"時、ここを通ります
+    '`script.Handle`があったら、こっちを返します
+    ElseIf m_ResultObject.ExistsKey("handle") Then
+        '見つかったので、`script.Handle`を返す
         m_AutoValue = m_ResultObject.StringKey("handle")
 
         '`handle`であるサインを返し、抜ける
@@ -488,9 +499,6 @@ Attribute value.VB_UserMemId = 0
 End Property
 
 Property Get rawValue() As Variant
-    '例外情報がある時は、即抜け
-    If m_isException Then Exit Property
-
     CDPHelpers.SetVar(rawValue) = m_ResultObject.Item("value")
 End Property
 

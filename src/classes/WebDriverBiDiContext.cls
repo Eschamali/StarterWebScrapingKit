@@ -300,7 +300,7 @@ End Property
 '* 返り値　：value属性の中身を評価して、Variant型で返却。実行したJavaScriptコード、引数:Ownership や、IFEXCEPTION に依存します。
 '* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
 '
-'            scriptHandle                   実行の基準`Handle ID`を指定します。これを指定すると`script.callFunction`として優先実行されます。
+'            scriptSharedId                 実行の基準`script.SharedId`を指定します。これを指定すると`script.callFunction`として優先実行されます。
 '
 '            objectArguments                これを指定すると`script.callFunction`として優先実行されます。
 '                                           予め、呼び出し側にて`Collection` OR `Array(... , ...)` OR `hoge(0) as Dictionary(Dictionary型 1次元配列)`で組み立てて渡してください。なお、後者ほどパフォーマンスが向上します
@@ -309,7 +309,7 @@ End Property
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
 '            RealmTarget                    `iframe`内で、JavaScript実行をしたいときに指定します。
 '
-'            Ownership                      True ：script.ResultOwnership = "root"として扱い、type:"object" 等の場合は、`{"handle": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`scriptHandle`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
+'            Ownership                      True ：script.ResultOwnership = "root"として扱い、type:"object" 等の場合は、`{"handle": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。`objectArguments`で`{"handle": ...}`として指定すると、再度`jsEval`で利用できます。※nodeの場合は、`script.SharedId`が優先して返ります「このJSコードは`SET`で...」という意識は不要です。
 '                                           False：script.ResultOwnership = "none"として扱い、type:"object" 等の場合でも、`value`で受け取れるように試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`True`に切り替えてください。
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
@@ -341,10 +341,11 @@ End Property
 '            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
 '               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
 '
-'            ・`scriptHandle`や`objectArguments`を指定する`script.callFunction`方式の場合は、`JavaScriptStr`を 「function() { this... }」 形式で記述する必要があります
+'            ・`scriptSharedId`や`objectArguments`を指定する`script.callFunction`方式の場合は、`JavaScriptStr`を 「function() { this... }」 形式で記述する必要があります
+'            ・`scriptSharedId`はCDPの`ObjectID`と違い、要素操作専用です。要素以外の操作をしたい場合は、`objectArguments`側で`script.Handle`を手動で指定してください
 '
-'            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`scriptHandle`の設定問わずそのプリミティブ型の中身が返ります。
-'              常に`scriptHandle`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
+'            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`Ownership`の設定問わずそのプリミティブ型の中身が返ります。
+'              常に`script.SharedId`/`script.Handle`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
 '
 '            ・JavaScriptの場合、例外を利用した処理が多々あるため、運用時は`StopException`を省略しておくことを推奨します
 '            ・BiDi実行自体のエラーキャッチは常に`True`となります
@@ -352,7 +353,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 参考URL ：https://w3c.github.io/webdriver-bidi/#command-script-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional scriptSharedId As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
                        Optional RealmTarget As String, _
                        Optional Ownership As Boolean, _
                        Optional awaitPromise As Boolean, _
@@ -375,13 +376,15 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
 
     ' 【パターン1】特定の要素を操作する場合
     Dim RemoteReference As New Dictionary
-    If StrPtr(scriptHandle) Then
+    If StrPtr(scriptSharedId) Then
         UseJsMethod = "script.callFunction"
 
         '必要なパラメーターをセット
         BiDiparams.Add "functionDeclaration", JavaScriptStr
         If Not IsMissing(objectArguments) Then BiDiparams.Add "arguments", objectArguments  '引数があったら適用しておく
-        RemoteReference.Add "handle", scriptHandle: BiDiparams.Add "this", RemoteReference
+
+        '型情報をセットして、変数名に紐づし、基準をセット
+        RemoteReference.Add "sharedId", scriptSharedId: BiDiparams.Add "this", RemoteReference
 
     ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
     ElseIf Not IsMissing(objectArguments) Then
