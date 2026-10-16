@@ -2,17 +2,18 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPElement"
+Attribute VB_Name = "PageElement"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '================================================================================================
-' CDP HTML Element Class
+' Page HTML Element Class (CDP / WebDriver BiDi)
 '------------------------------------------------------------------------------------------------
 '       JavaScript操作の基となる`objectId`を使用した便利な様々な要素操作をまとめた物です。
 '  主に`querySelector`や`Xpath`、`ID`といった検索で得た要素(objectId)に対する操作アシストを担います。
 '  `InitBiDi`で初期化した場合は、WebDriverBiDiの`script.SharedId`を`objectId`の代わりとして扱います。
+'  ※旧名`CDPElement`。CDPとWebDriverBiDiの両方に対応したため、`PageElement`へ改名しました。
 '
 ' Author(s)   :
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
@@ -39,7 +40,7 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private Const ThisClassName As String = "CDPElement"    'ログのトレース用
+Private Const ThisClassName As String = "PageElement"    'ログのトレース用
 
 Public Enum keyboardCode    'Used for .sendKey operation in the browser class and element class
     keyEnter = 13
@@ -82,7 +83,7 @@ Private Type ElementInfos
     SearchArgs()    As Dictionary   ' DOM検索で使ったJavaScript構文の引数情報（ポーリング用）
 End Type
 Private CurrentElement  As ElementInfos     '`CDPContext.cls`または、このClass内で相対検索した際の検索結果情報用
-Private ParentElement   As CDPElement       ' このClass内で相対検索した際の親の検索結果情報 ※デバッグ時、ツリー情報で辿れるメリットがあるので、`CDPElement.cls`本体を採用
+Private ParentElement   As PageElement       ' このClass内で相対検索した際の親の検索結果情報 ※デバッグ時、ツリー情報で辿れるメリットがあるので、`PageElement.cls`本体を採用
 
 '簡易check系
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
@@ -171,7 +172,7 @@ End Sub
 '***************************************************************************************************
 '                                ■■■ パラメーター確認 ■■■
 '***************************************************************************************************
-'* 機能　　：この`CDPElement.cls`が作られた際の検索JavaScript構文を返却します
+'* 機能　　：この`PageElement.cls`が作られた際の検索JavaScript構文を返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：要素の割り当てが成功した場合、このJavaScript構文をブラウザのコンソールウィンドウに直接入力することもできます
 '***************************************************************************************************
@@ -180,7 +181,7 @@ Property Get UseSearchJS() As String
 End Property
 
 '***************************************************************************************************
-'* 機能　　：この`CDPElement.cls`が作られた際の検索結果の`VarType`値を返します
+'* 機能　　：この`PageElement.cls`が作られた際の検索結果の`VarType`値を返します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：基本は`vbNull`or`vbString`を想定してます
 '***************************************************************************************************
@@ -215,7 +216,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：このClassで保持中の`ObjectId`
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
+'* 詳細説明：`PageElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
 '* 注意事項：・空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '            ・BiDiモードの場合は、`script.SharedId`が返ります(WebDriverBiDiContext - jsEval の`scriptSharedId`に流用可)
 '***************************************************************************************************
@@ -285,9 +286,9 @@ Public Function click() As Boolean
         'BiDi：`Input.insertText`相当がないため、JavaScriptの`focus`で代用
         jsEval "function(){ this.focus() }"
     Else
-    Dim params As New Dictionary
-    params("text") = ""
-    ExecuteCDP "Input.insertText", params
+        Dim params As New Dictionary
+        params("text") = ""
+        ExecuteCDP "Input.insertText", params
     End If
 
    'Perform click
@@ -338,23 +339,37 @@ Public Function sendClick() As Boolean
         Dim x As Long, y As Long
         CDPInViewCenter x, y
 
-    Dim params As New Dictionary
-    params("type") = "mousePressed"
-    params("x") = x
-    params("y") = y
-    params("button") = "left"
-    params("clickCount") = 1
-    ExecuteCDP "Input.dispatchMouseEvent", params
+        Dim params As New Dictionary
+        params("type") = "mouseMoved"
+        params("x") = x
+        params("y") = y
+        params("button") = "none"
+        params("buttons") = 0
+        params("clickCount") = 0
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
 
-    params.RemoveAll
-    params("type") = "mouseReleased"
-    params("x") = x
-    params("y") = y
-    params("button") = "left"
-    params("clickCount") = 1
-    ExecuteCDP "Input.dispatchMouseEvent", params
+        params.RemoveAll
+        params("type") = "mousePressed"
+        params("x") = x
+        params("y") = y
+        params("button") = "left"
+        params("buttons") = 1
+        params("clickCount") = 1
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
 
-    printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        params.RemoveAll
+        params("type") = "mouseReleased"
+        params("x") = x
+        params("y") = y
+        params("button") = "left"
+        params("buttons") = 0
+        params("clickCount") = 1
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
+
+        printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendClick = True
@@ -391,25 +406,25 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
 
     Else
         'CDP：Set focus on the node
-    Dim params As New Dictionary
-    params("objectId") = CurrentElement.objectId
-    ExecuteCDP "DOM.focus", params
+        Dim params As New Dictionary
+        params("objectId") = CurrentElement.objectId
+        ExecuteCDP "DOM.focus", params
 
-    'Send key down event to the browser
-    params.RemoveAll
-    params("type") = "keyDown"
-    params("windowsVirtualKeyCode") = Key
-    params("altKey") = altKey
-    ExecuteCDP "Input.dispatchKeyEvent", params
+        'Send key down event to the browser
+        params.RemoveAll
+        params("type") = "keyDown"
+        params("windowsVirtualKeyCode") = Key
+        params("altKey") = altKey
+        ExecuteCDP "Input.dispatchKeyEvent", params
 
-    'Send key up event to the browser to release the key
-    params.RemoveAll
-    params("type") = "keyUp"
-    params("windowsVirtualKeyCode") = Key
-    params("altKey") = False
-    ExecuteCDP "Input.dispatchKeyEvent", params
+        'Send key up event to the browser to release the key
+        params.RemoveAll
+        params("type") = "keyUp"
+        params("windowsVirtualKeyCode") = Key
+        params("altKey") = False
+        ExecuteCDP "Input.dispatchKeyEvent", params
 
-    printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendKey = True
@@ -453,16 +468,16 @@ Public Function sendString(textToSend As String) As Boolean
         printMsg info_, "Executed sendString(""" & textToSend & """) successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
     Else
         'CDP：Set focus on the node
-    Dim params As New Dictionary
-    params("objectId") = CurrentElement.objectId
-    ExecuteCDP "DOM.focus", params
+        Dim params As New Dictionary
+        params("objectId") = CurrentElement.objectId
+        ExecuteCDP "DOM.focus", params
 
-    'Sendkeys to the node
-    params.RemoveAll
-    params("text") = textToSend
-    ExecuteCDP "Input.insertText", params
+        'Sendkeys to the node
+        params.RemoveAll
+        params("text") = textToSend
+        ExecuteCDP "Input.insertText", params
 
-    printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendString = True
@@ -829,13 +844,17 @@ Public Function sendHover() As Boolean
         Dim x As Long, y As Long
         CDPInViewCenter x, y
 
-    Dim params As New Dictionary
-    params("type") = "mouseMoved"
-    params("x") = x
-    params("y") = y
-    ExecuteCDP "Input.dispatchMouseEvent", params
+        Dim params As New Dictionary
+        params("type") = "mouseMoved"
+        params("x") = x
+        params("y") = y
+        params("button") = "none"
+        params("buttons") = 0
+        params("clickCount") = 0
+        params("pointerType") = "mouse"
+        ExecuteCDP "Input.dispatchMouseEvent", params
 
-    printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
+        printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
     End If
 
     sendHover = True
@@ -864,13 +883,13 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：このClass自身
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：・When the element does not exist, it returns an empty CDPElement
+'* 詳細説明：・When the element does not exist, it returns an empty PageElement
 '               object with checkExist tag = False, effectively skipping
 '               all subsequent functions related to it.
 '
 '            ・わざわざ、`if X.isExist then X.focus`といったことをせず、`X.ifExist.focus`のように簡略化できます。お好みで
 '***************************************************************************************************
-Public Function ifExist() As CDPElement
+Public Function ifExist() As PageElement
     Const FromProcedureName As String = ThisClassName & ".ifExist"
 
 
@@ -883,11 +902,11 @@ End Function
 '***************************************************************************************************
 '* 機能　　：`CDPContext.cls`で検索実行したJavaScriptを再実行し、有効なObjectIDが来るまで実行し続けます
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：見つかれば、`CDPElement`オブジェクトが返り、見つからない場合は、`nothing`です
+'* 返り値  ：見つかれば、`PageElement`オブジェクトが返り、見つからない場合は、`nothing`です
 '* 引数　　：timeOutInSeconds   検索し続ける秒数
 '            raiseTimeoutError  タイムアウトしたら、エラーで止めるか？
 '***************************************************************************************************
-Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As CDPElement
+Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As PageElement
     Const FromProcedureName As String = ThisClassName & ".onExist"
 
 
@@ -980,11 +999,11 @@ End Function
 
 
 '***************************************************************************************************
-'             ■■■ 今のNODE(CDPElement.cls)を基準にした相対検索 METHODS ■■■
+'             ■■■ 今のNODE(PageElement.cls)を基準にした相対検索 METHODS ■■■
 '***************************************************************************************************
 '* 機能　　：現在の要素の親ノードを取得します
 '***************************************************************************************************
-Public Function getParent() As CDPElement
+Public Function getParent() As PageElement
     Const ParentSearchJS As String = "function(){ return this.parentElement }"
 
 
@@ -1006,18 +1025,18 @@ Public Function getParent() As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`CDPElement.cls`に格納
-    Set getParent = New CDPElement
+    '3. 結果を`PageElement.cls`に格納
+    Set getParent = New PageElement
     InitChild getParent, JsResultVarType, objectId, ParentSearchJS
 
-    '4. 元の親`CDPElement.cls`を適用
-    Set getParent.InitParentCDPElement = Me
+    '4. 元の親`PageElement.cls`を適用
+    Set getParent.InitParentPageElement = Me
 End Function
 
 '***************************************************************************************************
 '* 機能　　：現在の要素の次の兄弟ノードを取得します
 '***************************************************************************************************
-Public Function getNextSibling() As CDPElement
+Public Function getNextSibling() As PageElement
     Const NextSiblingSearchJS As String = "function(){ return this.nextElementSibling }"
 
 
@@ -1039,18 +1058,18 @@ Public Function getNextSibling() As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`CDPElement.cls`に格納
-    Set getNextSibling = New CDPElement
+    '3. 結果を`PageElement.cls`に格納
+    Set getNextSibling = New PageElement
     InitChild getNextSibling, JsResultVarType, objectId, NextSiblingSearchJS
 
-    '4. 元の親`CDPElement.cls`を適用
-    Set getNextSibling.InitParentCDPElement = Me
+    '4. 元の親`PageElement.cls`を適用
+    Set getNextSibling.InitParentPageElement = Me
 End Function
 
 '***************************************************************************************************
 '* 機能　　：現在の要素の前の兄弟ノードを取得します
 '***************************************************************************************************
-Public Function getPrevSibling() As CDPElement
+Public Function getPrevSibling() As PageElement
     Const PrevSiblingSearchJS As String = "function(){ return this.previousElementSibling }"
 
 
@@ -1072,18 +1091,18 @@ Public Function getPrevSibling() As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`CDPElement.cls`に格納
-    Set getPrevSibling = New CDPElement
+    '3. 結果を`PageElement.cls`に格納
+    Set getPrevSibling = New PageElement
     InitChild getPrevSibling, JsResultVarType, objectId, PrevSiblingSearchJS
 
-    '4. 元の親`CDPElement.cls`を適用
-    Set getPrevSibling.InitParentCDPElement = Me
+    '4. 元の親`PageElement.cls`を適用
+    Set getPrevSibling.InitParentPageElement = Me
 End Function
 
 '***************************************************************************************************
 '* 機能　　：現在の要素の先頭の兄弟ノードを取得します
 '***************************************************************************************************
-Public Function getFirstChild() As CDPElement
+Public Function getFirstChild() As PageElement
     Const FirstChildSearchJS As String = "function(){ return this.firstElementChild }"
 
 
@@ -1105,12 +1124,12 @@ Public Function getFirstChild() As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`CDPElement.cls`に格納
-    Set getFirstChild = New CDPElement
+    '3. 結果を`PageElement.cls`に格納
+    Set getFirstChild = New PageElement
     InitChild getFirstChild, JsResultVarType, objectId, FirstChildSearchJS
 
-    '4. 元の親`CDPElement.cls`を適用
-    Set getFirstChild.InitParentCDPElement = Me
+    '4. 元の親`PageElement.cls`を適用
+    Set getFirstChild.InitParentPageElement = Me
 End Function
 
 '***************************************************************************************************
@@ -1119,7 +1138,7 @@ End Function
 '* 返り値  ：子要素のコレクション
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：これにより、複数の getElementBy メソッドを連結して使用できます
-'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getChildren() As Collection
     Const ChildrenSearchJS As String = "function(){ return this.children }"
@@ -1156,7 +1175,7 @@ Public Function getChildren() As Collection
     End If
 
     '4. Get each item's objectId via callFunctionOn
-    Dim tElement As CDPElement
+    Dim tElement As PageElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
@@ -1181,8 +1200,8 @@ Public Function getChildren() As Collection
         If itemResultVarType = vbString Then
             itemObjectID = itemResult
 
-            '4-5. 結果を`CDPElement.cls`に格納
-            Set tElement = New CDPElement
+            '4-5. 結果を`PageElement.cls`に格納
+            Set tElement = New PageElement
             InitChild tElement, itemResultVarType, itemObjectID
             getChildren.Add tElement
         End If
@@ -1194,7 +1213,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：主に、`ShadowRoot`配下でのID検索で役立ちます
 '***************************************************************************************************
-Public Function getElementByID(strID As String) As CDPElement
+Public Function getElementByID(strID As String) As PageElement
     Const ElementByIDSearchJS As String = "function(id){ return this.querySelector('#' + CSS.escape(id)) }"
 
 
@@ -1224,12 +1243,12 @@ Public Function getElementByID(strID As String) As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '4. 結果を`CDPElement.cls`に格納
-    Set getElementByID = New CDPElement
+    '4. 結果を`PageElement.cls`に格納
+    Set getElementByID = New PageElement
     InitChild getElementByID, JsResultVarType, objectId, ElementByIDSearchJS
 
-    '5. 元の親`CDPElement.cls`を適用
-    Set getElementByID.InitParentCDPElement(args) = Me
+    '5. 元の親`PageElement.cls`を適用
+    Set getElementByID.InitParentPageElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1244,7 +1263,7 @@ End Function
 '             eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
 '              of an element with attribute a1 = abc
 '***************************************************************************************************
-Public Function getElementByQuery(strQuery As String) As CDPElement
+Public Function getElementByQuery(strQuery As String) As PageElement
     Const ElementByQuerySearchJS As String = "function(sel){ return this.querySelector(sel) }"
 
 
@@ -1273,12 +1292,12 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '4. 結果を`CDPElement.cls`に格納
-    Set getElementByQuery = New CDPElement
+    '4. 結果を`PageElement.cls`に格納
+    Set getElementByQuery = New PageElement
     InitChild getElementByQuery, JsResultVarType, objectId, ElementByQuerySearchJS
 
-    '5. 元の親`CDPElement.cls`を適用
-    Set getElementByQuery.InitParentCDPElement(args) = Me
+    '5. 元の親`PageElement.cls`を適用
+    Set getElementByQuery.InitParentPageElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1287,7 +1306,7 @@ End Function
 '* 返り値  ：子要素のコレクション。1個もない場合は、`Nothing`
 '* 引数　　：strQuery   検索したい子要素クエリセレクター
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByQuery(strQuery As String) As Collection
     Const ElementsByQuerySearchJS As String = "function(sel){ return this.querySelectorAll(sel) }"
@@ -1331,7 +1350,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     End If
 
     '4. 前述の実行結果の数分、ループで順次取得していく
-    Dim tElement As CDPElement
+    Dim tElement As PageElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
@@ -1356,8 +1375,8 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         If itemResultVarType = vbString Then
             itemObjectID = itemResult
 
-            '4-5. 結果を`CDPElement.cls`に格納
-            Set tElement = New CDPElement
+            '4-5. 結果を`PageElement.cls`に格納
+            Set tElement = New PageElement
             InitChild tElement, itemResultVarType, itemObjectID
             getElementsByQuery.Add tElement
         End If
@@ -1369,7 +1388,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strXpath   検索したい子要素Xpath
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：The element class is init in CDPElement module.
+'* 詳細説明：The element class is init in PageElement module.
 '            The element class has useful properties and methods similar to the HTML element
 '            object in previous IE automation.
 '            XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
@@ -1380,17 +1399,17 @@ End Function
 ' eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
 ' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
-' eg.7 ".//button[@id='abc']": get first button descendant of the Shadow-root (`GetShadowRoot`で取得した`CDPElement`から実行)
+' eg.7 ".//button[@id='abc']": get first button descendant of the Shadow-root (`GetShadowRoot`で取得した`PageElement`から実行)
 '---------------------------------------------------------------------------------------
-'* 注意事項：・この`CDPElement`での検索は、あくまでも「現在の要素を起点とした相対検索」です。TOP(document)からの検索は、`CDPContext.getElementByXPath`をご利用ください
+'* 注意事項：・この`PageElement`での検索は、あくまでも「現在の要素を起点とした相対検索」です。TOP(document)からの検索は、`CDPContext.getElementByXPath`をご利用ください
 '            ・先頭が`/`や`//`の場合は、先頭に`.`を自動付与します（例：`//div` → `.//div`＝配下の子孫）
-'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'            ・`GetShadowRoot`で得た Shadow-root の`PageElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
 '              `.`無しの相対指定（eg.6の`div`等）は、Shadow-root内では意図通りに探せません
 '            ・Shadow-root は XPath の起点にできないため、内部では最初の子ノードを起点に、先頭へ`.`を足して`..`(＝Shadow-root)として評価しています
 '            ・複数取得版の`getElementsByXPath`も、同じ規則で Shadow-root 内の検索に対応しています
 '            ・子要素が1つもない特殊なShadowDomには対応できません。その場合は従来通り、CSSルートで我慢してください
 '***************************************************************************************************
-Public Function getElementByXPath(strXPath As String) As CDPElement
+Public Function getElementByXPath(strXPath As String) As PageElement
     Const FromProcedureName         As String = ThisClassName & ".getElementByXPath"
     Const ElementByXPathSearchJS    As String = "function(xp){" & _
                                                 "  var c = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? this.firstChild : this;" & _
@@ -1413,7 +1432,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
     '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
     If Left$(strXPath, 1) = "/" Then
-        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `PageElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
         strXPath = "." & strXPath
     End If
 
@@ -1433,12 +1452,12 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '6. 結果を`CDPElement.cls`に格納
-    Set getElementByXPath = New CDPElement
+    '6. 結果を`PageElement.cls`に格納
+    Set getElementByXPath = New PageElement
     InitChild getElementByXPath, JsResultVarType, objectId, ElementByXPathSearchJS
 
-    '7. 元の親`CDPElement.cls`を適用
-    Set getElementByXPath.InitParentCDPElement(args) = Me
+    '7. 元の親`PageElement.cls`を適用
+    Set getElementByXPath.InitParentPageElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1450,9 +1469,9 @@ End Function
 '* 詳細説明：syntax used for retrieving the elements, refer to Mozilla doc below:
 '             https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
 '* 注意事項：・index for accessing the collection members start at one (not zero).
-'            ・複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、親情報を引き継がない関係上、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
 '            ・`getElementByXPath`と同じく、現在の要素を起点とした相対検索です。先頭が`/`や`//`の場合は、先頭に`.`を自動付与します
-'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'            ・`GetShadowRoot`で得た Shadow-root の`PageElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
 '              `.`無しの相対指定は、Shadow-root内では意図通りに探せません。詳細は`getElementByXPath`の注意事項を参照してください
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
@@ -1473,7 +1492,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
     If Left$(strXPath, 1) = "/" Then
-        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `PageElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
         strXPath = "." & strXPath
     End If
 
@@ -1511,7 +1530,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     End If
 
     '7. 前述の実行結果の数分、ループで順次取得していく
-    Dim tElement As CDPElement
+    Dim tElement As PageElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
@@ -1536,8 +1555,8 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         If itemResultVarType = vbString Then
             itemObjectID = itemResult
 
-            '7-5. 結果を`CDPElement.cls`に格納
-            Set tElement = New CDPElement
+            '7-5. 結果を`PageElement.cls`に格納
+            Set tElement = New PageElement
             InitChild tElement, itemResultVarType, itemObjectID
             getElementsByXPath.Add tElement
         End If
@@ -1545,19 +1564,19 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 End Function
 
 '***************************************************************************************************
-'* 機能　　：相対検索時の親となる`CDPElement.cls`を適用します
+'* 機能　　：相対検索時の親となる`PageElement.cls`を適用します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：相対検索の場合、検索文字列が「this. ...」という書き方になるため、検索情報となる引数が必要です
 '***************************************************************************************************
-Property Set InitParentCDPElement(Optional Arguments As Variant, Parent As CDPElement)
+Property Set InitParentPageElement(Optional Arguments As Variant, Parent As PageElement)
     Set ParentElement = Parent
     If Not IsMissing(Arguments) Then CurrentElement.SearchArgs = Arguments
 End Property
 
 '***************************************************************************************************
-'* 機能　　：相対検索で得た子要素の`CDPElement.cls`を、このClassと同じプロトコルで初期化します
+'* 機能　　：相対検索で得た子要素の`PageElement.cls`を、このClassと同じプロトコルで初期化します
 '***************************************************************************************************
-Private Sub InitChild(child As CDPElement, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
+Private Sub InitChild(child As PageElement, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     If mainCDP Is Nothing Then
         child.InitBiDi mainBiDi, argResultVarType, objectid_, JavaScriptStr
     Else
@@ -1585,7 +1604,7 @@ End Sub
 '            ・BiDiモードでは使用できません。iframeは独立した`browsingContext`のため、`WebDriverBiDiMode - getTab(URL, maxDepth:=1)`で取得してください
 '              ※`contentDocument`の`script.SharedId`はiframe側の文書に属するため、親の`context`からは操作できません
 '***************************************************************************************************
-Public Function getIFrame() As CDPElement
+Public Function getIFrame() As PageElement
     Const FromProcedureName As String = ThisClassName & ".getIFrame"
     Const getIFrameSearchJS As String = "function(){ return this.contentDocument }"
 
@@ -1615,31 +1634,31 @@ Public Function getIFrame() As CDPElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '4. 結果を`CDPElement.cls`に格納
-    Set getIFrame = New CDPElement
+    '4. 結果を`PageElement.cls`に格納
+    Set getIFrame = New PageElement
     InitChild getIFrame, JsResultVarType, objectId, getIFrameSearchJS
 
-    '5. 元の親`CDPElement.cls`を適用
-    Set getIFrame.InitParentCDPElement = Me
+    '5. 元の親`PageElement.cls`を適用
+    Set getIFrame.InitParentPageElement = Me
 End Function
 
 '***************************************************************************************************
-'* 機能　　：現在の`ObjectID`配下のShadow-root(open/close)での、`ObjectID`の`CDPElement`を取得します
+'* 機能　　：現在の`ObjectID`配下のShadow-root(open/close)での、`ObjectID`の`PageElement`を取得します
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：Index  複数の`Shadow-root`があった際のIndex値。    ※先頭は、0始まり基準
-'* 返り値　：`CDPElement`オブジェクト
+'* 返り値　：`PageElement`オブジェクト
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：1. `getElementByXPath`等で、Shadow-root(open/close)手前の要素`CDPElement`を取得します
+'* 機能説明：1. `getElementByXPath`等で、Shadow-root(open/close)手前の要素`PageElement`を取得します
 '            2. このプロシージャを実行して、Shadow-root(open/close)の中に、入り込みます
 '            3. 再度、`getElementByQuery`等で、Shadow-root(open/close)内の要素を検索して、目的の操作を行います
 '
-'* 注意事項：・あくまでも、今の`CDPElement`直下の子Shadow-Root取得のみ対応します。事前にその手前での要素を取得の上、ご利用ください。
+'* 注意事項：・あくまでも、今の`PageElement`直下の子Shadow-Root取得のみ対応します。事前にその手前での要素を取得の上、ご利用ください。
 '            ・複数ある場合は、次項の`GetShadowRoots`をご利用ください。ただし、場所が固定されてるのがわかってる場合は、引数にて調整可能です
 '            ・BiDiモードでは、要素ごとに1つのShadow-rootのみ取得できるため、`Index`は0のみ有効です(`GetShadowRoots`も非対応)
 '            ・失敗時は、`nothing`となります。これを目印に、存在確認を行ってください
-'            ・CDPによるShadowDOM侵入の都合上、親情報を引き継がないため、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・CDPによるShadowDOM侵入の都合上、親情報を引き継がないため、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
-Public Function GetShadowRoot(Optional Index As Long) As CDPElement
+Public Function GetShadowRoot(Optional Index As Long) As PageElement
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoot"
 
 
@@ -1681,34 +1700,34 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     Else
         'CDP：
         '1-1. `objectId`に対して、直下のNode情報を取得
-    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
-    Set paramsCDP = New Dictionary
-    paramsCDP.Add "objectId", CurrentElement.objectId
-    paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
-    paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
-    Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
+        Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
+        Set paramsCDP = New Dictionary
+        paramsCDP.Add "objectId", CurrentElement.objectId
+        paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
+        paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
+        Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
 
-    '2. `shadowRoots`の存在確認
-    If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
-    If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
+        '1-2. `shadowRoots`の存在確認
+        If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `PageElement`.", FromProcedureName: Exit Function
+        If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `PageElement`.", FromProcedureName: Exit Function
 
-    '3. 指定Index圏内か？
-    Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
-    If Nodes_shadowRoots.Count <= Index Then printMsg WARN_, "shadowRoots-Index out of range.", FromProcedureName: Exit Function
+        '1-3. 指定Index圏内か？
+        Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
+        If Nodes_shadowRoots.Count <= Index Then printMsg WARN_, "shadowRoots-Index out of range.", FromProcedureName: Exit Function
 
-    '4. 指定位置の`shadowRoots`の`backendNodeId`を取得
-    Dim shadowRootNodeId As Long
-    shadowRootNodeId = Nodes_shadowRoots.NodeIndex(Index).NumberKey("backendNodeId")
-    printMsg Debug_, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
+        '1-4. 指定位置の`shadowRoots`の`backendNodeId`を取得
+        Dim shadowRootNodeId As Long
+        shadowRootNodeId = Nodes_shadowRoots.NodeIndex(Index).NumberKey("backendNodeId")
+        printMsg Debug_, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
 
-    '5. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
-    paramsCDP.RemoveAll
-    paramsCDP.Add "backendNodeId", shadowRootNodeId
-    Set ResultCDP = ExecuteCDP("DOM.resolveNode", paramsCDP)
+        '1-5. 得た`backendNodeId`を`PageElement`で使える`ObjectID`に変換
+        paramsCDP.RemoveAll
+        paramsCDP.Add "backendNodeId", shadowRootNodeId
+        Set ResultCDP = ExecuteCDP("DOM.resolveNode", paramsCDP)
 
-    '6. `Runtime.RemoteObject`の存在確認
-    If Not ResultCDP.ExistsKey("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
-    If Not ResultCDP.NodeKey("object").ExistsKey("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
+        '1-6. `Runtime.RemoteObject`の存在確認
+        If Not ResultCDP.ExistsKey("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
+        If Not ResultCDP.NodeKey("object").ExistsKey("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
 
         '1-7. `objectId`を取得
         shadowRootId = ResultCDP.NodeKey("object").StringKey("objectId")
@@ -1747,8 +1766,8 @@ Public Function GetShadowRoots() As Collection
     Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
 
     '2. `shadowRoots`の存在確認
-    If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
-    If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `PageElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `PageElement`.", FromProcedureName: Exit Function
 
     '3. `shadowRoots`の最初の`shadowRoots`要素のトークンIDを取得
     Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP.NodeKey("node").NodeKey("shadowRoots")
@@ -1766,7 +1785,7 @@ Public Function GetShadowRoots() As Collection
         shadowRootNodeId = Nodes_shadowRoots.TokenNumber(tId_shadowRoots, "backendNodeId")
         printMsg Debug_, "`Shadow-Root` - backendNodeId: " & shadowRootNodeId, FromProcedureName
 
-        '5-2. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
+        '5-2. 得た`backendNodeId`を`PageElement`で使える`ObjectID`に変換
         Dim ResultRemoteObject As BiDiCDPJson
         paramsCDP.RemoveAll
         paramsCDP.Add "backendNodeId", shadowRootNodeId
@@ -1780,11 +1799,11 @@ Public Function GetShadowRoots() As Collection
         shadowRootObjectID = ResultRemoteObject.StringKey("objectId")
         printMsg Debug_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
 
-        '5-5. `CDPElement`に必要な情報を継承
-        Dim GetShadowRoot As CDPElement: Set GetShadowRoot = New CDPElement
+        '5-5. `PageElement`に必要な情報を継承
+        Dim GetShadowRoot As PageElement: Set GetShadowRoot = New PageElement
         InitChild GetShadowRoot, vbString, shadowRootObjectID '※前述で、`Exists`チェックしてるので、`vbString`直代入する
 
-        '5-6. できあがった`CDPElement`をCollectionに蓄積
+        '5-6. できあがった`PageElement`をCollectionに蓄積
         GetShadowRoots.Add GetShadowRoot
 
         '5-7. 次の要素（隣のトークン）へ移動
@@ -1813,8 +1832,8 @@ Public Sub SetFileInputFiles(files As Collection)
         params.Add "element", BiDiSharedReference()
         mainBiDi.ExecuteBiDi "input.setFiles", params
     Else
-    params.Add "objectId", CurrentElement.objectId
-    ExecuteCDP "DOM.setFileInputFiles", params
+        params.Add "objectId", CurrentElement.objectId
+        ExecuteCDP "DOM.setFileInputFiles", params
     End If
 
     '3. 別途ログ化
@@ -2056,8 +2075,8 @@ Private Sub Class_Terminate()
     'BiDi：`script.SharedId`はブラウザ側で保持されないため、解放不要
     If mainCDP Is Nothing Then Exit Sub
 
-        'CDP：`Runtime.releaseObject`で`objectId`を解放
+    'CDP：`Runtime.releaseObject`で`objectId`を解放
     Dim paramsAPI As New Dictionary
-        paramsAPI.Add "objectId", CurrentElement.objectId
-        mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsAPI, False
+    paramsAPI.Add "objectId", CurrentElement.objectId
+    mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsAPI, False
 End Sub

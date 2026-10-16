@@ -17,7 +17,7 @@ Attribute VB_Name = "Demo_CDP"
 ' Notes       :
 '       The framework does not need a matching webdriver as this is not a webdriver-based API.
 '       This module includes a few examples of automating browsers using CDP. For the
-'       engine codes, refer to the class modules CDPBrowser, CDPCore, CDPElement, and WebJsonConverter
+'       engine codes, refer to the class modules CDPBrowser, CDPCore, PageElement, and WebJsonConverter
 '       For original examples, refer to Chris' article on CodeProject:
 '       https://www.codeproject.com/Tips/5307593/Automate-Chrome-Edge-using-VBA
 '       For the latest update of the CDP Framework by Long Vh:
@@ -129,7 +129,7 @@ Sub JapaneseElementTest()
     Dim Demo_Japanese As CDPContext: Set Demo_Japanese = ShSetting01_StartBrowser.StartCDPModeContext("https://keisan.site/exec/system/1161228728")
 
     ' 身長をセット
-    Dim height As CDPElement
+    Dim height As PageElement
     Set height = Demo_Japanese.getElementByID("var_身長")
 
     '日本語と絵文字入力テスト
@@ -143,7 +143,7 @@ Sub JapaneseElementTest()
     CDPHelpers.Sleep 3
 
     ' 体重をセット
-    Dim weight As CDPElement
+    Dim weight As PageElement
     Set weight = Demo_Japanese.getElementByID("var_体重")
     weight.sendString "48.5"
     Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+2696 U+FE0F)
@@ -272,7 +272,7 @@ Sub TestAlert()
 
             ' --- 6. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されます
-            '※非同期処理を行うため、`CDPElement.cls`を使わない形で取ります
+            '※非同期処理を行うため、`PageElement.cls`を使わない形で取ります
             Dim AsyncID As Long
             AsyncID = .jsEval("document.getElementById('" & TargetXpath & "').click()", RunAsyncCDP:=True)
 
@@ -331,7 +331,7 @@ End Sub
 '* 機能　　：ShadowRootに関するDemoです。シンプル版です
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Open/Close 問わず、メソッドチェーン操作で利用できます
-'* 注意事項：ここでの非同期clickは`CDPElement`で表現します
+'* 注意事項：ここでの非同期clickは`PageElement`で表現します
 '***************************************************************************************************
 Sub SimpleShadowRootTest()
     '1. ShadowRootページを開く
@@ -341,7 +341,7 @@ Sub SimpleShadowRootTest()
         .getElementByXPath("//*[@id='open']/open-dom").GetShadowRoot.getElementByQuery("div > button").click
 
         '3. Shadow-Root(Close) 内のボタン要素を取得(`.click`にしない理由は以降のコメントに)
-        Dim JavaScriptAlertButton As CDPElement
+        Dim JavaScriptAlertButton As PageElement
         Set JavaScriptAlertButton = .getElementByXPath("//*[@id='closed']/closed-dom").GetShadowRoot.getElementByQuery("div > button")
 
         '4. 次の操作前に下準備
@@ -604,7 +604,7 @@ Sub runNewTab()
 
    'Google search result returns links that open in the same tab window
    'For this demonstration, we need to make it open in a new tab window instead
-    Dim targetElement As CDPElement
+    Dim targetElement As PageElement
     Set targetElement = chrome.getElementByXPath(".//a[contains(@href, 'https://www.newstarget.com/')]")
     targetElement.setAttribute "target", "_blank"   'Modify the element attribute to open in a new tab instead
     targetElement.click                             'Click the link, a new tab will be spontaneously open. 別タブで開いてしまうため、ここは待機なしクリックにする
@@ -636,8 +636,8 @@ Sub runIFrame()
     Dim chrome As New CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext(demoUrl)
 
-    Dim iFrame1 As CDPElement
-    Dim iFrame2 As CDPElement
+    Dim iFrame1 As PageElement
+    Dim iFrame2 As PageElement
     Set iFrame1 = chrome.getElementByID("iframeResult").getIFrame
     Set iFrame2 = iFrame1.getElementByQuery("iframe[title='Iframe Example']").getIFrame
 
@@ -693,8 +693,8 @@ Sub fillReactForm()
     chrome.navigate demoUrl
 
    'Get the target fields
-    Dim ip As CDPElement
-    Dim sb As CDPElement
+    Dim ip As PageElement
+    Dim sb As PageElement
     Set ip = chrome.getElementByID("result").getIFrame.getElementByQuery("input[type='text']")
     Set sb = chrome.getElementByID("result").getIFrame.getElementByQuery("input[type='submit']")
 
