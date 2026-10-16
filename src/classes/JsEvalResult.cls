@@ -324,6 +324,104 @@ Private Sub AnalysisRuntimeRemoteObject()
     m_VarTypeVBA = VarType(m_AutoValue)
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：BiDiとしての、JavaScript実行で返ったJsonDictionaryから、最適な結果値を取り出します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：返す優先順位は、`script.SharedId` > `script.Handle` > `value` として、`m_AutoValue`に格納します
+'***************************************************************************************************
+Private Sub AnalysisScriptRemoteValue()
+    Const FromProcedureName As String = ThisClassName & ".AnalysisScriptRemoteValue"
+
+
+    '------------------------ 1. 特定項目有無チェック ------------------------
+    '※type=node時、ここを通ります
+    '`script.sharedId`があったらそれを最優先に返します。
+    If m_ResultObject.ExistsKey("sharedId") Then
+        '見つかったので、`script.sharedId`を返す
+        m_AutoValue = m_ResultObject.StringKey("sharedId")
+
+        '`sharedId`であるサインを返し、抜ける
+        m_VarTypeVBA = vbDataObject '見た目は文字列、実態はObjectという特殊性質を表すものとして付与
+        printMsg info_, "JS-Return type: script.sharedId", FromProcedureName
+        Exit Sub
+
+    '※type=objectで、`resultOwnership`:="root"時、ここを通ります
+    '`script.Handle`があったら、こっちを返します
+    ElseIf m_ResultObject.ExistsKey("handle") Then
+        '見つかったので、`script.Handle`を返す
+        m_AutoValue = m_ResultObject.StringKey("handle")
+
+        '`handle`であるサインを返し、抜ける
+        m_VarTypeVBA = vbDataObject '見た目は文字列、実態はObjectという特殊性質を表すものとして付与
+        printMsg info_, "JS-Return type: handle", FromProcedureName
+        Exit Sub
+    End If
+
+
+    '------------------------ 2. primitive values OR JsonNodeの取得を試みる ------------------------
+    '参考：https://w3c.github.io/webdriver-bidi/#type-script-RemoteValue
+    '以降は基本、`resultOwnership:="none"`でないと通りません
+    '`primitive values` の場合も、ここを通り、値の取得を行います
+    printMsg info_, "JS-Return type: " & m_VarTypeJS, FromProcedureName
+
+    Select Case m_VarTypeJS
+        Case "symbol", "function", "weakmap", "weakset", "generator", "error", "proxy", "promise", "typedarray", "arraybuffer"
+            '`value`そのものがないので、`Nothing`として返却
+            Set m_AutoValue = Nothing
+            printMsg WARN_, "`" & m_VarTypeJS & "` cannot be returned as a `value`.", FromProcedureName
+
+        Case "array", "object", "map", "set", "nodelist", "htmlcollection", "window", "regexp", "node"
+            'Json文字列として生成されるので、Node形式のObjectとして返却
+            Set m_AutoValue = m_ResultObject.NodeKey("value")
+
+        Case "undefined"
+            ' JSの undefined は VBAでは Empty が一番近い
+            m_AutoValue = Empty
+
+        Case "null"
+            m_AutoValue = Null
+
+        Case "string"
+            ' 文字列として認識するように返す
+            m_AutoValue = m_ResultObject.StringKey("value")
+
+        Case "number"
+            '1. 一旦おまかせで取る
+            m_AutoValue = m_ResultObject.Item("value")
+
+            '2. VBAで扱えない特殊な"number"(その場合は大抵、文字列として格納されている)であるかを判定
+            If VarType(m_AutoValue) = vbString Then
+                '警告を出し、「#NUM!」で上書き
+                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & m_AutoValue, FromProcedureName
+                m_AutoValue = CVErr(xlErrNum)
+            Else
+                '`Double`として置き換え
+                m_AutoValue = CDbl(m_AutoValue)
+            End If
+
+        Case "boolean"
+            ' boolean型として認識するように返す
+            m_AutoValue = m_ResultObject.BoolKey("value")
+
+        Case "bigint"
+            ' BigInt は JSON に変換できない巨大整数のため、値を文字列としてそのまんま返却します
+            m_AutoValue = m_ResultObject.StringKey("value")
+            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & m_AutoValue, FromProcedureName
+
+        Case "date"
+            'BiDiの場合、`date`は文字列として返却されるため、VBAの`vbDate`として返してあげる
+            m_AutoValue = UtcConverter.ParseIso(m_ResultObject.StringKey("value"))
+
+        Case Else
+            'ドキュメント化されてない型があったら、安全のため。止めておく
+            printMsg ERROR_, "This data type cannot be handled in VBA. type: " & m_VarTypeJS, FromProcedureName, doRaiseError:=True
+
+    End Select
+
+    '`Set`or`Let`判定用に確認
+    m_VarTypeVBA = VarType(m_AutoValue)
+End Sub
+
 
 
 '***************************************************************************************************
@@ -437,6 +535,21 @@ End Property
 
 Property Get Preview() As BiDiCDPJson
     Set Preview = m_ResultObject.NodeKey("preview")
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 実行結果情報 - BiDiのみ
+'---------------------------------------------------------------------------------------------------
+Property Get handle() As String
+    handle = m_ResultObject.StringKey("handle")
+End Property
+
+Property Get internalId() As String
+    internalId = m_ResultObject.StringKey("internalId")
+End Property
+
+Property Get sharedId() As String
+    sharedId = m_ResultObject.StringKey("sharedId")
 End Property
 
 
