@@ -31,7 +31,7 @@ Sub Test()
 
 
 
-    Dim elem As CDPElement
+    Dim elem As PageElement
     
     Debug.Print "--------------------------------------------------------"
     Debug.Print "       í èÌÇÃ getElementByQuery Ç…ÇÊÇÈåüçıé¿å±"
@@ -62,7 +62,7 @@ Sub Test()
     Debug.Print "                 ShadowDom åüçıé¿å±"
     Debug.Print "--------------------------------------------------------"
     
-    Dim tmp As CDPElement
+    Dim tmp As PageElement
     Set tmp = br.getElementByID("shadow-host-1").GetShadowRoot
     Debug.Print "GetShadowRootíºå„ÇÃÅANodeType:" & tmp.CurrentNodeType
 
