@@ -344,7 +344,7 @@ End Sub
 '* 詳細説明：同一タブに対して、標準化されたWebDriverBiDiコマンドと、CDP独自の便利メソッドを
 '            使い分ける「いいとこ取り」の流れをデモンストレーションします。
 '            前半（BiDi）：navigate（起動時）／session.subscribe（ネットワークイベント購読）／script.evaluate
-'            後半（CDP）　：notify（トースト通知）／PageElement（要素取得）／snapPage（スクリーンショット）
+'            後半（CDP）　：notify（トースト通知）／CDPElement（要素取得）／snapPage（スクリーンショット）
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：ブラウザデータは、クリーン状態のままであるほうが、クリアしやすいです
 '***************************************************************************************************
@@ -382,8 +382,8 @@ Sub BiDiPlusDemo()
     '-------------------------------- ④CDP：BiDiには無い便利メソッドでトースト通知 --------------------------------
     BiDiPlusTab.notify "BiDi+ で、CDP独自の notify を使ってみました" & WorksheetFunction.Unichar(129418), 5
 
-    '-------------------------------- ⑤CDP：PageElementで見出しリンクのテキストを取得 --------------------------------
-    Dim headline As PageElement
+    '-------------------------------- ⑤CDP：CDPElementで見出しリンクのテキストを取得 --------------------------------
+    Dim headline As CDPElement
     Set headline = BiDiPlusTab.getElementByQuery("#title > h1 > yt-formatted-string")
     Dim 見出しテキスト As String
 
@@ -394,7 +394,7 @@ Sub BiDiPlusDemo()
     '-------------------------------- ⑥CDP：スクリーンショットをDownloadsフォルダへ保存 --------------------------------
     BiDiPlusTab.snapPage Environ("UserProfile") & "\Downloads", "BiDiPlusDemo.png"
 
-    MsgBox "BiDi（イベント購読・遷移）→ CDP（notify・PageElement・スクショ）の流れが完了しました！" & vbCrLf & vbCrLf & _
+    MsgBox "BiDi（イベント購読・遷移）→ CDP（notify・CDPElement・スクショ）の流れが完了しました！" & vbCrLf & vbCrLf & _
            "捕捉したBiDiネットワークイベント数：" & ネットワークイベント件数 & vbCrLf & _
            "見出しリンクのテキスト：" & 見出しテキスト, vbInformation, "BiDiPlusDemo 完了"
 

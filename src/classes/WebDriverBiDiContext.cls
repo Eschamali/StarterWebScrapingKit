@@ -182,7 +182,6 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
     '------------------ この`Context`のステータスの更新を行います ------------------
     Dim BiDiEventNode As BiDiCDPJson
-    Dim StartPos As Long, SearchWord As String
     Select Case methodName
         '------------------ `Context`自体の生存ステータス ------------------
         '`context`が消えた
@@ -693,23 +692,23 @@ End Property
 
 
 '***************************************************************************************************
-'                           ■■■ `PageElement.cls`継承準備 ■■■
+'                           ■■■ `WebDriverBiDiElement.cls`継承準備 ■■■
 '***************************************************************************************************
-'* 機能　　：ID属性値で要素を検索し、`PageElement`として返却します
+'* 機能　　：ID属性値で要素を検索し、`WebDriverBiDiElement`として返却します
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`CDPContext.getElementByID`のBiDi版です。返される`PageElement`は、BiDiモード(`InitBiDi`)で初期化されます
-'* 注意事項：BiDiモードの`PageElement`では、`getIFrame`(`WebDriverBiDiMode.getTab`を使用)と`GetShadowRoots`(`GetShadowRoot`を使用)が非対応です
+'* 詳細説明：`CDPContext.getElementByID`のBiDi版です。返される`WebDriverBiDiElement`は、`Init`で初期化されます
+'* 注意事項：`WebDriverBiDiElement`には、`getIFrame`(`WebDriverBiDiMode.getTab`を使用)と`GetShadowRoots`(`GetShadowRoot`を使用)がありません
 '***************************************************************************************************
-Public Function getElementByID(strID As String) As PageElement
+Public Function getElementByID(strID As String) As WebDriverBiDiElement
     Set getElementByID = SearchElement("document.getElementById(""" & strID & """)")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：XPathで要素を検索し、`PageElement`として返却します
+'* 機能　　：XPathで要素を検索し、`WebDriverBiDiElement`として返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`CDPContext.getElementByXPath`のBiDi版です。XPathの書き方は、そちらの例を参照してください
 '***************************************************************************************************
-Public Function getElementByXPath(strXPath As String) As PageElement
+Public Function getElementByXPath(strXPath As String) As WebDriverBiDiElement
     'People normally get this wrong when using XPath
     If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
 
@@ -717,11 +716,11 @@ Public Function getElementByXPath(strXPath As String) As PageElement
 End Function
 
 '***************************************************************************************************
-'* 機能　　：XPathで要素を複数検索し、`PageElement`のコレクションとして返却します
+'* 機能　　：XPathで要素を複数検索し、`WebDriverBiDiElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：`PageElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 返り値  ：`WebDriverBiDiElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
 '* 注意事項：・コレクションのIndexは、1始まりです
-'            ・複数検索の場合、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、返される`WebDriverBiDiElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
     'People normally get this wrong when using XPath
@@ -733,20 +732,20 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 End Function
 
 '***************************************************************************************************
-'* 機能　　：QuerySelectorで要素を検索し、`PageElement`として返却します
+'* 機能　　：QuerySelectorで要素を検索し、`WebDriverBiDiElement`として返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`CDPContext.getElementByQuery`のBiDi版です。セレクターの書き方は、そちらの例を参照してください
 '***************************************************************************************************
-Public Function getElementByQuery(strQuery As String) As PageElement
+Public Function getElementByQuery(strQuery As String) As WebDriverBiDiElement
     Set getElementByQuery = SearchElement("document.querySelector(""" & strQuery & """)")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：QuerySelectorAllで要素を複数検索し、`PageElement`のコレクションとして返却します
+'* 機能　　：QuerySelectorAllで要素を複数検索し、`WebDriverBiDiElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：`PageElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 返り値  ：`WebDriverBiDiElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
 '* 注意事項：・コレクションのIndexは、1始まりです
-'            ・複数検索の場合、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、返される`WebDriverBiDiElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByQuery(strQuery As String) As Collection
     Set getElementsByQuery = SearchElements("document.querySelectorAll(""" & (strQuery) & """)", _
@@ -755,12 +754,12 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 End Function
 
 '***************************************************************************************************
-'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`PageElement`に格納します
+'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`WebDriverBiDiElement`に格納します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：SearchJS   検索JavaScript。`PageElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
+'* 引数　　：SearchJS   検索JavaScript。`WebDriverBiDiElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
 '* 詳細説明：nodeは`Ownership`の指定なしでも`script.SharedId`が返るため、そのまま実行します。要素がない場合は`Null`が返るため、`vbNull`として格納されます
 '***************************************************************************************************
-Private Function SearchElement(SearchJS As String) As PageElement
+Private Function SearchElement(SearchJS As String) As WebDriverBiDiElement
     '1. 検索実行
     Dim resultSearch As Variant
     resultSearch = jsEval(SearchJS)
@@ -770,13 +769,13 @@ Private Function SearchElement(SearchJS As String) As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then elementSharedId = resultSearch
 
-    '3. 結果を`PageElement.cls`に格納
-    Set SearchElement = New PageElement
-    SearchElement.InitBiDi Me, JsResultVarType, elementSharedId, SearchJS
+    '3. 結果を`WebDriverBiDiElement.cls`に格納
+    Set SearchElement = New WebDriverBiDiElement
+    SearchElement.Init Me, JsResultVarType, elementSharedId, SearchJS
 End Function
 
 '***************************************************************************************************
-'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`PageElement`に格納します
+'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`WebDriverBiDiElement`に格納します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：SearchJS   コレクション(NodeList/XPathResult等)を返す検索JavaScript
 '            LengthJS   コレクションの要素数を返す`function(c){ return c... }`         ※`c`はコレクション
@@ -806,25 +805,24 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
     length_ = jsEval(LengthJS, objectArguments:=lengthArgs)
 
     '5. 要素数分、ループで順次取得していく
-    Dim tElement As PageElement
+    Dim tElement As WebDriverBiDiElement
     Dim itemArgs(1) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemResultVarType As VbVarType
     Set itemArgs(0) = collRef
     For N = 0 To length_ - 1
         '5-1. `script.callFunction`に渡す引数(`script.LocalValue`形式)をセット
         Set itemArg = New Dictionary
-        itemArg.Add "type", "number"
-        itemArg.Add "value", N
+        itemArg.Add "value", N: itemArg.Add "type", "number"
         Set itemArgs(1) = itemArg
 
         '5-2. 引数付きで実行　※nodeは`script.SharedId`で返る
         itemResult = jsEval(ItemJS, objectArguments:=itemArgs)
 
-        '5-3. 念のため、有効な`script.SharedId`かチェックし、`PageElement.cls`に格納
+        '5-3. 念のため、有効な`script.SharedId`かチェックし、`WebDriverBiDiElement.cls`に格納
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
-            Set tElement = New PageElement
-            tElement.InitBiDi Me, itemResultVarType, CStr(itemResult)
+            Set tElement = New WebDriverBiDiElement
+            tElement.Init Me, itemResultVarType, CStr(itemResult)
             SearchElements.Add tElement
         End If
     Next
@@ -926,15 +924,6 @@ Public Sub Init(br As WebDriverBiDiMode, Core As WebDriverBiDiCore)
     Set m_BiDiMode = br
     Set m_BiDiCore = Core
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：自作の拡張Class以外では、使うことはありません
-'***************************************************************************************************
-Property Get ExEventCore() As WebDriverBiDiCore
-    Set ExEventCore = m_BiDiCore
-End Property
 
 '***************************************************************************************************
 '* 機能　　：`browsingContext.getTree`等で得た`context`を適用させます
