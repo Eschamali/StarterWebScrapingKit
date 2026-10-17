@@ -813,8 +813,7 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
     For N = 0 To length_ - 1
         '5-1. `script.callFunction`に渡す引数(`script.LocalValue`形式)をセット
         Set itemArg = New Dictionary
-        itemArg.Add "type", "number"
-        itemArg.Add "value", N
+        itemArg.Add "value", N: itemArg.Add "type", "number"
         Set itemArgs(1) = itemArg
 
         '5-2. 引数付きで実行　※nodeは`script.SharedId`で返る

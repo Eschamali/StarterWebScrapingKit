@@ -151,8 +151,7 @@ Public Sub ExposeDevTools(varName As String)
     ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", varName
+    arg.Add "value", varName: arg.Add "type", "string"
     Set args(0) = arg
 
     ' 2. 実行
@@ -387,8 +386,7 @@ Property Let checked(boolChecked As Boolean)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "boolean"
-    arg.Add "value", CBool(boolChecked)
+    arg.Add "value", CBool(boolChecked): arg.Add "type", "boolean"
     Set args(0) = arg
     jsEval "function(v){ this.checked = v }", args
 
@@ -419,8 +417,7 @@ Property Let selected(selectedOption As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", selectedOption
+    arg.Add "value", selectedOption: arg.Add "type", "string"
     Set args(0) = arg
     jsEval "function(v){ this.selectedIndex = v }", args
     fireEvent "change"
@@ -469,8 +466,7 @@ Public Function getAttribute(strAttributeName As String) As String
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strAttributeName
+    arg.Add "value", strAttributeName: arg.Add "type", "string"
     Set args(0) = arg
     getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
 
@@ -486,8 +482,8 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
 
 
     Dim args2(1) As Dictionary
-    Dim a1 As New Dictionary: a1.Add "type", "string": a1.Add "value", strAttributeName:   Set args2(0) = a1
-    Dim a2 As New Dictionary: a2.Add "type", "string": a2.Add "value", strValue:           Set args2(1) = a2
+    Dim a1 As New Dictionary: a1.Add "value", strAttributeName: a1.Add "type", "string":   Set args2(0) = a1
+    Dim a2 As New Dictionary: a2.Add "value", strValue: a2.Add "type", "string":           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
 End Function
@@ -536,8 +532,7 @@ Property Let value(strTextVal As String)
     'objectArgumentsで安全に値を渡す（エスケープ不要）
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strTextVal
+    arg.Add "value", strTextVal: arg.Add "type", "string"
     Set args(0) = arg
 
     'Perform inputing using all the methods
@@ -580,8 +575,7 @@ Property Let innerText(strTextVal As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strTextVal
+    arg.Add "value", strTextVal: arg.Add "type", "string"
     Set args(0) = arg
     jsEval "function(v){ this.innerText = v }", args
 
@@ -614,8 +608,7 @@ Property Let innerHTML(strTextVal As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strTextVal
+    arg.Add "value", strTextVal: arg.Add "type", "string"
     Set args(0) = arg
     jsEval "function(v){ this.innerHTML = v }", args
 
@@ -661,8 +654,7 @@ Public Function fireEvent(strEventName As String) As Boolean
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strEventName
+    arg.Add "value", strEventName: arg.Add "type", "string"
     Set args(0) = arg
     jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
 
@@ -999,8 +991,7 @@ Public Function getChildren() As Collection
         Set itemArg = New Dictionary
 
         '4-2. `script.callFunction`に渡す引数をセット
-        itemArg.Add "type", "number"
-        itemArg.Add "value", N
+        itemArg.Add "value", N: itemArg.Add "type", "number"
         Set itemArgs(1) = itemArg
 
         '4-3. 引数付きで実行
@@ -1040,8 +1031,7 @@ Public Function getElementByID(strID As String) As WebDriverBiDiElement
     '1. `script.callFunction`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strID
+    arg.Add "value", strID: arg.Add "type", "string"
     Set args(0) = arg
 
     '2. 現在の要素配下での、指定ID属性値を持つ子要素を取得するJavaScriptコードを生成
@@ -1090,8 +1080,7 @@ Public Function getElementByQuery(strQuery As String) As WebDriverBiDiElement
     '1. `script.callFunction`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strQuery
+    arg.Add "value", strQuery: arg.Add "type", "string"
     Set args(0) = arg
 
     '2. QuerySelector を使用した現在の要素の子要素を取得するJavaScriptコードを生成
@@ -1130,8 +1119,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '1. `script.callFunction`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strQuery
+    arg.Add "value", strQuery: arg.Add "type", "string"
     Set args(0) = arg
 
     '2. QuerySelectorAll を使用して、現在の要素の子要素のコレクションを取得するJavaScriptコードを生成
@@ -1166,8 +1154,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         Set itemArg = New Dictionary
 
         '4-2. `script.callFunction`に渡す引数をセット
-        itemArg.Add "type", "number"
-        itemArg.Add "value", N
+        itemArg.Add "value", N: itemArg.Add "type", "number"
         Set itemArgs(1) = itemArg
 
         '4-3. 引数付きで実行
@@ -1242,8 +1229,7 @@ Public Function getElementByXPath(strXPath As String) As WebDriverBiDiElement
     '3. `script.callFunction`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    arg.Add "type", "string"
-    arg.Add "value", strXPath
+    arg.Add "value", strXPath: arg.Add "type", "string"
     Set args(0) = arg
 
     '4. 現在の要素配下での､指定Xpath持つ子要素を取得するJavaScriptコードを生成
@@ -1302,8 +1288,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '3. `script.callFunction`に渡す引数を準備
     Dim xpArgs(0) As Dictionary
     Dim xpArg As New Dictionary
-    xpArg.Add "type", "string"
-    xpArg.Add "value", strXPath
+    xpArg.Add "value", strXPath: xpArg.Add "type", "string"
     Set xpArgs(0) = xpArg
 
     '4. Get XPathResult handle (ORDERED_NODE_SNAPSHOT_TYPE) using script.callFunction (this as contextNode)
@@ -1338,8 +1323,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         Set itemArg = New Dictionary
 
         '7-2. `script.callFunction`に渡す引数をセット
-        itemArg.Add "type", "number"
-        itemArg.Add "value", N
+        itemArg.Add "value", N: itemArg.Add "type", "number"
         Set itemArgs(1) = itemArg
 
         '7-3. 引数付きで実行
