@@ -357,11 +357,11 @@ Private Sub Test15_Diagnostics_And_Options(br As WebDriverBiDiContext)
     Set nullArg(0) = New Dictionary: nullArg(0).Add "type", "null"
     AssertEq "Null引数の受け渡し", CStr(el.jsEval("function(v){ return v === null ? 'null' : 'x' }", nullArg)), "null"
 
-    el.SetOptionRunAsync = True
+    el.SetOptionRunAsyncBiDi = True
     Dim asyncResult As Variant
     asyncResult = el.jsEval("function(){ return 1 }")
-    el.SetOptionRunAsync = False
-    AssertTrue "SetOptionRunAsync=True時、戻り値が非同期コマンドIDであること", (IsNumeric(asyncResult) And CLng(asyncResult) > 0)
+    el.SetOptionRunAsyncBiDi = False
+    AssertTrue "SetOptionRunAsyncBiDi=True時、戻り値が非同期コマンドIDであること", (IsNumeric(asyncResult) And CLng(asyncResult) > 0)
 
     el.SetOptionStopException = True
     Dim exNumber As Long

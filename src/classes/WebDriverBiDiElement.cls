@@ -50,7 +50,7 @@ Private Const ThisClassName As String = "WebDriverBiDiElement"    'ログのト�
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 'コンテキスト(タブ)制御クラスオブジェクト
-Private mainBiDi    As WebDriverBiDiContext
+Private main As WebDriverBiDiContext
 
 'JavaScript検索結果情報
 Private Type ElementInfos
@@ -71,7 +71,7 @@ Private m_LogID As String
 '各種便利なJavaScript実行オプション
 Private Type callFunctionParameters
     StopException    As Boolean         'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
-    RunAsync         As Boolean         '非同期実行
+    RunAsyncBiDi     As Boolean         '非同期実行
     userGesture      As Boolean         '人間が押したかのように偽装するか？
 End Type
 Private RunOption As callFunctionParameters
@@ -95,9 +95,9 @@ Private RunOption As callFunctionParameters
 '            　・複数取得系(getElementsByXPath等)
 '              ・`GetShadowRoot`メソッドの使用
 '***************************************************************************************************
-Public Sub InitBiDi(ThisBiDiContext As WebDriverBiDiContext, argResultVarType As VbVarType, sharedId_ As String, Optional JavaScriptStr As String)
+Public Sub Init(ThisBiDiContext As WebDriverBiDiContext, argResultVarType As VbVarType, sharedId_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
-    Set mainBiDi = ThisBiDiContext
+    Set main = ThisBiDiContext
 
     With CurrentElement
         '実行結果の型タイプ
@@ -758,16 +758,16 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
         Dim resultSearch As Variant
         If ParentElement Is Nothing Then
             '2-1. `WebDriverBiDiContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
-            resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS)
+            resultSearch = main.jsEval(CurrentElement.SearchJS)
         Else
             '2-1. 引数情報に応じて、分岐
             '※`IsMissing`を機能させるため
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
             If Not Not CurrentElement.SearchArgs Then
                 '引数情報があるので、引数付きで実行
-                resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
             Else
-                resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
             End If
         End If
 
@@ -846,7 +846,7 @@ Public Function getParent() As WebDriverBiDiElement
 
     '3. 結果を`WebDriverBiDiElement.cls`に格納
     Set getParent = New WebDriverBiDiElement
-    getParent.InitBiDi mainBiDi, JsResultVarType, sharedId, ParentSearchJS
+    getParent.Init main, JsResultVarType, sharedId, ParentSearchJS
 
     '4. 元の親`WebDriverBiDiElement.cls`を適用
     Set getParent.InitParentWebDriverBiDiElement = Me
@@ -879,7 +879,7 @@ Public Function getNextSibling() As WebDriverBiDiElement
 
     '3. 結果を`WebDriverBiDiElement.cls`に格納
     Set getNextSibling = New WebDriverBiDiElement
-    getNextSibling.InitBiDi mainBiDi, JsResultVarType, sharedId, NextSiblingSearchJS
+    getNextSibling.Init main, JsResultVarType, sharedId, NextSiblingSearchJS
 
     '4. 元の親`WebDriverBiDiElement.cls`を適用
     Set getNextSibling.InitParentWebDriverBiDiElement = Me
@@ -912,7 +912,7 @@ Public Function getPrevSibling() As WebDriverBiDiElement
 
     '3. 結果を`WebDriverBiDiElement.cls`に格納
     Set getPrevSibling = New WebDriverBiDiElement
-    getPrevSibling.InitBiDi mainBiDi, JsResultVarType, sharedId, PrevSiblingSearchJS
+    getPrevSibling.Init main, JsResultVarType, sharedId, PrevSiblingSearchJS
 
     '4. 元の親`WebDriverBiDiElement.cls`を適用
     Set getPrevSibling.InitParentWebDriverBiDiElement = Me
@@ -945,7 +945,7 @@ Public Function getFirstChild() As WebDriverBiDiElement
 
     '3. 結果を`WebDriverBiDiElement.cls`に格納
     Set getFirstChild = New WebDriverBiDiElement
-    getFirstChild.InitBiDi mainBiDi, JsResultVarType, sharedId, FirstChildSearchJS
+    getFirstChild.Init main, JsResultVarType, sharedId, FirstChildSearchJS
 
     '4. 元の親`WebDriverBiDiElement.cls`を適用
     Set getFirstChild.InitParentWebDriverBiDiElement = Me
@@ -987,7 +987,7 @@ Public Function getChildren() As Collection
     Dim collRef As New Dictionary, collArgs(0) As Dictionary
     collRef.Add "handle", collHandle
     Set collArgs(0) = collRef
-    length_ = mainBiDi.jsEval("function(c){ return c.length }", , collArgs)
+    length_ = main.jsEval("function(c){ return c.length }", , collArgs)
 
     '4. Get each item's sharedId via script.callFunction
     Dim tElement As WebDriverBiDiElement
@@ -1004,7 +1004,7 @@ Public Function getChildren() As Collection
         Set itemArgs(1) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = mainBiDi.jsEval("function(c, n){ return c.item(n) }", , itemArgs)   'nodeは`script.SharedId`で返る
+        itemResult = main.jsEval("function(c, n){ return c.item(n) }", , itemArgs)   'nodeは`script.SharedId`で返る
 
         '4-4. 念のため、有効な`script.SharedId`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1013,7 +1013,7 @@ Public Function getChildren() As Collection
 
             '4-5. 結果を`WebDriverBiDiElement.cls`に格納
             Set tElement = New WebDriverBiDiElement
-            tElement.InitBiDi mainBiDi, itemResultVarType, itemSharedId
+            tElement.Init main, itemResultVarType, itemSharedId
             getChildren.Add tElement
         End If
     Next
@@ -1056,7 +1056,7 @@ Public Function getElementByID(strID As String) As WebDriverBiDiElement
 
     '4. 結果を`WebDriverBiDiElement.cls`に格納
     Set getElementByID = New WebDriverBiDiElement
-    getElementByID.InitBiDi mainBiDi, JsResultVarType, sharedId, ElementByIDSearchJS
+    getElementByID.Init main, JsResultVarType, sharedId, ElementByIDSearchJS
 
     '5. 元の親`WebDriverBiDiElement.cls`を適用
     Set getElementByID.InitParentWebDriverBiDiElement(args) = Me
@@ -1105,7 +1105,7 @@ Public Function getElementByQuery(strQuery As String) As WebDriverBiDiElement
 
     '4. 結果を`WebDriverBiDiElement.cls`に格納
     Set getElementByQuery = New WebDriverBiDiElement
-    getElementByQuery.InitBiDi mainBiDi, JsResultVarType, sharedId, ElementByQuerySearchJS
+    getElementByQuery.Init main, JsResultVarType, sharedId, ElementByQuerySearchJS
 
     '5. 元の親`WebDriverBiDiElement.cls`を適用
     Set getElementByQuery.InitParentWebDriverBiDiElement(args) = Me
@@ -1154,7 +1154,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     Dim collRef As New Dictionary, collArgs(0) As Dictionary
     collRef.Add "handle", collHandle
     Set collArgs(0) = collRef
-    length_ = mainBiDi.jsEval("function(c){ return c.length }", , collArgs)
+    length_ = main.jsEval("function(c){ return c.length }", , collArgs)
 
     '4. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As WebDriverBiDiElement
@@ -1171,7 +1171,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         Set itemArgs(1) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = mainBiDi.jsEval("function(c, n){ return c.item(n) }", , itemArgs)   'nodeは`script.SharedId`で返る
+        itemResult = main.jsEval("function(c, n){ return c.item(n) }", , itemArgs)   'nodeは`script.SharedId`で返る
 
         '4-4. 念のため、有効な`script.SharedId`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1180,7 +1180,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
             '4-5. 結果を`WebDriverBiDiElement.cls`に格納
             Set tElement = New WebDriverBiDiElement
-            tElement.InitBiDi mainBiDi, itemResultVarType, itemSharedId
+            tElement.Init main, itemResultVarType, itemSharedId
             getElementsByQuery.Add tElement
         End If
     Next
@@ -1257,7 +1257,7 @@ Public Function getElementByXPath(strXPath As String) As WebDriverBiDiElement
 
     '6. 結果を`WebDriverBiDiElement.cls`に格納
     Set getElementByXPath = New WebDriverBiDiElement
-    getElementByXPath.InitBiDi mainBiDi, JsResultVarType, sharedId, ElementByXPathSearchJS
+    getElementByXPath.Init main, JsResultVarType, sharedId, ElementByXPathSearchJS
 
     '7. 元の親`WebDriverBiDiElement.cls`を適用
     Set getElementByXPath.InitParentWebDriverBiDiElement(args) = Me
@@ -1326,7 +1326,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     Dim collRef As New Dictionary, collArgs(0) As Dictionary
     collRef.Add "handle", collHandle
     Set collArgs(0) = collRef
-    length_ = mainBiDi.jsEval("function(c){ return c.snapshotLength }", , collArgs)
+    length_ = main.jsEval("function(c){ return c.snapshotLength }", , collArgs)
 
     '7. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As WebDriverBiDiElement
@@ -1343,7 +1343,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         Set itemArgs(1) = itemArg
 
         '7-3. 引数付きで実行
-        itemResult = mainBiDi.jsEval("function(c, n){ return c.snapshotItem(n) }", , itemArgs)   'nodeは`script.SharedId`で返る
+        itemResult = main.jsEval("function(c, n){ return c.snapshotItem(n) }", , itemArgs)   'nodeは`script.SharedId`で返る
 
         '7-4. 念のため、有効な`script.SharedId`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1352,7 +1352,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
             '7-5. 結果を`WebDriverBiDiElement.cls`に格納
             Set tElement = New WebDriverBiDiElement
-            tElement.InitBiDi mainBiDi, itemResultVarType, itemSharedId
+            tElement.Init main, itemResultVarType, itemSharedId
             getElementsByXPath.Add tElement
         End If
     Next
@@ -1421,7 +1421,7 @@ Public Function GetShadowRoot() As WebDriverBiDiElement
 
     '4. `WebDriverBiDiElement`に必要な情報を継承して返却
     Set GetShadowRoot = New WebDriverBiDiElement
-    GetShadowRoot.InitBiDi mainBiDi, vbString, shadowRootSharedId   '※前述で、存在チェックしてるので、`vbString`直代入する
+    GetShadowRoot.Init main, vbString, shadowRootSharedId   '※前述で、存在チェックしてるので、`vbString`直代入する
 End Function
 
 '***************************************************************************************************
@@ -1471,7 +1471,7 @@ End Sub
 '* 注意事項：`context`は、`WebDriverBiDiContext.ExecuteBiDi`側で付与されます
 '***************************************************************************************************
 Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
-    Set ExecuteBiDi = mainBiDi.ExecuteBiDi(methodName, params, StopBiDiError)
+    Set ExecuteBiDi = main.ExecuteBiDi(methodName, params, StopBiDiError)
 End Function
 
 '***************************************************************************************************
@@ -1499,13 +1499,13 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
     If StrPtr(CurrentElement.sharedId) = 0 Then printMsg ERROR_, "This class does not have an sharedId assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '2. 実行
-    CDPHelpers.SetVar(jsEval) = mainBiDi.jsEval(JavaScriptStr, CurrentElement.sharedId, objectArguments, IFEXCEPTION, , _
+    CDPHelpers.SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.sharedId, objectArguments, IFEXCEPTION, , _
                                     Not returnByValue, _
                                     awaitPromise, _
                                     RunOption.userGesture, _
                                     serializationOptions, _
                                     returnByDetails, _
-                                    RunOption.RunAsync, _
+                                    RunOption.RunAsyncBiDi, _
                                     RunOption.StopException, _
                                     StopApiError)
 End Function
@@ -1606,8 +1606,8 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：必要な場面で使い終わったら必ず、`False`に戻すこと。面倒ごとになります
 '***************************************************************************************************
-Property Let SetOptionRunAsync(v As Boolean)
-    RunOption.RunAsync = v
+Property Let SetOptionRunAsyncBiDi(v As Boolean)
+    RunOption.RunAsyncBiDi = v
 End Property
 
 '***************************************************************************************************

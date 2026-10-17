@@ -697,7 +697,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：ID属性値で要素を検索し、`WebDriverBiDiElement`として返却します
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`CDPContext.getElementByID`のBiDi版です。返される`WebDriverBiDiElement`は、`InitBiDi`で初期化されます
+'* 詳細説明：`CDPContext.getElementByID`のBiDi版です。返される`WebDriverBiDiElement`は、`Init`で初期化されます
 '* 注意事項：`WebDriverBiDiElement`には、`getIFrame`(`WebDriverBiDiMode.getTab`を使用)と`GetShadowRoots`(`GetShadowRoot`を使用)がありません
 '***************************************************************************************************
 Public Function getElementByID(strID As String) As WebDriverBiDiElement
@@ -772,7 +772,7 @@ Private Function SearchElement(SearchJS As String) As WebDriverBiDiElement
 
     '3. 結果を`WebDriverBiDiElement.cls`に格納
     Set SearchElement = New WebDriverBiDiElement
-    SearchElement.InitBiDi Me, JsResultVarType, elementSharedId, SearchJS
+    SearchElement.Init Me, JsResultVarType, elementSharedId, SearchJS
 End Function
 
 '***************************************************************************************************
@@ -824,7 +824,7 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
             Set tElement = New WebDriverBiDiElement
-            tElement.InitBiDi Me, itemResultVarType, CStr(itemResult)
+            tElement.Init Me, itemResultVarType, CStr(itemResult)
             SearchElements.Add tElement
         End If
     Next
