@@ -237,3 +237,22 @@ End Sub
 Public Function GetCustomUA() As String
     GetCustomUA = Replace(Application.Name, " ", "") & "-VBA/7.1 (StarterWebScrapingKit)"
 End Function
+
+
+
+'***************************************************************************************************
+'                                 ■■■ 汎用ヘルパー ■■■
+'***************************************************************************************************
+'* 機能　　：`Set`,`Let`の使い分けを隠蔽します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBAは変数への代入時に値型・参照型でLet・Setを使い分ける必要があるため、そこを隠蔽するためのものです。
+'            https://qiita.com/nukie_53/items/bde16afd9a6ca789949d#%E5%A4%89%E6%95%B0%E3%81%B8%E4%BB%A3%E5%85%A5
+'* 注意事項：本来は`vbDataObject`も考慮するべきだがこのツールでは出現しないため、`IsObject`で簡易化
+'***************************************************************************************************
+Public Property Let SetVar(ByRef outVariable As Variant, ByRef inExpression As Variant)
+    If IsObject(inExpression) Then
+        Set outVariable = inExpression
+    Else
+        Let outVariable = inExpression
+    End If
+End Property

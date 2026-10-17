@@ -12,6 +12,7 @@ Attribute VB_Exposed = False
 '------------------------------------------------------------------------------------------------
 '       JavaScript操作の基となる`objectId`を使用した便利な様々な要素操作をまとめた物です。
 '  主に`querySelector`や`Xpath`、`ID`といった検索で得た要素(objectId)に対する操作アシストを担います。
+'  ※WebDriver BiDi版は、`WebDriverBiDiElement.cls`をご利用ください
 '
 ' Author(s)   :
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
@@ -276,20 +277,30 @@ Public Function sendClick() As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
 
-    'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
-    Dim x As Double, y As Double
+    'Viewport 内に収めてから、表示中の中心座標を取得（CDP の x/y は CSS ピクセル・数値必須）
+    Dim x As Long, y As Long
     jsEval "function(){ this.scrollIntoView(false) }"
+    InViewCenter x, y
 
-    '中心座標として返却
-    x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
-    y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
-
+    '中心座標へ移動 → 左ボタン押下 → 解放　※WebDriver BiDi(`input.performActions`)と同じ流れ
     Dim params As New Dictionary
+    params("type") = "mouseMoved"
+    params("x") = x
+    params("y") = y
+    params("button") = "none"
+    params("buttons") = 0
+    params("clickCount") = 0
+    params("pointerType") = "mouse"
+    ExecuteCDP "Input.dispatchMouseEvent", params
+
+    params.RemoveAll
     params("type") = "mousePressed"
     params("x") = x
     params("y") = y
     params("button") = "left"
+    params("buttons") = 1
     params("clickCount") = 1
+    params("pointerType") = "mouse"
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     params.RemoveAll
@@ -297,7 +308,9 @@ Public Function sendClick() As Boolean
     params("x") = x
     params("y") = y
     params("button") = "left"
+    params("buttons") = 0
     params("clickCount") = 1
+    params("pointerType") = "mouse"
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendClick = True
@@ -705,19 +718,20 @@ Public Function sendHover() As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
 
-    'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
-    Dim x As Double, y As Double
+    'Viewport 内に収めてから、表示中の中心座標を取得（CDP の x/y は CSS ピクセル・数値必須）
+    Dim x As Long, y As Long
     jsEval "function(){ this.scrollIntoView(false) }"
+    InViewCenter x, y
 
-    '中心座標として返却
-    x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
-    y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
-
-    '物理マウスをその要素の中心座標へ移動（これでホバー状態になる）
+    '物理マウスをその要素の中心座標へ移動（これでホバー状態になる）　※WebDriver BiDi(`input.performActions`)と同じ送信内容
     Dim params As New Dictionary
     params("type") = "mouseMoved"
     params("x") = x
     params("y") = y
+    params("button") = "none"
+    params("buttons") = 0
+    params("clickCount") = 0
+    params("pointerType") = "mouse"
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendHover = True
@@ -1625,6 +1639,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
                        Optional awaitPromise As Boolean, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
+                       Optional returnByDetails As Boolean, _
                        Optional StopApiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
@@ -1633,30 +1648,41 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
     If StrPtr(CurrentElement.objectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '2. 実行
-    SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
+    CDPHelpers.SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
                                     returnByValue, _
                                     awaitPromise, _
                                     RunOption.userGesture, _
                                     True, _
                                     serializationOptions, _
                                     generatePreview, _
+                                    returnByDetails, _
                                     RunOption.RunAsyncCDP, _
                                     RunOption.StopException, _
                                     StopApiError)
 End Function
 
 '***************************************************************************************************
-'* 機能　　：JavaScript実行結果にて`SET`or`LET`判定によるヘルパーメソッド
+'* 機能　　：このClassの要素の「表示中の部分」の中心座標(整数・CSSピクセル)を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：x, y   取得した座標を格納する変数(参照渡し)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebDriver BiDiの`input.performActions`(要素基準の移動)と同じ計算方法です
+'            `getClientRects()[0]`をビューポート内に切り詰めた上で、その中心を整数で求めます
+'* 注意事項：事前に`scrollIntoView`等で、要素をビューポート内に入れておくこと
 '***************************************************************************************************
-Private Property Let SetVar(ByRef outVariable As Variant, ByRef inExpression As Variant)
-    'IsObject で判定し、`Set`or`Let`で反映させる
-    '※特定のオブジェクト(`vbDataObject`)では`IsObject`が`False`になるが、そういったのは返さないので省略
-    If IsObject(inExpression) Then
-        Set outVariable = inExpression
-    Else
-        Let outVariable = inExpression
-    End If
-End Property
+Private Sub InViewCenter(ByRef x As Long, ByRef y As Long)
+    Const InViewCenterJS As String = "function(){" & _
+                                     "  const t = this.getClientRects()[0];" & _
+                                     "  const l = Math.max(0, Math.min(t.x, t.x + t.width)), r = Math.min(window.innerWidth, Math.max(t.x, t.x + t.width));" & _
+                                     "  const u = Math.max(0, Math.min(t.y, t.y + t.height)), d = Math.min(window.innerHeight, Math.max(t.y, t.y + t.height));" & _
+                                     "  return (l + ((r - l) >> 1)) + ',' + (u + ((d - u) >> 1));" & _
+                                     "}"
+
+    Dim xy() As String
+    xy = Split(jsEval(InViewCenterJS), ",")
+    x = CLng(xy(0))
+    y = CLng(xy(1))
+End Sub
 
 
 

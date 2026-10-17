@@ -182,7 +182,6 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
     '------------------ この`Context`のステータスの更新を行います ------------------
     Dim BiDiEventNode As BiDiCDPJson
-    Dim StartPos As Long, SearchWord As String
     Select Case methodName
         '------------------ `Context`自体の生存ステータス ------------------
         '`context`が消えた
@@ -300,7 +299,7 @@ End Property
 '* 返り値　：value属性の中身を評価して、Variant型で返却。実行したJavaScriptコード、引数:Ownership や、IFEXCEPTION に依存します。
 '* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
 '
-'            scriptHandle                   実行の基準`Handle ID`を指定します。これを指定すると`script.callFunction`として優先実行されます。
+'            scriptSharedId                 実行の基準`script.SharedId`を指定します。これを指定すると`script.callFunction`として優先実行されます。
 '
 '            objectArguments                これを指定すると`script.callFunction`として優先実行されます。
 '                                           予め、呼び出し側にて`Collection` OR `Array(... , ...)` OR `hoge(0) as Dictionary(Dictionary型 1次元配列)`で組み立てて渡してください。なお、後者ほどパフォーマンスが向上します
@@ -309,7 +308,7 @@ End Property
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
 '            RealmTarget                    `iframe`内で、JavaScript実行をしたいときに指定します。
 '
-'            Ownership                      True ：script.ResultOwnership = "root"として扱い、type:"object" 等の場合は、`{"handle": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`scriptHandle`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
+'            Ownership                      True ：script.ResultOwnership = "root"として扱い、type:"object" 等の場合は、`{"handle": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。`objectArguments`で`{"handle": ...}`として指定すると、再度`jsEval`で利用できます。※nodeの場合は、`script.SharedId`が優先して返ります「このJSコードは`SET`で...」という意識は不要です。
 '                                           False：script.ResultOwnership = "none"として扱い、type:"object" 等の場合でも、`value`で受け取れるように試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`True`に切り替えてください。
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
@@ -319,6 +318,10 @@ End Property
 '                                           False：特に施しません
 '
 '            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
+'
+'            returnByDetails                True ：専用のJavaScript実行結果関連情報Classオブジェトとして返却します。`script.RemoteValue`内のパラメーターとして呼ぶ必要がありますが、より詳細なパラメータ情報に`Get`として、アクセスしやすくします
+'                                           False：基本は、`script.RemoteValue - value`のみ返却し、優先順位に応じて最適な値を返します。VarType等である程度のJavaScript結果の型判定が可能です(既定)
+'                                           ※`RunAsyncBiDi:=True`時は無視されます
 '
 '            RunAsyncBiDi                   True ：結果を待たないBiDiで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
 '                                           False：結果を待つCDPで実行します。基本はこれでOK
@@ -337,10 +340,11 @@ End Property
 '            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
 '               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
 '
-'            ・`scriptHandle`や`objectArguments`を指定する`script.callFunction`方式の場合は、`JavaScriptStr`を 「function() { this... }」 形式で記述する必要があります
+'            ・`scriptSharedId`や`objectArguments`を指定する`script.callFunction`方式の場合は、`JavaScriptStr`を 「function() { this... }」 形式で記述する必要があります
+'            ・`scriptSharedId`はCDPの`ObjectID`と違い、要素操作専用です。要素以外の操作をしたい場合は、`objectArguments`側で`script.Handle`を手動で指定してください
 '
-'            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`scriptHandle`の設定問わずそのプリミティブ型の中身が返ります。
-'              常に`scriptHandle`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
+'            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`Ownership`の設定問わずそのプリミティブ型の中身が返ります。
+'              常に`script.SharedId`/`script.Handle`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
 '
 '            ・JavaScriptの場合、例外を利用した処理が多々あるため、運用時は`StopException`を省略しておくことを推奨します
 '            ・BiDi実行自体のエラーキャッチは常に`True`となります
@@ -348,12 +352,13 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 参考URL ：https://w3c.github.io/webdriver-bidi/#command-script-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional scriptSharedId As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
                        Optional RealmTarget As String, _
                        Optional Ownership As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional userActivation As Boolean, _
                        Optional serializationOptions As Dictionary, _
+                       Optional returnByDetails As Boolean, _
                        Optional RunAsyncBiDi As Boolean, _
                        Optional StopException As Boolean, _
                        Optional StopBiDiError As Boolean = True) As Variant
@@ -369,14 +374,16 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     Dim UseJsMethod As String
 
     ' 【パターン1】特定の要素を操作する場合
-    Dim RemoteReference As New Dictionary:
-    If StrPtr(scriptHandle) Then
+    Dim RemoteReference As New Dictionary
+    If StrPtr(scriptSharedId) Then
         UseJsMethod = "script.callFunction"
 
         '必要なパラメーターをセット
         BiDiparams.Add "functionDeclaration", JavaScriptStr
         If Not IsMissing(objectArguments) Then BiDiparams.Add "arguments", objectArguments  '引数があったら適用しておく
-        RemoteReference.Add "handle", scriptHandle: BiDiparams.Add "this", RemoteReference
+
+        '型情報をセットして、変数名に紐づし、基準をセット
+        RemoteReference.Add "sharedId", scriptSharedId: BiDiparams.Add "this", RemoteReference
 
     ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
     ElseIf Not IsMissing(objectArguments) Then
@@ -425,13 +432,16 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     '----------------------------------------------------------------------------------------
 
 
-    'JavaScript実行結果部分の解析フェーズに移ります -------------------------------------------------------------------------------------------
-    Dim strLogValue As String
+    'JavaScript実行結果部分の解析を委託 -------------------------------------------------------------------------------------------
+    Dim JsAnalysis As JsEvalResult
+    If returnByDetails Then Set JsAnalysis = New JsEvalResult Else Set JsAnalysis = JsEvalResult    '引数に応じて新規オブジェクトするか使い回すかをする
+    JsAnalysis.InitForReturnObject False, scriptEvaluateResult, IFEXCEPTION, JavaScriptStr          '※`IFEXCEPTION`は`Variant`なので、省略情報も引き継げるので、IF分岐せず直接代入
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
-    If scriptEvaluateResult.StringKey("type") = "exception" Then
+    Dim strLogValue As String
+    If JsAnalysis.isException Then
         '最後の詳細例外情報を記録
-        Set lastExceptionDetailsJS = scriptEvaluateResult.NodeKey("exceptionDetails")
+        Set lastExceptionDetailsJS = JsAnalysis.rawException
 
         '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
         strLogValue = LogFormat(JavaScriptStr, 100)
@@ -443,7 +453,10 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
             '`StopException`が無効の場合は、簡易部分の例外内容を出す
-            printMsg WARN_, "ExceptionDescription: " & lastExceptionDetailsJS.StringKey("text"), FromProcedureName
+            printMsg WARN_, "ExceptionDescription: " & JsAnalysis.ExceptionText, FromProcedureName
+
+            '詳細モードの場合は一律、専用オブジェクトとして返却し、抜けます
+            If returnByDetails Then Set jsEval = JsAnalysis: Exit Function
 
             '返り値判定
             If IsMissing(IFEXCEPTION) Then
@@ -462,16 +475,18 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     End If
 
     'If the return type has a specific type we can return the result -------------------------------------------
-    Dim tmp
-    If JSresultAnalysis(scriptEvaluateResult.NodeKey("result"), tmp) Then
-        Set jsEval = tmp
+    If returnByDetails Then
+        '詳細モードの場合は、先ほどの結果オブジェクトを渡して、抜ける
+        Set jsEval = JsAnalysis
+        Exit Function
     Else
-        Let jsEval = tmp
+        If JsAnalysis.ResultTypeForVBA = vbObject Then Set jsEval = JsAnalysis.value Else jsEval = JsAnalysis.value
     End If
     '-----------------------------------------------------------------------------------------------------------
 
     'Output to Immediate Window if enabled -------------------------------------------------------------------
     ' VarTypeを使って型ごとにログ用の文字列を作る
+    '※primitive values の場合は、結果値も付ける
     Select Case VarType(jsEval)
         Case vbDouble
             strLogValue = "[Double] " & jsEval
@@ -495,98 +510,6 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     ' 最終的なデバッグ出力　※実行scriptも、100文字以内にしておく
     printMsg Debug_, "Script executed: " & LogFormat(JavaScriptStr, 100) & " | Returned: " & strLogValue, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
-
-End Function
-
-'***************************************************************************************************
-'* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：scriptRemoteValue  `script.RemoteValue`でのJson-Nodeを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
-'            ReturnValue        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
-'
-'* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：返す優先順位は、`script.Handle` > `value`です
-'***************************************************************************************************
-Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef ReturnValue As Variant) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
-
-
-    '------------------------ 1. 特定項目有無チェック ------------------------
-    ' 格納型情報を取得
-    Dim ValueType   As String: ValueType = scriptRemoteValue.StringKey("type")
-
-    '`script.Handle`があったらそれを優先に返します。
-    '※type=object系で、`resultOwnership`:="root"時、ここを通ります
-    If scriptRemoteValue.ExistsKey("handle") Then
-        ReturnValue = scriptRemoteValue.StringKey("handle")
-        printMsg info_, "JS-Return type: " & ValueType, FromProcedureName
-        printMsg info_, "It is returned as script.Handle.", FromProcedureName
-        printMsg Debug_, "handle: " & ReturnValue, FromProcedureName
-
-        Exit Function
-    End If
-
-
-    '------------------------ 2. JsonNodeの取得を試みる ------------------------
-    '参考：https://w3c.github.io/webdriver-bidi/#type-script-RemoteValue
-    '以降は、`resultOwnership:="none"`でないと通りません
-    printMsg info_, "JS-Return type: " & ValueType, FromProcedureName
-
-    Select Case ValueType
-        Case "symbol", "function", "weakmap", "weakset", "generator", "error", "proxy", "promise", "typedarray", "arraybuffer"
-            '`value`がないので、`Nothing`として返却
-            Set ReturnValue = Nothing
-            printMsg WARN_, "`" & ValueType & "` cannot be returned as a `value`.", FromProcedureName
-
-        Case "array", "object", "map", "set", "nodelist", "htmlcollection", "window", "regexp", "node"
-            'Json文字列として生成されるので、Node形式のObjectとして返却
-            Set ReturnValue = scriptRemoteValue.NodeKey("value")
-
-        Case "undefined"
-            ' JSの undefined は VBAでは Empty が一番近い
-            ReturnValue = Empty
-
-        Case "null"
-            ReturnValue = Null
-
-        Case "string"
-            ' 文字列として認識するように返す
-            ReturnValue = scriptRemoteValue.StringKey("value")
-
-        Case "number"
-            '1. 一旦おまかせで取る
-            ReturnValue = scriptRemoteValue("value")
-
-            '2. VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で上書き
-            If VarType(ReturnValue) = vbString Then
-                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & ReturnValue, FromProcedureName
-                ReturnValue = CVErr(xlErrNum)
-            Else
-                ReturnValue = CDbl(ReturnValue)
-            End If
-
-        Case "boolean"
-            ' boolean型として認識するように返す
-            ReturnValue = scriptRemoteValue.BoolKey("value")
-
-        Case "bigint"
-            ' BigInt は JSON に変換できない巨大整数のため、値を文字列としてそのまんま返却します
-            ReturnValue = scriptRemoteValue.StringKey("value")
-            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue, FromProcedureName
-
-        Case "date"
-            'BiDiの場合、`date`は文字列として返却されるため、VBAの`vbDate`として返してあげる
-            ReturnValue = UtcConverter.ParseIso(scriptRemoteValue.StringKey("value"))
-
-        Case Else
-            'ドキュメント化されてない型があったら、安全のため。止めておく
-            printMsg ERROR_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName, doRaiseError:=True
-
-    End Select
-
-    'SETステートメントするかの判定を用意する
-    JSresultAnalysis = IsObject(ReturnValue)
 
 End Function
 
@@ -769,6 +692,152 @@ End Property
 
 
 '***************************************************************************************************
+'                           ■■■ `WebDriverBiDiElement.cls`継承準備 ■■■
+'***************************************************************************************************
+'* 機能　　：ID属性値で要素を検索し、`WebDriverBiDiElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`CDPContext.getElementByID`のBiDi版です。返される`WebDriverBiDiElement`は、`Init`で初期化されます
+'* 注意事項：`WebDriverBiDiElement`には、`getIFrame`(`WebDriverBiDiMode.getTab`を使用)と`GetShadowRoots`(`GetShadowRoot`を使用)がありません
+'***************************************************************************************************
+Public Function getElementByID(strID As String) As WebDriverBiDiElement
+    Set getElementByID = SearchElement("document.getElementById(""" & strID & """)")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：XPathで要素を検索し、`WebDriverBiDiElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`CDPContext.getElementByXPath`のBiDi版です。XPathの書き方は、そちらの例を参照してください
+'***************************************************************************************************
+Public Function getElementByXPath(strXPath As String) As WebDriverBiDiElement
+    'People normally get this wrong when using XPath
+    If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
+
+    Set getElementByXPath = SearchElement("document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：XPathで要素を複数検索し、`WebDriverBiDiElement`のコレクションとして返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：`WebDriverBiDiElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 注意事項：・コレクションのIndexは、1始まりです
+'            ・複数検索の場合、返される`WebDriverBiDiElement.cls`でのポーリング関連のメソッドはご利用できません
+'***************************************************************************************************
+Public Function getElementsByXPath(strXPath As String) As Collection
+    'People normally get this wrong when using XPath
+    strXPath = Replace(strXPath, "\", "/")
+
+    Set getElementsByXPath = SearchElements("document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)", _
+                                            "function(c){ return c.snapshotLength }", _
+                                            "function(c, n){ return c.snapshotItem(n) }")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：QuerySelectorで要素を検索し、`WebDriverBiDiElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`CDPContext.getElementByQuery`のBiDi版です。セレクターの書き方は、そちらの例を参照してください
+'***************************************************************************************************
+Public Function getElementByQuery(strQuery As String) As WebDriverBiDiElement
+    Set getElementByQuery = SearchElement("document.querySelector(""" & strQuery & """)")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：QuerySelectorAllで要素を複数検索し、`WebDriverBiDiElement`のコレクションとして返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：`WebDriverBiDiElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 注意事項：・コレクションのIndexは、1始まりです
+'            ・複数検索の場合、返される`WebDriverBiDiElement.cls`でのポーリング関連のメソッドはご利用できません
+'***************************************************************************************************
+Public Function getElementsByQuery(strQuery As String) As Collection
+    Set getElementsByQuery = SearchElements("document.querySelectorAll(""" & (strQuery) & """)", _
+                                            "function(c){ return c.length }", _
+                                            "function(c, n){ return c.item(n) }")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`WebDriverBiDiElement`に格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：SearchJS   検索JavaScript。`WebDriverBiDiElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
+'* 詳細説明：nodeは`Ownership`の指定なしでも`script.SharedId`が返るため、そのまま実行します。要素がない場合は`Null`が返るため、`vbNull`として格納されます
+'***************************************************************************************************
+Private Function SearchElement(SearchJS As String) As WebDriverBiDiElement
+    '1. 検索実行
+    Dim resultSearch As Variant
+    resultSearch = jsEval(SearchJS)
+
+    '2. 結果を判定。文字型なら、`script.SharedId`を確保
+    Dim elementSharedId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then elementSharedId = resultSearch
+
+    '3. 結果を`WebDriverBiDiElement.cls`に格納
+    Set SearchElement = New WebDriverBiDiElement
+    SearchElement.Init Me, JsResultVarType, elementSharedId, SearchJS
+End Function
+
+'***************************************************************************************************
+'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`WebDriverBiDiElement`に格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：SearchJS   コレクション(NodeList/XPathResult等)を返す検索JavaScript
+'            LengthJS   コレクションの要素数を返す`function(c){ return c... }`         ※`c`はコレクション
+'            ItemJS     n番目の要素を返す`function(c, n){ return c...(n) }`           ※`c`はコレクション
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：コレクションはnodeではないため`script.SharedId`を持たず、`script.Handle`で受け取ります
+'            `scriptSharedId`は要素専用のため、コレクションは`objectArguments`の第1引数として渡します
+'***************************************************************************************************
+Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS As String) As Collection
+    '1. 検索実行
+    Dim resultsSearch As Variant
+    resultsSearch = jsEval(SearchJS, Ownership:=True)
+
+    '2. 結果を判定。文字型なら、コレクションの`script.Handle`を確保。ない場合は、即抜け
+    Dim collHandle As String
+    If VarType(resultsSearch) = vbString Then collHandle = resultsSearch Else Exit Function
+
+    '3. コレクションを引数として渡すための参照(`script.RemoteReference`)を用意
+    Dim collRef As New Dictionary
+    collRef.Add "handle", collHandle
+
+    '4. 要素数を取得
+    Set SearchElements = New Collection
+    Dim length_ As Long, N As Long
+    Dim lengthArgs(0) As Dictionary
+    Set lengthArgs(0) = collRef
+    length_ = jsEval(LengthJS, objectArguments:=lengthArgs)
+
+    '5. 要素数分、ループで順次取得していく
+    Dim tElement As WebDriverBiDiElement
+    Dim itemArgs(1) As Dictionary, itemArg As Dictionary
+    Dim itemResult As Variant, itemResultVarType As VbVarType
+    Set itemArgs(0) = collRef
+    For N = 0 To length_ - 1
+        '5-1. `script.callFunction`に渡す引数(`script.LocalValue`形式)をセット
+        Set itemArg = New Dictionary
+        itemArg.Add "value", N: itemArg.Add "type", "number"
+        Set itemArgs(1) = itemArg
+
+        '5-2. 引数付きで実行　※nodeは`script.SharedId`で返る
+        itemResult = jsEval(ItemJS, objectArguments:=itemArgs)
+
+        '5-3. 念のため、有効な`script.SharedId`かチェックし、`WebDriverBiDiElement.cls`に格納
+        itemResultVarType = VarType(itemResult)
+        If itemResultVarType = vbString Then
+            Set tElement = New WebDriverBiDiElement
+            tElement.Init Me, itemResultVarType, CStr(itemResult)
+            SearchElements.Add tElement
+        End If
+    Next
+
+    '6. 用済みとなったコレクションの`script.Handle`を非同期解放
+    Dim paramsDisown As New Dictionary, scriptTarget As New Dictionary
+    scriptTarget.Add "context", InfoList.context
+    paramsDisown.Add "handles", Array(collHandle)
+    paramsDisown.Add "target", scriptTarget
+    m_BiDiMode.ExecuteBiDiAsync "script.disown", paramsDisown, False
+End Function
+
+
+
+'***************************************************************************************************
 '                                   ■■■ BiDi+ ■■■
 '***************************************************************************************************
 '* 機能　　：現在のContext(タブ等)に対して、`CDPContext`オブジェクトに変換します
@@ -855,15 +924,6 @@ Public Sub Init(br As WebDriverBiDiMode, Core As WebDriverBiDiCore)
     Set m_BiDiMode = br
     Set m_BiDiCore = Core
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：自作の拡張Class以外では、使うことはありません
-'***************************************************************************************************
-Property Get ExEventCore() As WebDriverBiDiCore
-    Set ExEventCore = m_BiDiCore
-End Property
 
 '***************************************************************************************************
 '* 機能　　：`browsingContext.getTree`等で得た`context`を適用させます

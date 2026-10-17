@@ -25,6 +25,13 @@ Private Const ThisClassName         As String = "WebDriverBiDiMode" 'ログの�
 
 
 '***************************************************************************************************
+'                                 ■■■ 拡張用イベント定義 ■■■
+'***************************************************************************************************
+Public Event ExEvent(methodName As String, RawJson As String)    'BiDi全般非同期イベント(拡張用)
+
+
+
+'***************************************************************************************************
 '                                 ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 'WebDriverBiDi制御用コアクラスオブジェクト
@@ -725,16 +732,18 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
     End Select
 
+    '2. 拡張用Classへのイベント発信
+    RaiseEvent ExEvent(methodName, RawJson)
 
-    '------------------ 2. 非同期イベントを収集します ------------------
-    '2-1. イベントキャプチャしない場合は、即抜け
+    '------------------ 3. 非同期イベントを収集します ------------------
+    '3-1. イベントキャプチャしない場合は、即抜け
     If m_Events Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2-2. パース処理
+    '3-2. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
-    '2-3. 専用のプロシージャにて、蓄積処理
+    '3-3. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived m_Events, tmp, methodName
 End Sub
@@ -1028,15 +1037,6 @@ End Property
 '***************************************************************************************************
 Property Let SetBiDiPlusChannel(ChannelStr As String)
     GoogChannel = ChannelStr
-End Property
-
-'***************************************************************************************************
-'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：自作の拡張Class以外では、使うことはありません
-'***************************************************************************************************
-Property Get ExEventCore() As WebDriverBiDiCore
-    Set ExEventCore = m_BiDiCore
 End Property
 
 
