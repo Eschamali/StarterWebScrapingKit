@@ -5,8 +5,7 @@ Attribute VB_Name = "Test_CDPElement_ShadowDOM"
 '     TOP層 → getElementByXPathでShadow-Root手前の要素(host)を発見
 '           → GetShadowRootでShadow-Root(open/close)内に侵入（通り抜けフープ）
 '           → 侵入先のShadow-Root内で、TOP層版(Test_CDPElement.bas)と同じテストケースを実施
-' ・ShadowDOM圏内では document.evaluate によるXPath検索が機能しないため、
-'   getElementByXPath / getElementsByXPath 関連のテストケースはこのファイルでは除外しています。
+' ・Shadow-Root内のXPath検索（getElementByXPath / getElementsByXPath）は、SD⑱で確認しています。
 ' ・open/closedどちらのShadow-Rootも、GetShadowRootが返すCDPElementの扱いは同一（CDPの
 '   DOM.describeNode(pierce:=True)経由で侵入するため、closed特有の分岐は不要）。
 ' ・HTML: ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html
@@ -63,6 +62,7 @@ Public Sub RunAll_CDPElement_ShadowDOM_Tests()
     Test15_Diagnostics_And_Options br, rootOpen, rootClosed
     Test16_SendHover br, rootOpen, rootClosed
     Test17_HoverReveal_Click br, rootOpen, rootClosed
+    Test18_XPath br, rootOpen, rootClosed
 
     PrintHeader "テスト結果: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
 
@@ -328,7 +328,7 @@ End Sub
 ' ※ShadowDOM圏内ではdocument.evaluateが機能しないため、getElementsByXPathは対象外
 '==============================================================================
 Private Sub Test11_GetChildren_ElementsByQuery(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
-    PrintSection "SD⑪ getChildren / getElementsByQuery（XPathは対象外）"
+    PrintSection "SD⑪ getChildren / getElementsByQuery"
 
     RunCollectionTest rootOpen, "open"
     RunCollectionTest rootClosed, "closed"
@@ -352,7 +352,7 @@ End Sub
 ' ※ShadowDOM圏内ではdocument.evaluateが機能しないため、getElementByXPathは対象外
 '==============================================================================
 Private Sub Test12_ElementByID_Query_Scoped(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
-    PrintSection "SD⑫ getElementByID / getElementByQuery（スコープ検索、XPathは対象外）"
+    PrintSection "SD⑫ getElementByID / getElementByQuery（スコープ検索）"
 
     RunScopedSearchTest rootOpen, "open"
     RunScopedSearchTest rootClosed, "closed"
@@ -543,6 +543,50 @@ Private Sub RunHoverRevealTest(root As CDPElement, modeLabel As String)
     AssertTrue "[" & modeLabel & "] ホバー後、ボタンがクリック可能になること(DOM安定待機)" & IIf(waitResult = "OK", "", " / " & waitResult), (waitResult = "OK")
     revealBtn.sendClick
     AssertEq "[" & modeLabel & "] ホバー→sendClick後のクリック回数", revealBtn.getAttribute("data-clickcount"), "1"
+End Sub
+
+'==============================================================================
+' SD⑱ XPath検索（getElementByXPath / getElementsByXPath）
+' ・Shadow-Root起点：`./○○`(直下) / `.//○○`(配下の子孫) で検索できること
+'   ※内部では、Shadow-Rootの最初の子ノードを起点に、先頭へ`.`を足して評価している
+' ・先頭が`/`の場合は、先頭に`.`が自動付与され、相対検索になること
+' ・Shadow-Root内の要素起点：通常の相対XPathで検索できること
+' ・XPathで得た要素でも、onExist / onExistNot のポーリングが機能すること
+'==============================================================================
+Private Sub Test18_XPath(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
+    PrintSection "SD⑱ getElementByXPath / getElementsByXPath（Shadow-Root内）"
+
+    RunXPathTest rootOpen, "open"
+    RunXPathTest rootClosed, "closed"
+End Sub
+
+Private Sub RunXPathTest(root As CDPElement, modeLabel As String)
+    '1. Shadow-Root起点（単一取得）
+    AssertEq "[" & modeLabel & "] Shadow-Root起点 `./`(直下)", root.getElementByXPath("./span[@class='shadow-content']").innerText, "Shadow content (" & modeLabel & ")"
+    AssertEq "[" & modeLabel & "] Shadow-Root起点 `.//`(子孫)", root.getElementByXPath(".//ul[@id='sCollectionList']/li[3]").innerText, "C"
+    AssertEq "[" & modeLabel & "] Shadow-Root起点 `//`(`.`自動付与)", root.getElementByXPath("//li[@data-n='2']").innerText, "B"
+    AssertEq "[" & modeLabel & "] Shadow-Root起点 `\`区切り補正", root.getElementByXPath(".\\div[@id='sTraversalParent']\div[1]").getAttribute("id"), "sChild1"
+    AssertFalse "[" & modeLabel & "] Shadow-Root起点 存在しないXPathはisExist=False", root.getElementByXPath(".//li[@data-n='99']").isExist
+
+    '2. Shadow-Root起点（複数取得）
+    Dim itemsFromRoot As Collection: Set itemsFromRoot = root.getElementsByXPath(".//li[@class='list-item']")
+    AssertEq "[" & modeLabel & "] Shadow-Root起点 getElementsByXPathの件数", CStr(itemsFromRoot.Count), "5"
+    AssertEq "[" & modeLabel & "] Shadow-Root起点 getElementsByXPath[5]のdata-n", itemsFromRoot(5).getAttribute("data-n"), "5"
+
+    '3. Shadow-Root内の要素起点
+    Dim ul As CDPElement: Set ul = root.getElementByXPath(".//ul[@id='sCollectionList']")
+    AssertEq "[" & modeLabel & "] 要素起点 getElementByXPath", ul.getElementByXPath("./li[@data-n='4']").innerText, "D"
+    AssertEq "[" & modeLabel & "] 要素起点 getElementsByXPathの件数", CStr(ul.getElementsByXPath("./li").Count), "5"
+
+    '4. XPathで得た要素でのポーリング（親情報＋引数付きの再検索）
+    root.getElementByID("sBtnAddDynamic").click
+    Dim dyn As CDPElement: Set dyn = root.getElementByXPath(".//*[@id='sDynamicElement']")
+    Set dyn = dyn.onExist(timeOutInSeconds:=5, raiseTimeoutError:=False)
+    AssertTrue "[" & modeLabel & "] XPath検索でのonExist成功", Not (dyn Is Nothing)
+    If Not (dyn Is Nothing) Then
+        root.getElementByID("sBtnRemoveDynamic").click
+        AssertTrue "[" & modeLabel & "] XPath検索でのonExistNot成功", dyn.onExistNot(timeOutInSeconds:=5)
+    End If
 End Sub
 
 '==============================================================================
