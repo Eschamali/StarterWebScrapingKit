@@ -113,7 +113,6 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
     For t = 1 To NUM_TABS
         tabStates(t).Index = t
 
-        tabs(t).ExecuteCDP "Page.enable"
         tabs(t).ExecuteCDP "Network.enable"
         tabs(t).SetFilterEvents = "Page.loadEventFired"
         tabs(t).SetFilterEvents = "Network.requestWillBeSent"
