@@ -209,7 +209,16 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
             .show False
         End With
     Else
+        
+        '------ 一般ルート ------
         Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        '------------------------
+
+        '---- マニュアルルート---
+'        Set chrome = New CDPBrowser
+'        chrome.OpenBrowser BrowserCapabilities
+        '------------------------
+        
         Set tabs(1) = chrome.getTab(setMain:=True)
     End If
 
