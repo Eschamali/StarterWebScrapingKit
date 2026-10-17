@@ -454,9 +454,8 @@ Private Function InitCDP(strExec As String, showWindowMode As WinState) As Long
     '  > Edge は Windows 上で再起動する可能性があり (msRelaunchNoCompatLayer)、その際にファイルディスクリプタ (stdout/stderr) と CDP (3/4) が失われます。上流で修正されるまで無効にします。
     'このツールの場合は、根本原因である環境変数側で、対処します。`Playwright`の方針に従い、上流で修正されるまで、この戦法を適用します。
     Dim envBlock As LongPtr, creationFlags As Long
-    creationFlags = NORMAL_PRIORITY_CLASS
     If CreateEnvironmentBlock(envBlock, 0, 0&) Then
-        creationFlags = creationFlags Or CREATE_UNICODE_ENVIRONMENT
+        creationFlags = NORMAL_PRIORITY_CLASS Or CREATE_UNICODE_ENVIRONMENT
     Else
         envBlock = 0
         printMsg WARN_, "CreateEnvironmentBlock failed, so the browser will inherit Excel's environment variables. ErrorCode:" & Err.LastDllError, ThisClassName & ".InitCDP"
