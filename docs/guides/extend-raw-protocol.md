@@ -240,7 +240,7 @@ mode.SetBiDiPlusChannel = "MyTask"   ' 以降のBiDiコマンドすべてに`"go
 
 ## UpgradeBiDiPlus
 
-トンネルではなく、同じタブを `CDPContext` として扱う方法です（`BiDi+`化）。`CDPElement` 一式が使えます。
+トンネルではなく、同じタブを `CDPContext` として扱う方法です（`BiDi+`化）。`CDPElement` 一式が使えます。なお、要素のクリック・入力などは、BiDi のままでも [`WebDriverBiDiElement`](/api/bidi/WebDriverBiDiElement) で行えます。CDP 独自の機能（`getIFrame` など）が必要なときに使ってください。
 
 ```vb
 Dim cdp As CDPContext

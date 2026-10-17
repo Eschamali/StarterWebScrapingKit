@@ -78,11 +78,11 @@ Playwright: server/page.ts（共通実装）
 | --- | --- | --- |
 | ブラウザ | `CDPBrowser` | `WebDriverBiDiMode` |
 | ページ | `CDPContext` | `WebDriverBiDiContext` |
-| 要素 | `CDPElement` | （CDP に変換して使う） |
+| 要素 | `CDPElement` | `WebDriverBiDiElement` |
 
-BiDi 側から要素を細かく触りたい場合は `UpgradeBiDiPlus` で CDP 側へ橋渡しします。これは「抽象化する代わりに、相互変換で繋ぐ」というアプローチです。
+`CDPElement` と `WebDriverBiDiElement` は、**同じ名前のメソッドを持つ別クラス**です。呼び出し側のコードはほぼ同じ形で書けますが、型としては別物なので、1つの変数で両方を受けることはできません。CDP 独自の機能が必要なときは、`UpgradeBiDiPlus` で CDP 側へ橋渡しします。これは「抽象化する代わりに、相互変換で繋ぐ」というアプローチです。
 
-VBA にも `Implements` によるインターフェースはあり（キット内でも `IWebAuthenticator.cls` で使われています）、抽象化自体は不可能ではありません。採用していないのは、**BiDi 側の要素操作 API がまだ CDP 側ほど成熟していない**という現実的な事情によるものです。ここは Puppeteer / Playwright に対して明確に劣る点として認識しておくべきところです。
+VBA にも `Implements` によるインターフェースはあり（キット内でも `IWebAuthenticator.cls` で使われています）、抽象化自体は不可能ではありません。ただし、CDP と BiDi には仕様差もあります（BiDi には `getIFrame` / `GetShadowRoots` に当たる機能がなく、`jsEval` の引数も異なる）。共通のインターフェースで1つの型として扱える Puppeteer / Playwright に対しては、ここが明確に劣る点として認識しておくべきところです。
 
 ## 4. 逆に VBA が有利な一点 ―― プロパティ構文
 

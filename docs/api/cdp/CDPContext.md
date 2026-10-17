@@ -431,11 +431,22 @@ hWnd 系 [`showWindowMode`](#showwindowmode) の引数に渡す列挙です。[S
 ### `jsEval`
 
 ```vb
-Public Function jsEval(JavaScriptStr As String, Optional objectId As String, _
-    Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, ...) As Variant
+Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
+    Optional contextId As Long, Optional returnByValue As Boolean, Optional awaitPromise As Boolean, Optional userGesture As Boolean, _
+    Optional allowUnsafeEvalBlockedByCSP As Boolean = True, Optional serializationOptions As Dictionary, Optional generatePreview As Boolean, _
+    Optional returnByDetails As Boolean, _
+    Optional RunAsyncCDP As Boolean, Optional StopException As Boolean, Optional StopApiError As Boolean = True) As Variant
 ```
 
 ページ上で JavaScript を評価します。例外時は `IsError(result)` で判定し、詳細は [`LastJavaScriptException`](#lastjavascriptexception) を参照してください。代替値で済ませたい場合は `IFEXCEPTION` を使います。
+
+`returnByDetails:=True` にすると、値だけでなく、型・`objectId`・例外情報などをまとめた [`JsEvalResult`](./JsEvalResult) を返します（`Set` で受けてください）。
+
+```vb
+Dim r As JsEvalResult
+Set r = t.jsEval("document.body", returnByDetails:=True)
+Debug.Print r.ResultType, r.ResultSubtype, r.ClassName   ' object / node / HTMLBodyElement
+```
 
 `objectArguments` は `Collection` / `Array(...)` / 固定長の `Dictionary` 型 1 次元配列（`Dim args(0) As Dictionary`）のいずれでも渡せます。**固定長配列の方がパフォーマンスが良い**ため、ループ内などで多用する場合は固定長配列を推奨します。
 
@@ -857,13 +868,30 @@ t.ThisCDPBrowser.ExecuteCDP "Extensions.loadUnpacked", params
 t.ThisCDPBrowser.CloseBrowser
 ```
 
-### `ExEventCore`
+### `ExEvent`（イベント）
 
 ```vb
-Property Get ExEventCore() As CDPCore
+Public Event ExEvent(methodName As String, RawJson As String)
 ```
 
-自作の拡張クラスで、CDP の非同期イベント（`RaiseEvent`）を `WithEvents` で受け取るときに使う、上級者向けの通信コア（`CDPCore`）への参照です。自作の拡張クラス以外では使いません。受け取り方の使い分けは [イベント購読](/guides/events) を参照してください。
+自作の拡張クラス向けのイベントです。**このタブ宛て**の CDP 非同期イベントが届くたびに発生します。`methodName` はイベント名（例：`Page.loadEventFired`）、`RawJson` は受信した JSON 文字列そのものです。拡張クラスで `WithEvents` を付けて保持すると受け取れます。
+
+```vb
+Private WithEvents ex_CDPContext As CDPContext
+
+Friend Sub Init(Inheritance As CDPContext)
+    Set ex_CDPContext = Inheritance
+End Sub
+
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
+    Select Case methodName
+        Case "Page.downloadWillBegin"
+            Debug.Print RawJson
+    End Select
+End Sub
+```
+
+ブラウザ単位のイベント（`Target.targetCreated` など）は、[`CDPBrowser`](./CDPBrowser) の `ExEvent` で受け取ります。受け取り方の使い分けは [イベント購読](/guides/events) を参照してください。
 
 ## デバッグ
 

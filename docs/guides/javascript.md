@@ -50,19 +50,19 @@ result = t.jsEval("notDefined.x", IFEXCEPTION:="fallback")
 
 ## 3 つの実行パターン
 
-`objectId` / `scriptHandle` や `objectArguments` の有無で、内部メソッドが切り替わります。
+`objectId` / `scriptSharedId` や `objectArguments` の有無で、内部メソッドが切り替わります。
 
 | パターン | CDP | BiDi | `JavaScriptStr` の書き方 |
 | --- | --- | --- | --- |
-| 1. 基準オブジェクトあり | `Runtime.callFunctionOn`（`objectId`） | `script.callFunction`（`scriptHandle`） | `function () { this... }` 形式 |
+| 1. 基準オブジェクトあり | `Runtime.callFunctionOn`（`objectId`） | `script.callFunction`（`scriptSharedId`。要素のみ） | `function () { this... }` 形式 |
 | 2. 引数だけ安全に渡す | `Runtime.callFunctionOn`（`objectArguments`） | `script.callFunction`（`objectArguments`） | 同上 |
 | 3. ただのコード実行 | `Runtime.evaluate` | `script.evaluate` | 通常の式／文 |
 
 ```vb
-' パターン1: 既存 objectId / handle に対して関数実行
+' パターン1: 既存 objectId / sharedId に対して関数実行
 result = t.jsEval( _
     "function () { return this.textContent; }", _
-    objectId:=oid)          ' BiDi なら scriptHandle:=hid
+    objectId:=oid)          ' BiDi なら scriptSharedId:=sid（要素のみ）
 
 ' パターン3: 単純評価
 result = t.jsEval("1 + 1")
@@ -80,7 +80,7 @@ result = t.jsEval("1 + 1")
 | 目的 | CDP | BiDi |
 | --- | --- | --- |
 | 実行コード | `JavaScriptStr` | 同左 |
-| 基準オブジェクト | `objectId` | `scriptHandle` |
+| 基準オブジェクト | `objectId` | `scriptSharedId`（要素のみ） |
 | 関数引数 | `objectArguments` | 同左 |
 | 例外時の代替値 | `IFEXCEPTION` | 同左 |
 | iframe など実行場所 | `contextId`（`objectId` 指定時は無視） | `RealmTarget` |
@@ -88,6 +88,7 @@ result = t.jsEval("1 + 1")
 | 人間操作としての偽装 | `userGesture` | `userActivation` |
 | シリアライズ細調整 | `serializationOptions` | 同左 |
 | 結果を待たない実行 | `RunAsyncCDP`（戻り値は実行 id） | `RunAsyncBiDi`（戻り値は実行 id） |
+| 詳細な結果を受け取る | `returnByDetails`（[`JsEvalResult`](/api/cdp/JsEvalResult) を返す） | 同左 |
 | JS 例外で VBE 停止 | `StopException`（開発時向け） | 同左 |
 | 通信エラーで停止 | `StopApiError`（既定 `True`） | `StopBiDiError`（既定 `True`） |
 
@@ -97,7 +98,7 @@ result = t.jsEval("1 + 1")
 
 | | CDP `returnByValue` | BiDi `Ownership` |
 | --- | --- | --- |
-| 参照 id を得る（次回 `jsEval` に流用） | `False`（既定）→ `objectId` 文字列 | `True` → `handle` 文字列（`resultOwnership: "root"`） |
+| 参照 id を得る（次回 `jsEval` に流用） | `False`（既定）→ `objectId` 文字列 | 要素は既定で `sharedId` 文字列。要素以外は `True` → `handle` 文字列（`resultOwnership: "root"`） |
 | 値として受け取る | `True` → `value` を試みる | `False`（既定）→ `value` を試みる（`resultOwnership: "none"`） |
 
 - プリミティブ型の結果は、上記設定に関わらず中身が返ります
@@ -111,11 +112,19 @@ Dim oid As String
 oid = t.jsEval("document.body", returnByValue:=False)
 result = t.jsEval("function () { return this.tagName; }", objectId:=oid)
 
-' BiDi: handle を保持
-Dim hid As String
-hid = t.jsEval("document.body", Ownership:=True)
-result = t.jsEval("function () { return this.tagName; }", scriptHandle:=hid)
+' BiDi: 要素は sharedId を保持（解放不要）
+Dim sid As String
+sid = t.jsEval("document.body")
+result = t.jsEval("function () { return this.tagName; }", scriptSharedId:=sid)
+
+' BiDi: 要素以外は handle を保持し、引数（script.RemoteReference）で渡す
+Dim hid As String, args(0) As Dictionary
+hid = t.jsEval("[1, 2, 3]", Ownership:=True)
+Set args(0) = New Dictionary: args(0).Add "handle", hid
+result = t.jsEval("function (a) { return a.length; }", objectArguments:=args)
 ```
+
+BiDi では、要素は `script.SharedId`、それ以外のオブジェクトは `script.Handle` と、参照が2種類あります。`scriptSharedId` に渡せるのは要素の `sharedId` だけです。
 
 ### その他のスイッチ
 
@@ -125,6 +134,25 @@ result = t.jsEval("function () { return this.tagName; }", scriptHandle:=hid)
 - **`serializationOptions`**: 意地でも `value` で受け取るための細かい調整。指定時は CDP の `returnByValue` は無視されます
 - **`generatePreview`（CDP）**: `objectId` の中身をプレーンテキストでプレビュー。ログレベルを DEBUG 以下に。開発時向け
 - **`RunAsyncCDP` / `RunAsyncBiDi`**: 結果を待たず実行 id のみ返す。「この操作、`alert` が発動するな…」という場面向け。回収は [低レイヤーガイド](/guides/extend-raw-protocol) / [イベント購読](/guides/events) 参照
+
+## 詳細な結果を受け取る（`returnByDetails`）
+
+ふだんの `jsEval` は値だけを返します。値や `VarType` だけでは判断しにくいとき（BiDi で返ったのが `sharedId` か `handle` か、JS 側の型は何か、例外の行番号は、など）は、`returnByDetails:=True` を付けます。戻り値が [`JsEvalResult`](/api/cdp/JsEvalResult) になるので、`Set` で受けます。
+
+```vb
+Dim r As JsEvalResult
+Set r = t.jsEval("notDefined.x", returnByDetails:=True)
+
+If r.isException Then
+    Debug.Print r.ExceptionText, r.ExceptionLineNumber
+Else
+    Debug.Print r.ResultType, r.value
+End If
+```
+
+- `value` は、ふだんの `jsEval` の戻り値と同じです
+- BiDi は W3C 仕様の都合で、CDP より受け取れる情報が少なめです（`ClassName` / `Description` / `objectId` などは空）
+- 非同期実行（`RunAsyncCDP` / `RunAsyncBiDi`）のときは無視されます
 
 ## 例外とエラーの見分け
 

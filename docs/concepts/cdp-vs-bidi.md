@@ -12,7 +12,7 @@ description: Chrome DevTools Protocol（CDP）と WebDriver BiDi の違い・選
 | --- | --- | --- |
 | 入口 | `StartCDPModeContext` | `StartBiDiModeContext` |
 | ページ型 | `CDPContext` | `WebDriverBiDiContext` |
-| 要素型 | `CDPElement`（充実） | 高レベル要素 API は限定。`jsEval` か CDP 変換 |
+| 要素型 | `CDPElement` | `WebDriverBiDiElement`（CDPElement とほぼ同じメソッド。`getIFrame` / `GetShadowRoots` はなし） |
 | イベント | `BrowserEvents` + `Network.enable` 等 | `SubscribeBiDiEvent` + `BiDiEvents` |
 | 生コマンド | `ExecuteCDP` | `ExecuteBiDi` |
 | 公式仕様 | [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) | [WebDriver BiDi](https://w3c.github.io/webdriver-bidi/) |
@@ -55,6 +55,6 @@ cdpTab.getElementByQuery("button").click
 
 1. [はじめに](/getting-started) で CDP Hello World
 2. 同じ操作を BiDi でも試す（コードグループ参照）
-3. 要素操作が必要な画面は CDP（または `UpgradeBiDiPlus`）
+3. 要素操作は、CDP は `CDPElement`、BiDi は `WebDriverBiDiElement` で同じように書けます。CDP 独自の機能が必要な画面は CDP（または `UpgradeBiDiPlus`）
 
 迷ったら **CDP を主、BiDi をイベント／将来互換用** で問題ありません。

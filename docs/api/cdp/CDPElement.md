@@ -150,7 +150,7 @@ Public Function sendClick() As Boolean
 ```
 
 座標ベースの物理クリック相当です（`Input.dispatchMouseEvent`）。JS の `dispatchEvent` では反応しない UI 向け。  
-中心としてクリックします。
+要素の、画面に見えている部分の中心へマウスを移動（`mouseMoved`）してから、押す（`mousePressed`）・離す（`mouseReleased`）の順で送ります。実際のマウス操作と同じ流れなので、ホバー判定のある UI でも反応します。
 
 ```vb
 t.getElementByQuery("canvas#map").sendClick
@@ -162,7 +162,7 @@ t.getElementByQuery("canvas#map").sendClick
 Public Function sendHover() As Boolean
 ```
 
-要素の中心座標へ物理的なマウスホバーをシミュレートします（`Input.dispatchMouseEvent` の `mouseMoved`）。JS の `dispatchEvent` では反応しない、CSS の `:hover` で出現するメニューやツールチップなど向けです。呼び出し前に `scrollIntoView` で自動的にビューポート内へ収めます。
+要素の、画面に見えている部分の中心へ、物理的なマウスホバーをシミュレートします（`Input.dispatchMouseEvent` の `mouseMoved`）。JS の `dispatchEvent` では反応しない、CSS の `:hover` で出現するメニューやツールチップなど向けです。呼び出し前に `scrollIntoView` で自動的にビューポート内へ収めます。
 
 ```vb
 t.getElementByQuery(".menu-item").sendHover
@@ -614,8 +614,11 @@ If root.CurrentNodeType = NodeDOCUMENT_FRAGMENT_NODE Then Debug.Print "Shadow Ro
 Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Variant, _
     Optional IFEXCEPTION As Variant, Optional returnByValue As Boolean, _
     Optional awaitPromise As Boolean, Optional serializationOptions As Dictionary, _
-    Optional generatePreview As Boolean, Optional StopApiError As Boolean = True) As Variant
+    Optional generatePreview As Boolean, Optional returnByDetails As Boolean, _
+    Optional StopApiError As Boolean = True) As Variant
 ```
+
+`returnByDetails:=True` にすると、結果の詳細を [`JsEvalResult`](./JsEvalResult) で返します（`Set` で受けてください）。
 
 この要素の `objectId` を `this` として JavaScript を評価します。[`CDPContext.jsEval`](./CDPContext#jseval) の要素スコープ版で、クラス内の他メソッドも内部的にこれ経由で実装されています。用意されたメソッドで足りない操作をしたいときの逃げ道として使えます。
 

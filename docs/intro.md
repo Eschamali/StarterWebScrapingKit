@@ -29,7 +29,7 @@ VBAで、ChromeやEdgeを動かすと思い浮かぶのが、`SeleniumVBA`や`Se
 | --- | --- | --- |
 | Browser | [`CDPBrowser`](/api/cdp/CDPBrowser) | [`WebDriverBiDiMode`](/api/bidi/WebDriverBiDiMode) |
 | Page | [`CDPContext`](/api/cdp/CDPContext) | [`WebDriverBiDiContext`](/api/bidi/WebDriverBiDiContext) |
-| Locator / Element | [`CDPElement`](/api/cdp/CDPElement) | 当面は `jsEval` または [`UpgradeBiDiPlus`](/api/bidi/WebDriverBiDiContext#upgradebidiplus) |
+| Locator / Element | [`CDPElement`](/api/cdp/CDPElement) | [`WebDriverBiDiElement`](/api/bidi/WebDriverBiDiElement) |
 
 入口は設定シート経由のワンライナーです。
 
@@ -97,7 +97,7 @@ t.ThisCDPBrowser.CloseBrowser
 ## どちらを使うか
 
 迷ったら **CDP** から始めてください。要素操作（`CDPElement`）が揃っており、デモも豊富です。  
-W3C BiDi 寄りに寄せたい、将来標準を先取りしたい場合は **BiDi**。足りない操作は `UpgradeBiDiPlus` や BiDi+（`goog:cdp.sendCommand`）で CDP に落とせます。  
+W3C BiDi 寄りに寄せたい、将来標準を先取りしたい場合は **BiDi**。要素操作は `WebDriverBiDiElement` で CDP とほぼ同じように書けます。足りない操作は `UpgradeBiDiPlus` や BiDi+（`goog:cdp.sendCommand`）で CDP に落とせます。  
 詳細は [CDP と BiDi](/concepts/cdp-vs-bidi) を参照。  
 
 ## こんな方におすすめ

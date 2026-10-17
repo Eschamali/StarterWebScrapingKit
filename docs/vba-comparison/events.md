@@ -27,14 +27,14 @@ Public Event CDPContextEvent(methodName As String, RawJson As String, sessionID 
 Public Event CDPContextID(id As Long, RawJson As String, sessionID As String)              'タブに対するCDPコマンド結果
 ```
 
-`method` があるか / `id` があるか、そして `sessionId` があるかないか。CDP のプロトコル構造そのものが、そのままイベントのシグネチャの違いとして表現されています。受け取る側は `WithEvents` で購読するだけです。
+`method` があるか / `id` があるか、そして `sessionId` があるかないか。CDP のプロトコル構造そのものが、そのままイベントのシグネチャの違いとして表現されています。
+
+ただし、`CDPCore.cls` は内部の通信コアで、拡張する側からは直接触れません。`CDPContext` / `CDPBrowser` がこのイベントを受け取って自分の処理を済ませたあと、拡張用のイベント `ExEvent` として発信し直します。`CDPContext` の `ExEvent` には、**そのタブ宛てのイベントだけ**が届きます。受け取る側は `WithEvents` で購読するだけです。
 
 ```vb
-Private WithEvents ex_CDPCore As CDPCore
+Private WithEvents ex_CDPContext As CDPContext
 
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
-    If CurrentSessionId <> sessionID Then Exit Sub   ' このタブ以外は捨てる
-
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
     Select Case methodName
         Case "お好きなmethod名"
             ' ここに自分の処理を書くだけ
@@ -42,7 +42,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
 End Sub
 ```
 
-これは `ForDevelopers/TemplateExtensions/CDP/Normal/exCDP_Template.cls` の雛形そのままです。**コア本体（`CDPCore.cls`）を一切編集せず**、新しいクラスファイルを1つインポートするだけで拡張が成立します。
+これは `ForDevelopers/TemplateExtensions/CDP/Normal/exCDP_Template.cls` の雛形そのままです。**本体のクラスを一切編集せず**、新しいクラスファイルを1つインポートするだけで拡張が成立します。
 
 ## VBAChromeDevProtocol ―― 登録制コールバック
 
@@ -94,7 +94,7 @@ Private eventHandlers As Dictionary
 
 `Dictionary` なので、同じイベント名に2つ目を登録すると1つ目が黙って上書きされます。戻り値で旧ハンドラを受け取れるため手動でチェーンは組めますが、自動ではありません。**複数の拡張機能が同時に `Page.frameNavigated` を見たい**というケースでは、自分で連鎖処理を書く必要があります。
 
-`WithEvents` の側はここが逆で、同じ `CDPCore` インスタンスに何個でも独立した購読者を貼れます。拡張クラスAとBが両方同じイベントを見ても、互いに干渉しません。
+`WithEvents` の側はここが逆で、同じ `CDPContext` / `CDPBrowser` インスタンスに何個でも独立した購読者を貼れます。拡張クラスAとBが両方同じイベントを見ても、互いに干渉しません。
 
 ### バインディングが命名規約ベース
 

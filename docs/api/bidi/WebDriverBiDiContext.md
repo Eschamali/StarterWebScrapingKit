@@ -15,7 +15,7 @@ t.ThisWebDriverBiDiMode.CloseBrowser
 
 親は [`ThisWebDriverBiDiMode`](#thiswebdriverbidimode)（[`WebDriverBiDiMode`](./WebDriverBiDiMode)）です。日常利用では設定シート経由の `StartBiDiModeContext` を推奨します。
 
-要素のクリック／入力など高レベル API は CDP 側が充実しています。必要なら [`UpgradeBiDiPlus`](#upgradebidiplus) で変換してください。
+要素のクリック／入力などは、`getElementByQuery` などで取得した [`WebDriverBiDiElement`](./WebDriverBiDiElement) で行います。CDP 独自の機能が必要な場合は、[`UpgradeBiDiPlus`](#upgradebidiplus) で同じタブを `CDPContext` に変換できます。
 
 ## 起動・再接続
 
@@ -165,7 +165,7 @@ Public Sub ResetWaitState()
 
 ```vb
 Public Function jsEval(JavaScriptStr As String, _
-    Optional scriptHandle As String, _
+    Optional scriptSharedId As String, _
     Optional objectArguments As Variant, _
     Optional IFEXCEPTION As Variant, _
     Optional RealmTarget As String, _
@@ -173,6 +173,7 @@ Public Function jsEval(JavaScriptStr As String, _
     Optional awaitPromise As Boolean, _
     Optional userActivation As Boolean, _
     Optional serializationOptions As Dictionary, _
+    Optional returnByDetails As Boolean, _
     Optional RunAsyncBiDi As Boolean, _
     Optional StopException As Boolean, _
     Optional StopBiDiError As Boolean = True) As Variant
@@ -183,14 +184,15 @@ Public Function jsEval(JavaScriptStr As String, _
 | 引数 | 意味 |
 | --- | --- |
 | `JavaScriptStr` | 実行する JS（そのまま送る） |
-| `scriptHandle` | 基準ハンドル。指定時は `script.callFunction`（`function(){ this... }` 形式） |
+| `scriptSharedId` | `this` にする要素の `script.SharedId`。指定時は `script.callFunction`（`function(){ this... }` 形式）。**要素専用**です。要素以外のオブジェクトを使う場合は、`objectArguments` で `script.Handle` を渡します |
 | `objectArguments` | 引数（`Collection` / `Array(...)` / 固定長 `Dictionary` 型 1 次元配列）。指定時も `callFunction` 優先。固定長配列の方がパフォーマンスが良い |
 | `IFEXCEPTION` | JS 例外時の代替値（IFERROR チック） |
 | `RealmTarget` | iframe 等の realm を指定して実行したいとき |
-| `Ownership` | `True` で `resultOwnership: "root"`（次回の `scriptHandle` に流用可能な handle を返す） |
+| `Ownership` | `True` で `resultOwnership: "root"`。要素以外のオブジェクトは `script.Handle` で返り、次回の `objectArguments` に流用できます |
 | `awaitPromise` | Promise 完了まで待つか |
 | `userActivation` | 人間操作として偽装するか（スクレイピング対策向け） |
 | `serializationOptions` | 意地でも `value` で受け取るための細かい調整 |
+| `returnByDetails` | `True` で、値の代わりに [`JsEvalResult`](/api/cdp/JsEvalResult)（型・`sharedId`・`handle`・例外情報など）を返します。`Set` で受けてください |
 | `RunAsyncBiDi` | `True` で結果を待たず実行 id のみ返す |
 | `StopException` | JS 例外で停止するか（開発時向け） |
 | `StopBiDiError` | BiDi 通信エラーで停止するか。既定は `True` |
@@ -202,13 +204,52 @@ Debug.Print result
 
 result = t.jsEval("notDefined.x", IFEXCEPTION:="fallback")
 
-' handle を保持して次の呼び出しに流用
-Dim hid As String
-hid = t.jsEval("document.body", Ownership:=True)
-result = t.jsEval("function () { return this.tagName; }", scriptHandle:=hid)
+' 要素（node）は script.SharedId で返る。this にして呼び出す
+Dim sid As String
+sid = t.jsEval("document.body")
+result = t.jsEval("function () { return this.tagName; }", scriptSharedId:=sid)
+
+' 要素以外（配列など）は Ownership:=True で script.Handle を受け取り、引数で渡す
+Dim hid As String, args(0) As Dictionary
+hid = t.jsEval("[1, 2, 3]", Ownership:=True)
+Set args(0) = New Dictionary: args(0).Add "handle", hid
+result = t.jsEval("function (a) { return a.length; }", objectArguments:=args)
+
+' 値・型・参照 ID などをまとめて受け取る
+Dim r As JsEvalResult
+Set r = t.jsEval("document.body", returnByDetails:=True)
+Debug.Print r.ResultType, r.sharedId          ' node / (sharedId)
 ```
 
 例外時は `IsError(result)` で判定します。詳細は [JavaScript 実行](/guides/javascript)。
+
+## 要素の取得
+
+検索結果を [`WebDriverBiDiElement`](./WebDriverBiDiElement) で返します。クリック・入力・存在待ちなど、`CDPElement` とほぼ同じメソッドで操作できます。
+
+```vb
+Public Function getElementByID(strID As String) As WebDriverBiDiElement
+Public Function getElementByQuery(strQuery As String) As WebDriverBiDiElement
+Public Function getElementsByQuery(strQuery As String) As Collection
+Public Function getElementByXPath(strXPath As String) As WebDriverBiDiElement
+Public Function getElementsByXPath(strXPath As String) As Collection
+```
+
+```vb
+t.getElementByQuery("input[name='q']").value = "検索語"
+t.getElementByXPath("//button[text()='検索']").click
+
+Dim item As WebDriverBiDiElement
+For Each item In t.getElementsByQuery("ul.result > li")
+    Debug.Print item.innerText
+Next
+```
+
+- 複数系（`getElementsBy*`）の `Collection` は1始まりです。検索自体に失敗した場合は `Nothing` を返します
+- iframe 内の要素は、[`WebDriverBiDiMode.getTab`](./WebDriverBiDiMode) の `maxDepth:=1` で iframe を取得してから検索します
+- Shadow DOM は、ホスト要素の `GetShadowRoot` で1段ずつ辿ります
+
+詳しくは [`WebDriverBiDiElement`](./WebDriverBiDiElement) / [要素の取得](/guides/selectors) を参照してください。
 
 ## BiDi+ への橋渡し
 
@@ -359,13 +400,9 @@ t.ThisWebDriverBiDiMode.TimeOutSecond = 60
 t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
-### `ExEventCore`
-
-```vb
-Property Get ExEventCore() As WebDriverBiDiCore
-```
-
-自作の拡張クラスで、BiDi の非同期イベント（`RaiseEvent`）を `WithEvents` で受け取るときに使う、上級者向けの通信コア（`WebDriverBiDiCore`）への参照です。自作の拡張クラス以外では使いません。
+::: tip 拡張クラスでイベントを受け取るには
+このクラスにはイベントがありません。自作の拡張クラスでは、親の [`WebDriverBiDiMode`](./WebDriverBiDiMode) の `ExEvent` を `WithEvents` で受け取ってください。
+:::
 
 ## タイムアウト
 

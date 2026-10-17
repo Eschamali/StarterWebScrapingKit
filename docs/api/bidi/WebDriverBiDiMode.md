@@ -483,13 +483,25 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
 `navigationStarted` / `domContentLoaded` / `load` の購読も同時に行うようになりました（[`WaitEvents`](/api/bidi/WebDriverBiDiContext#waitevents) によるイベント駆動の読み込み待機のため）。
 :::
 
-### `ExEventCore`
+### `ExEvent`（イベント）
 
 ```vb
-Property Get ExEventCore() As WebDriverBiDiCore
+Public Event ExEvent(methodName As String, RawJson As String)
 ```
 
-自作の拡張クラスで、BiDi の非同期イベント（`RaiseEvent`）を `WithEvents` で受け取るときに使う、上級者向けの通信コア（`WebDriverBiDiCore`）への参照です。自作の拡張クラス以外では使いません。
+自作の拡張クラス向けのイベントです。購読中の BiDi 非同期イベント（`browsingContext.load`、`network.beforeRequestSent` など）が届くたびに発生します。BiDi のイベントはブラウザ全体で1本なので、タブ単位のイベントもここに届きます。対象のタブは `RawJson` の `params.context` で判定してください。
+
+```vb
+Private WithEvents ex_BiDiMode As WebDriverBiDiMode
+
+Friend Sub Init(Inheritance As WebDriverBiDiContext)
+    Set ex_BiDiMode = Inheritance.ThisWebDriverBiDiMode
+End Sub
+
+Private Sub ex_BiDiMode_ExEvent(methodName As String, RawJson As String)
+    If methodName = "browsingContext.userPromptOpened" Then Debug.Print RawJson
+End Sub
+```
 
 ## 関連
 

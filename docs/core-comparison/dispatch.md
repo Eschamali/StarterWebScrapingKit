@@ -155,13 +155,13 @@ Public Event CDPContextID(id As Long, RawJson As String, sessionID As String)   
 
 Playwright / Puppeteer はどちらも（独自拡張込みで）`EventEmitter` を使い、`Map<event, Handler[]>` の形で1つのイベントに複数のリスナーを保持します。
 
-VBA 側は `RaiseEvent` / `WithEvents` という COM のコネクションポイント機構です。実装方式はまったく違いますが、**「同一イベントに複数の購読者がぶら下がれる」という性質は同等**です。同じ `CDPCore` インスタンスに対して、独立した拡張クラスを何個でも貼れます。
+VBA 側は `RaiseEvent` / `WithEvents` という COM のコネクションポイント機構です。実装方式はまったく違いますが、**「同一イベントに複数の購読者がぶら下がれる」という性質は同等**です。`CDPCore` のイベントは、`CDPBrowser` / `CDPContext` が受け取って、拡張用の `ExEvent` として発信し直します。同じ `CDPBrowser` / `CDPContext` インスタンスに対して、独立した拡張クラスを何個でも貼れます。
 
 ```vb
-' 拡張クラス側。コア（CDPCore.cls）は一切編集しない
-Private WithEvents ex_CDPCore As CDPCore
+' 拡張クラス側。本体のクラスは一切編集しない
+Private WithEvents ex_CDPBrowser As CDPBrowser
 
-Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
+Private Sub ex_CDPBrowser_ExEvent(methodName As String, RawJson As String)
     Select Case methodName
         Case "Browser.downloadWillBegin"
             ' ← 自分の処理を書く

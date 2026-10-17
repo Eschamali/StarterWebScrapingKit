@@ -127,17 +127,19 @@ export default withMermaid(
           ]
         },
         {
-          text: 'API — オプションオブジェクト',
+          text: 'API — 共通',
           items: [
             { text: 'BrowserCapabilities（起動）', link: '/api/cdp/BrowserCapabilities' },
-            { text: 'ReattachOptions（再接続）', link: '/api/cdp/ReattachOptions' }
+            { text: 'ReattachOptions（再接続）', link: '/api/cdp/ReattachOptions' },
+            { text: 'JsEvalResult（JavaScriptの詳細結果）', link: '/api/cdp/JsEvalResult' }
           ]
         },
         {
           text: 'API — WebDriver BiDi',
           items: [
             { text: 'WebDriverBiDiMode', link: '/api/bidi/WebDriverBiDiMode' },
-            { text: 'WebDriverBiDiContext', link: '/api/bidi/WebDriverBiDiContext' }
+            { text: 'WebDriverBiDiContext', link: '/api/bidi/WebDriverBiDiContext' },
+            { text: 'WebDriverBiDiElement', link: '/api/bidi/WebDriverBiDiElement' }
           ]
         },
         {
@@ -169,7 +171,8 @@ export default withMermaid(
             { text: 'このツールの誕生秘話', link: '/stories/birth-story' },
             { text: 'BiDi 登場秘話', link: '/stories/bidi-story' },
             { text: 'WebView2 登場秘話', link: '/stories/webview2-story' },
-            { text: 'オプションオブジェクト 登場秘話', link: '/stories/option-object-story' }
+            { text: 'オプションオブジェクト 登場秘話', link: '/stories/option-object-story' },
+            { text: 'BiDi要素ヘルパー 登場秘話', link: '/stories/bidi-element-story' }
           ]
         },
         {

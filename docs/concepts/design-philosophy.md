@@ -22,7 +22,7 @@ description: 「最小の核」と「AIトッピング」による設計思想�
 
 「このサイトでこの操作をしたい」という個別の欲求（ニーズ）に対しては、AI を最強のシェフとして召喚します。
 
-本ツールの [拡張用フォーマット](https://github.com/Eschamali/StarterWebScrapingKit/blob/dev/ForDevelopers/TemplateExtensions/CDP/Normal/exCDP_Template.cls) と、同梱の「Demo コード一式」を AI に渡してください。
+本ツールの [拡張用フォーマット](https://github.com/Eschamali/StarterWebScrapingKit/blob/dev-xlflow/ForDevelopers/TemplateExtensions/CDP/Normal/exCDP_Template.cls) と、同梱の「Demo コード一式」を AI に渡してください。
 
 ## 結論：作る側の「美学」と、使う側の「自由」
 

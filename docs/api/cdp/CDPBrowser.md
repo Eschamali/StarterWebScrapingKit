@@ -357,7 +357,7 @@ b.TimeOutSecond = 60
 | `CurrentBrowserUser`（Get） | 起動中ブラウザのユーザーデータ識別名称 |
 | `CurrentBrowseruserAgent`（Get） | 起動中ブラウザの`User-Agent`値（接続時に `Browser.getVersion` から取得してキャッシュしたもの） |
 | `UseCustomUAMode`（Get） | このツールのサインを `User-Agent` に追記する設定が有効か（起動時は `BrowserCapabilities.Set_EnableUserAgentOverride`、再接続時は `ReattachOptions.Set_EnableUserAgentOverride` で決まる） |
-| `ExEventCore`（Get） | 自作の拡張クラスで、CDP の非同期イベントを `WithEvents` で受け取るときに使う、上級者向けの通信コア（`CDPCore`）。自作の拡張クラス以外では使いません |
+| `ExEvent`（イベント） | `Event ExEvent(methodName As String, RawJson As String)`。自作の拡張クラス向けに、ブラウザ単位の CDP 非同期イベント（`Target.targetCreated` など）を通知します。`Private WithEvents ex_CDPBrowser As CDPBrowser` で受け取ります。タブ宛てのイベントは [`CDPContext`](./CDPContext) の `ExEvent` です |
 | `sleep` | 秒待ち |
 | `TimerCounter` | 経過ミリ秒。`Timer` 関数の代わりに自前ループのタイムアウト判定へ。[タイムアウト設定方法について](/guides/timeout) |
 | `serializeForMainTab` | メインタブの session/target を記録 |

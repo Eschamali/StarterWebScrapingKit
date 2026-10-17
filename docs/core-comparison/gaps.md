@@ -20,7 +20,7 @@ Playwright は3ブラウザエンジン × 数百本のテストを CI で常時
 
 ### キット側にもテストはある
 
-数こそ少ないものの、`dev` ブランチの [`ForDevelopers/OperationCheck/`](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/OperationCheck) には検証コード一式が置かれています。
+数こそ少ないものの、`dev-xlflow` ブランチの [`ForDevelopers/OperationCheck/`](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev-xlflow/ForDevelopers/OperationCheck) には検証コード一式が置かれています。
 
 | モジュール | 規模 | 内容 |
 | --- | --- | --- |
