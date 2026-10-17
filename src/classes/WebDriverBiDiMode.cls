@@ -25,6 +25,13 @@ Private Const ThisClassName         As String = "WebDriverBiDiMode" 'ログの�
 
 
 '***************************************************************************************************
+'                                 ■■■ 拡張用イベント定義 ■■■
+'***************************************************************************************************
+Public Event ExEvent(methodName As String, RawJson As String)    'BiDi全般非同期イベント(拡張用)
+
+
+
+'***************************************************************************************************
 '                                 ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 'WebDriverBiDi制御用コアクラスオブジェクト
@@ -75,27 +82,24 @@ Private CustomUAMode    As Boolean      'このツール独自のユーザーエ
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：userProfile                起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
-'            appUrl                     起動引数：`--app`につけるURLを指定します
-'            SplashScreenMode           `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
-'            addArgs                    追加の起動引数
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：caps   ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '***************************************************************************************************
-Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary) As String
+Public Function OpenBrowser(caps As BrowserCapabilities) As String
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_BiDiCore = caps.ClsGet_WebDriverBiDiCore
+    
+    '2. 起動後に使う設定値を確保
+    CustomUAMode = caps.Set_EnableUserAgentOverride
+    Dim sessionCapabilitiesRequest As Dictionary: Set sessionCapabilitiesRequest = caps.Set_BiDiSessionCapabilitiesRequest
 
+    '3. WebDriverBiDi としてブラウザを起動させる
+    OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(caps)
 
-    '1. 初期化処理
-    Set m_BiDiCore = New WebDriverBiDiCore
-
-    '2. WebDriverBiDi としてブラウザを起動させる
-    OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
-
-    '3. BiDi との新しいセッションを確立する
+    '4. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-    '4. 接続先ブラウザ情報をログで表示
+    '5. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Function
 
@@ -197,32 +201,37 @@ End Sub
 '* 機能　　：Excelテーブルにある既存のBiDiMapperタブ,パイプハンドル情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：reattachInfo               リアタッチ系のオプションオブジェクト
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Sub reattach(reattachInfo As ReattachOptions, Optional sessionCapabilitiesRequest As Dictionary)
+Public Sub reattach(reattachInfo As ReattachOptions)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 「BiDi-CDP Mapper」への再接続処理
-    Set m_BiDiCore = New WebDriverBiDiCore
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_BiDiCore = reattachInfo.ClsGet_WebDriverBiDiCore
+
+    '2. Mapper再起動後に使う設定値を確保
+    Dim sessionCapabilitiesRequest As Dictionary: Set sessionCapabilitiesRequest = reattachInfo.Set_BiDiSessionCapabilitiesRequest
+    CustomUAMode = reattachInfo.Set_EnableUserAgentOverride
+
+    '3. Mapper再起動を行うか内部で、判定する
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(reattachInfo)
 
-    '2. デバッグセッション有無判定
+    '4. デバッグセッション有無判定
     '※Chromiumの場合、現時点(v17.0.2)では、常に`False`ですが、行儀よく行います
     Dim DebugSessionStatus As Boolean
     DebugSessionStatus = sessionStatus.BoolKey("ready")
 
-    '3. 結果に応じて`session.new`を行う
+    '5. 結果に応じて`session.new`を行う
     Dim resultBiDi As BiDiCDPJson
     If requestSessionNew Or DebugSessionStatus Then
-        '2-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
+        '5-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
         Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-        '2-2. 接続先ブラウザ情報をログで表示
+        '5-2. 接続先ブラウザ情報をログで表示
         ViewNewSession resultBiDi
     End If
 End Sub
@@ -262,8 +271,8 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
     Set newTab = New WebDriverBiDiContext
     With newTab
-        '4. このBiDi情報を渡す
-        Set .ThisWebDriverBiDiMode = Me
+        '4. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, m_BiDiCore
 
         '5. 先ほど得た`context`を渡す
         .context = bidiRes.StringKey("context")
@@ -321,8 +330,8 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
                 EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
                 Set getTab = New WebDriverBiDiContext
                 With getTab
-                    '4. このBiDi情報を渡す
-                    Set .ThisWebDriverBiDiMode = Me
+                    '4. アクティブなプロトコルオブジェクトを渡す
+                    .Init Me, m_BiDiCore
 
                     '5. 先ほど得た`context`を渡す
                     .context = matchData("context")
@@ -442,7 +451,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     End If
 
     '6. デバッグ用に、As Is 出力
-    If m_BiDiCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -723,16 +732,18 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
     End Select
 
+    '2. 拡張用Classへのイベント発信
+    RaiseEvent ExEvent(methodName, RawJson)
 
-    '------------------ 2. 非同期イベントを収集します ------------------
-    '2-1. イベントキャプチャしない場合は、即抜け
+    '------------------ 3. 非同期イベントを収集します ------------------
+    '3-1. イベントキャプチャしない場合は、即抜け
     If m_Events Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2-2. パース処理
+    '3-2. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
-    '2-3. 専用のプロシージャにて、蓄積処理
+    '3-3. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived m_Events, tmp, methodName
 End Sub
@@ -917,7 +928,7 @@ End Sub
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
 '***************************************************************************************************
 Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJson
-    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+    '`session.new`の`Parameters`が省略されてる場合は、空規定値を作成する
     If params Is Nothing Then
         Set params = New Dictionary
         params.Add "capabilities", New Dictionary
@@ -1031,24 +1042,13 @@ End Property
 
 
 '***************************************************************************************************
-'                              ■■■ 複製用プロパティ ■■■
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ります
-'***************************************************************************************************
-Property Get ThisBiDiCore() As WebDriverBiDiCore
-    Set ThisBiDiCore = m_BiDiCore
-End Property
-
-
-
-'***************************************************************************************************
 '                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, m_BiDiCore.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -1082,9 +1082,6 @@ End Sub
 '                         ■■■ このClassオブジェクト生成時のアクション ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
     m_LogID = "BDID" & Format(Rnd * 1000, "000")
 
@@ -1093,7 +1090,4 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandBiDi = New Dictionary
-
-    '独自のユーザーエージェントを付与するか
-    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub

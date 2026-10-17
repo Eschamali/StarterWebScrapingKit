@@ -48,6 +48,15 @@ Private Declare PtrSafe Function CreateProcess Lib "kernel32" Alias "CreateProce
     lpStartupInfo As Any, _
     lpProcessInformation As Any) As Long
 
+'----- 子プロセスに渡す環境変数ブロック関連 -----
+Private Declare PtrSafe Function CreateEnvironmentBlock Lib "userenv" ( _
+    lpEnvironment As LongPtr, _
+    ByVal hToken As LongPtr, _
+    ByVal bInherit As Long) As Long
+
+Private Declare PtrSafe Function DestroyEnvironmentBlock Lib "userenv" ( _
+    ByVal lpEnvironment As LongPtr) As Long
+
 '----- パイプ通信関連 -----
 Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
     phReadPipe As LongPtr, _
@@ -161,6 +170,7 @@ End Enum
 Private Const STARTF_USESTDHANDLES  As Long = &H100&
 Private Const NORMAL_PRIORITY_CLASS As Long = &H20&
 Private Const STARTF_USESHOWWINDOW  As Long = &H1&
+Private Const CREATE_UNICODE_ENVIRONMENT As Long = &H400&   '`lpEnvironment`がUTF-16の環境変数ブロックであることを示す
 
 'その他
 Private Const ThisClassName             As String = "CDPCore"   'ログのトレース用
@@ -204,10 +214,6 @@ End Type
 Private responseCDP     As ResponseBufferCDP
 Private CDPPipeStream   As Object   'Pipeバイトストリームオブジェクト
 
-'ログ設定状況
-Private currentLog  As StateLog
-Private m_LogID As String
-
 'パイプ関連のエラー番号
 Private Type ErrorCode
     PeekNamedPipe   As Long
@@ -239,6 +245,7 @@ Private DictionarySessionID As Dictionary
 Private m_NullTerminator(0) As Byte                     'バイト配列で送るヌル文字用
 Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 Private m_UserName          As String                   'セッション情報を記録する際の識別名称
+Private m_LogID             As String                   'ログ識別ID
 
 
 
@@ -315,7 +322,9 @@ Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
     End If
 
     '6. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
     Set caps = Nothing
+    Set BrowserCapabilities = Nothing
 End Function
 
 '***************************************************************************************************
@@ -436,11 +445,24 @@ Private Function InitCDP(strExec As String, showWindowMode As WinState) As Long
         .lpReserved2 = VarPtr(pipes2)
     End With
 
-    result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
+    '-------------------------------------------------------------------------------------------------------------------------------------
+    '起動元(Git Bash等)が付与した環境変数を引き継がないよう、システム環境変数のみの環境変数ブロックで起動する
+    '※例：`__COMPAT_LAYER`を引き継ぐと、ブラウザが自身を再起動し、`remote-debugging-pipe`のハンドルが失われる
+    '※`hToken:=0`でシステム環境変数のみ、`bInherit:=False`でExcelの環境変数を引き継がない。作成失敗時は、従来通りExcelの環境変数を引き継ぐ
+    '[Playwright](https://github.com/microsoft/playwright/issues/36292)もこの問題を認知済み
+    '> https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/server/chromium/chromiumSwitches.ts#L92
+    '  > Edge は Windows 上で再起動する可能性があり (msRelaunchNoCompatLayer)、その際にファイルディスクリプタ (stdout/stderr) と CDP (3/4) が失われます。上流で修正されるまで無効にします。
+    'このツールの場合は、根本原因である環境変数側で、対処します。`Playwright`の方針に従い、上流で修正されるまで、この戦法を適用します。
+    Dim envBlock As LongPtr, creationFlags As Long
+    If CreateEnvironmentBlock(envBlock, 0, 0&) Then
+        creationFlags = NORMAL_PRIORITY_CLASS Or CREATE_UNICODE_ENVIRONMENT
+    Else
+        envBlock = 0
+        printMsg WARN_, "CreateEnvironmentBlock failed, so the browser will inherit Excel's environment variables. ErrorCode:" & Err.LastDllError, ThisClassName & ".InitCDP"
+    End If
+    '-------------------------------------------------------------------------------------------------------------------------------------
 
-    '起動アプリハンドルを取得
-    hProcess = proc.hProcess
-    dwProcessId = proc.dwProcessId
+    result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, creationFlags, envBlock, 0&, start, proc)
 
     '実行結果チェック
     If result = 0 Then
@@ -452,7 +474,14 @@ Private Function InitCDP(strExec As String, showWindowMode As WinState) As Long
     Else
         '成功は、0として返却
         InitCDP = 0
+
+        '成功したので、起動アプリハンドルを取得
+        hProcess = proc.hProcess
+        dwProcessId = proc.dwProcessId
     End If
+
+    '環境変数ブロックは、起動後は不要なので破棄
+    If envBlock <> 0 Then DestroyEnvironmentBlock envBlock
 
    'We close the sides of the handles that we dont need anymore
     CloseHandle hStdOutWr
@@ -1552,13 +1581,6 @@ End Property
 ' [ SECTION ] その他
 '---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Friend Property Get LogSettings() As StateLog
-    LogSettings = currentLog
-End Property
-
-'***************************************************************************************************
 '* 機能　　：新規CDPレスポンスがあるかどうか？
 '***************************************************************************************************
 Property Get NewResCDP() As Boolean
@@ -1616,11 +1638,7 @@ End Sub
 '* 機能　　：各種設定を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
-    '------------------------- クラス内変数の一部を初期化 -------------------------
-    '1. 初期バッファー設定
+    '--------------------- 1. 初期バッファー設定 ---------------------
     '  文字列バッファーの初期化
     With responseCDP
         .length = InitialBuffer + dwAllocationGranularity   'メモリアロケーション粒度を考慮
@@ -1637,35 +1655,22 @@ Private Sub Class_Initialize()
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
     End With
+    '-----------------------------------------------------------------
 
-    '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        '2-1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)    'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
+    '2. ログID設定
+    m_LogID = "COID" & Format(Rnd * 1000, "000")
 
-        '2-2. ログファイル保存先。空ならファイル出力しない
-        currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)
+    '3. UTF8変換モードを設定
+    Set Utf8Converter = New CharacterCodeConversion
 
-        '2-3. Assign an objID for easy debug identification
-        m_LogID = "COID" & Format(Rnd * 1000, "000")
-
-        '2-4. UTF8変換モードを設定
-        Set Utf8Converter = New CharacterCodeConversion
-
-    End With
-
-    '3. コマンドIDに紐づくSessionIDの管理を初期化
+    '4. コマンドIDに紐づくSessionIDの管理を初期化
     Set DictionarySessionID = New Dictionary
-
-    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、タイムアウト判定準備をする
-    CDPHelpers.InitQueryPerformanceFrequency
-    '------------------------------------------------------------------------------
 End Sub
 
 Private Sub Class_Terminate()
     'ストリームをClose
     CDPPipeStream.Close
-    Set CDPPipeStream = Nothing ' 役目を終えたので、Windowsにメモリを返してあげる
+    Set CDPPipeStream = Nothing '役目を終えたので、Windowsにメモリを返してあげる
 
     'ログ設定をクリア
     CDPHelpers.ClearLogger

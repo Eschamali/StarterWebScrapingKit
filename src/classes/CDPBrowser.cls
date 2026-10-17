@@ -52,10 +52,17 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const ToolVer           As String = "3.4.0"
+Private Const ToolVer           As String = "4.1.0"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
+
+
+
+'***************************************************************************************************
+'                                 ■■■ 拡張用イベント定義 ■■■
+'***************************************************************************************************
+Public Event ExEvent(methodName As String, RawJson As String)    'ブラウザに対する非同期イベント(拡張用)
 
 
 
@@ -265,7 +272,9 @@ Public Sub reattach(reattachInfo As ReattachOptions)
     CustomUAMode = reattachInfo.Set_EnableUserAgentOverride
 
     '4. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
     Set reattachInfo = Nothing
+    Set ReattachOptions = Nothing
 End Sub
 
 '***************************************************************************************************
@@ -687,7 +696,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1028,17 +1037,20 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Select Case methodName
         '1-1. `attachToSession`が行えるように準備する
         Case "Target.targetCreated"
-            '1-2. `TargetInfo`を収集しない場合は、即抜け
-            If TargetInfos Is Nothing Then Exit Sub
-
-            '1-3. そのまま、蓄積
-            printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
-            TargetInfos.Add RawJson
+            '1-2. `TargetInfo`を収集しない場合は、蓄積処理しない
+            If Not TargetInfos Is Nothing Then
+                '1-3. そのまま、蓄積
+                printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
+                TargetInfos.Add RawJson
+            End If
 
         Case Else
             'None
 
     End Select
+
+    '2. 拡張用Classへのイベント発信
+    RaiseEvent ExEvent(methodName, RawJson)
 End Sub
 
 
@@ -1185,7 +1197,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, PipeCore.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -1226,18 +1238,12 @@ Private Sub Class_Initialize()
 '          22/10/25 Daniel Polak - prevent compilation errors because depending on whether we are running in Excel, Word or Access only one of ThisWorkbook, ActiveDocument and CurrentProject is available
 '          22/01/26 Long Vh - removed the auto deserialization feature to running multiple instances of browser profiles.
 '----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
     m_LogID = "BRID" & Format(Rnd * 1000, "000")
 
-
-    '------------------------- クラス内変数の一部を初期化 -------------------------
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandCDP_Browser = New Dictionary
-    '------------------------------------------------------------------------------
 End Sub

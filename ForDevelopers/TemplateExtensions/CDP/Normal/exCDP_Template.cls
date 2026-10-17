@@ -27,7 +27,7 @@ Private ex_CDPContext               As CDPContext   '継承元のブラウザ
 Private Const ThisClassName         As String = "exCDP_Template"
 
 'ステート管理
-Private currentLog                 As StateLog     'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
 
@@ -159,7 +159,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
@@ -181,8 +181,8 @@ Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
     Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, ex_CDPCore.LogSettings
+    'イベント受け取り用の`CDPCore`は、`ExEventCore`から取得します
+    Set ex_CDPCore = Inheritance.ExEventCore
 
     'SessionIdを取得
     CurrentSessionId = ex_CDPContext.CurrentSessionId
@@ -198,5 +198,5 @@ Private Sub Class_Initialize()
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    currentLog.LogID = "XTID" & Format(Rnd * 1000, "000")
+    m_LogID = "XTID" & Format(Rnd * 1000, "000")
 End Sub

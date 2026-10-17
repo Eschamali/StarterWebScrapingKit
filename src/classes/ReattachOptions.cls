@@ -23,12 +23,20 @@ Option Explicit
 ' [ SECTION ] 全てのプロトコルコア機能
 '---------------------------------------------------------------------------------------------------
 Private m_CDPCore               As CDPCore
+Private m_WebDriverBiDiCore     As WebDriverBiDiCore
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 起動済みブラウザに接続する際の関連設定
 '---------------------------------------------------------------------------------------------------
 Private m_destruction               As Boolean  'ハンドル先のメモリにたまった古いデータをどうするか？
 Private m_EnableUserAgentOverride   As Boolean  'このツール独自のユーザーエージェントを刻印するか
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] chromium-bidi関する再設定
+'---------------------------------------------------------------------------------------------------
+Private m_ViewTab_BiDiCDPMapper     As Boolean      '`BiDi-CDP Mapper`のコンソールタブを表示するか
+Private m_ViewDebugLogForBiDiMapper As Boolean      'Mapper内部のデバッグログを記録するか
+Private m_sessionCapabilityResponse As Dictionary   'BiDi再始動時の挙動を決めます
 
 
 
@@ -77,6 +85,21 @@ Property Let Set_WebView2Mode(wv As CDPCoreViaWebView2, UserName As String)
 End Property
 
 '---------------------------------------------------------------------------------------------------
+' [ SECTION ] chromium-bidi関する設定
+'---------------------------------------------------------------------------------------------------
+Property Let Set_BiDiViewTab_BiDiCDPMapper(Flag As Boolean)
+    m_ViewTab_BiDiCDPMapper = Flag
+End Property
+
+Property Let Set_BiDiViewDebugLogForBiDiCDPMapper(Flag As Boolean)
+    m_ViewDebugLogForBiDiMapper = Flag
+End Property
+
+Property Set Set_BiDiSessionCapabilitiesRequest(cap As Dictionary)
+    Set m_sessionCapabilityResponse = cap
+End Property
+
+'---------------------------------------------------------------------------------------------------
 ' [ SECTION ] その他
 '---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
@@ -106,8 +129,26 @@ Property Get ClsGet_CDPCore() As CDPCore
     Set ClsGet_CDPCore = m_CDPCore
 End Property
 
+Property Get ClsGet_WebDriverBiDiCore() As WebDriverBiDiCore
+    '呼ばれるまで実体化させないようにし、初期化後は同じオブジェクトポインターとして振る舞う
+    If m_WebDriverBiDiCore Is Nothing Then Set m_WebDriverBiDiCore = New WebDriverBiDiCore
+    Set ClsGet_WebDriverBiDiCore = m_WebDriverBiDiCore
+End Property
+
 Property Get Set_Destruction() As Boolean
     Set_Destruction = m_destruction
+End Property
+
+Property Get Set_BiDiViewTab_BiDiCDPMapper() As Boolean
+    Set_BiDiViewTab_BiDiCDPMapper = m_ViewTab_BiDiCDPMapper
+End Property
+
+Property Get Set_BiDiViewDebugLogForBiDiCDPMapper() As Boolean
+    Set_BiDiViewDebugLogForBiDiCDPMapper = m_ViewDebugLogForBiDiMapper
+End Property
+
+Property Get Set_BiDiSessionCapabilitiesRequest() As Dictionary
+    Set Set_BiDiSessionCapabilitiesRequest = m_sessionCapabilityResponse
 End Property
 
 Property Get Set_EnableUserAgentOverride() As Boolean
@@ -123,14 +164,20 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = "ReattachOptions.Class_Initialize"
 
 
-    '規定で、古いデータは破棄させます
-    m_destruction = True
-
-    'リアタッチに影響のある設定値のみ、ワークシートから取るように列挙
+    '1. 既定値を取得
+    '※リアタッチに影響のある設定値のみ列挙
     With ShSetting01_StartBrowser
-        '2. その他
+        '1-1. chromium-BiDiの再設定
+        m_ViewDebugLogForBiDiMapper = .GetSettingCDP(SettingCDP.ViewDebugLogForBiDiCDPMapper, FromProcedureName)
+        m_ViewTab_BiDiCDPMapper = .GetSettingCDP(SettingCDP.ViewTab_BiDiCDPMapper, FromProcedureName)
+
+        '1-2. その他
         m_EnableUserAgentOverride = .GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
+        m_destruction = True    '古いデータは破棄させます
     End With
+
+    '2. 共通設定を再適用
+    CDPHelpers.InitQueryPerformanceFrequency    '実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、各種タイムアウト判定準備をする
 End Sub
 
 
@@ -141,4 +188,5 @@ End Sub
 Private Sub Class_Terminate()
     '念のため、明示的に破棄
     Set m_CDPCore = Nothing
+    Set m_WebDriverBiDiCore = Nothing
 End Sub

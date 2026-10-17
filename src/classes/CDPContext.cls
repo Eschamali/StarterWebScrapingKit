@@ -103,7 +103,7 @@ Private Declare PtrSafe Function IsWindow Lib "user32" (ByVal hWnd As LongPtr) A
 ' [ SECTION ] Page.TransitionType
 ' ブラウザに対して「どのような経緯・手段でこのURLへ遷移したか」を指定・判定します。
 ' アクセス解析やボット対策システム（Cloudflare等）が参照する通信指紋に影響を与えます。
-'---------------------------------------------------------------------------------------------------'
+'---------------------------------------------------------------------------------------------------
 Public Enum PageTransitionType
     pt_default              ' [既定]                Chrome標準におまかせ
 
@@ -169,6 +169,13 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
+
+
+
+'***************************************************************************************************
+'                                 ■■■ 拡張用イベント定義 ■■■
+'***************************************************************************************************
+Public Event ExEvent(methodName As String, RawJson As String)    'コンテンツ(タブ)に対する非同期イベント(拡張用)
 
 
 
@@ -590,6 +597,10 @@ End Function
 '
 '            generatePreview                `objectId`で返った中身をプレーンテキスト化して、プレビューします。予め、ログレベルを`DEBUG`以下にしてください。基本は、開発時のみ`True`にしてください。
 '
+'            returnByDetails                True ：専用のJavaScript実行結果関連情報Classオブジェトとして返却します。`Runtime.RemoteObject`内のパラメーターとして呼ぶ必要がありますが、より詳細なパラメータ情報に`Get`として、アクセスしやすくします
+'                                           False：基本は、`Runtime.RemoteObject - value`のみ返却し、優先順位に応じて最適な値を返します。VarType等である程度のJavaScript結果の型判定が可能です(既定)
+'                                           ※`RunAsyncCDP:=True`時は無視されます
+'
 '            RunAsyncCDP                    True ：結果を待たないCDPで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
 '                                           False：結果を待つCDPで実行します。基本はこれでOK(既定)
 '
@@ -626,6 +637,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
                        Optional allowUnsafeEvalBlockedByCSP As Boolean = True, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
+                       Optional returnByDetails As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
                        Optional StopException As Boolean, _
                        Optional StopApiError As Boolean = True) As Variant
@@ -715,7 +727,7 @@ step1:
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
 
         'CDP自体の結果ログ表示
-        If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
+        If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
         'エラーチェック
         Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
@@ -751,20 +763,15 @@ step1:
 
 step2:
 
-    'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
-    '各種`Return Object`を取り出します
-    Dim Node_ReturnObject       As BiDiCDPJson: Set Node_ReturnObject = Node_CDPresult.NodeKey("result")
-
-    Dim Node_RemoteObject       As BiDiCDPJson: Set Node_RemoteObject = Node_ReturnObject.NodeKey("result")
-    Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.ExistsKey("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
-
-    '`RemoteObject`部分を文字ログ化
-    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
+    'JavaScript実行結果部分の解析を委託 -------------------------------------------------------------------------------------------
+    Dim JsAnalysis As JsEvalResult
+    If returnByDetails Then Set JsAnalysis = New JsEvalResult Else Set JsAnalysis = JsEvalResult        '引数に応じて新規オブジェクトするか使い回すかをする
+    JsAnalysis.InitForReturnObject True, Node_CDPresult.NodeKey("result"), IFEXCEPTION, JavaScriptStr   '※`IFEXCEPTION`は`Variant`なので、省略情報も引き継げるので、IF分岐せず直接代入
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
-    If Not Node_ExceptionDetails Is Nothing Then
+    If JsAnalysis.isException Then
         '最後の詳細例外情報を記録
-        Set lastExceptionDetailsJS = Node_ExceptionDetails
+        Set lastExceptionDetailsJS = JsAnalysis.rawException
 
         '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
         strLogValue = LogFormat(JavaScriptStr, 100)
@@ -776,7 +783,12 @@ step2:
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
             '`StopException`が無効の場合は、簡易部分の例外内容を出す
-            printMsg WARN_, "ExceptionType: " & Node_RemoteObject.StringKey("className") & " , " & "ExceptionDescription: " & Node_RemoteObject.StringKey("description"), FromProcedureName
+            Dim ExceptionResultObject As JsEvalResult
+            Set ExceptionResultObject = JsAnalysis.ExceptionResultObject
+            printMsg WARN_, "ExceptionType: " & ExceptionResultObject.ClassName & " , " & "ExceptionDescription: " & ExceptionResultObject.Description, FromProcedureName
+
+            '詳細モードの場合は一律、専用オブジェクトとして返却し、抜けます
+            If returnByDetails Then Set jsEval = JsAnalysis: Exit Function
 
             '返り値判定
             If IsMissing(IFEXCEPTION) Then
@@ -795,11 +807,12 @@ step2:
     End If
 
    'If the return type has a specific type we can return the result -------------------------------------------
-    Dim tmp
-    If JSresultAnalysis(Node_RemoteObject, generatePreview, tmp) Then
-        Set jsEval = tmp
+    If returnByDetails Then
+        '詳細モードの場合は、先ほどの結果オブジェクトを渡して、抜ける
+        Set jsEval = JsAnalysis
+        Exit Function
     Else
-        Let jsEval = tmp
+        If JsAnalysis.ResultTypeForVBA = vbObject Then Set jsEval = JsAnalysis.value Else jsEval = JsAnalysis.value
     End If
    '-----------------------------------------------------------------------------------------------------------
 
@@ -807,6 +820,7 @@ step3:
 
     'Output to Immediate Window if enabled -------------------------------------------------------------------
     ' VarTypeを使って型ごとにログ用の文字列を作る
+    '※primitive values の場合は、結果値も付ける
     Select Case VarType(jsEval)
         Case vbDouble
             strLogValue = "[Double] " & jsEval
@@ -828,145 +842,6 @@ step3:
     printMsg Debug_, "Script executed: " & LogFormat(JavaScriptStr, 100) & " | Returned: " & strLogValue, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
 
-End Function
-
-'***************************************************************************************************
-'* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：RemoteObject   `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
-'            ObjectPreview  オブジェクトツリー構造の一部をテキスト化してプレビューします。デバッグ用途のみ
-'            ReturnValue    結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
-'
-'* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・返す優先順位は、`deepSerializedValue` > `objectId` > `value`です
-'            ・`description`等といった補助情報やエラー情報は返しません。
-'***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
-    Const ErrorLandmark     As String = "error"
-
-
-    '------------------------ 1. 特定項目有無チェック ------------------------
-    '`deepSerializedValue`があったらそれを最優先に返します
-    If RemoteObject.ExistsKey("deepSerializedValue") Then
-        '見つかったので、`deepSerializedValue`を返して、ここで抜ける
-        Set ReturnValue = RemoteObject("deepSerializedValue")
-        printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
-
-        'Objectで返したのでその目印もつけておく
-        JSresultAnalysis = True
-        Exit Function
-
-    '`objectId`があったら、こっちを返します
-    '※type=objectで、`returnByValue:=False`なら`null`以外、ここを通ります
-    ElseIf RemoteObject.ExistsKey("objectId") Then
-        '見つかったので、`objectId`を返す
-        ReturnValue = RemoteObject.StringKey("objectId")
-        printMsg info_, "JS-Return type: objectId", FromProcedureName
-
-        '返ったObjectID情報を列挙する
-        Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
-        printMsg Debug_, String(100, "="), FromProcedureName
-        printMsg Debug_, "objectId information", FromProcedureName
-        printMsg Debug_, String(100, "-"), FromProcedureName
-        printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
-        printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
-        printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
-        printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
-        printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
-        If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
-        printMsg Debug_, String(100, "="), FromProcedureName
-
-        'エラー情報があればそのログを出しておく
-        '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
-        If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
-
-        Exit Function
-    End If
-
-
-    '------------------------ 2. primitive values OR JsonNodeの取得を試みる ------------------------
-    'primitive values の可能性があるので、それの取得を試みます
-    '以降は、`returnByValue:=True`でないと通りません
-    '例外として、`object-null`の場合は`returnByValue:=False`でもここを通って、null返却します
-
-    ' 格納型情報を取得
-    Dim ValueType       As String: ValueType = RemoteObject.StringKey("type")
-    Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.ExistsKey("subtype")
-    Dim ValueSubtype    As String: If ExistsSubtype Then ValueSubtype = RemoteObject.StringKey("subtype")
-    printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
-
-    '型に応じた分岐処理
-    Select Case ValueType
-        Case "object"
-            ' object型の場合はsubtypeで更に細かく分岐
-            Select Case ValueSubtype
-                Case "null"
-                    ReturnValue = Null
-                    printMsg info_, "JS-Return type: object-null", FromProcedureName
-
-                Case Else
-                    '`returnByValue:=True`の場合は`null`以外全て、Json文字列として生成されます
-                    'よって、Node形式として返却します
-                    Set ReturnValue = RemoteObject.NodeKey("value")
-                    printMsg info_, "JS-Return type: object(returnByValue:=True)", FromProcedureName
-
-            End Select
-
-        Case "function"
-            ' 関数が返ってきた場合は、「{"type":"function","value":{}}」なので、`SET`
-            Set ReturnValue = RemoteObject.NodeKey("value")
-            printMsg info_, "JS-Return type: function", FromProcedureName
-
-        Case "undefined"
-            ' JSの undefined は VBAでは Empty が一番近い
-            ReturnValue = Empty
-            printMsg info_, "JS-Return type: undefined", FromProcedureName
-
-        Case "string"
-            ' 文字列として認識するように返す
-            ReturnValue = RemoteObject.StringKey("value")
-            printMsg info_, "JS-Return type: string", FromProcedureName
-
-        Case "number"
-            'VBAで扱える型か？
-            If RemoteObject.ExistsKey("unserializableValue") Then
-                'VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します。
-                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue") & " , description: " & RemoteObject("description"), FromProcedureName
-                ReturnValue = CVErr(xlErrNum)
-            Else
-                ' Double型として認識するように返す
-                ' ※JavaScriptは、整数専用等の型がないため
-                ReturnValue = CDbl(RemoteObject.NumberKey("value"))
-            End If
-
-            printMsg info_, "JS-Return type: number", FromProcedureName
-
-        Case "boolean"
-            ' boolean型として認識するように返す
-            ReturnValue = RemoteObject.BoolKey("value")
-            printMsg info_, "JS-Return type: boolean", FromProcedureName
-
-        Case "symbol"
-            '※`symbol`は、`returnByValue:=True`にすると、「Object couldn't be returned by value.」というCDPエラーで返るので通らないと思うが念のため。
-            ReturnValue = RemoteObject.Item("value")
-            printMsg info_, "JS-Return type: symbol", FromProcedureName
-
-        Case "bigint"
-            ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま文字列として、返却します
-            ReturnValue = RemoteObject.StringKey("unserializableValue")
-            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue & " , description: " & RemoteObject("description"), FromProcedureName
-            printMsg info_, "JS-Return type: bigint", FromProcedureName
-
-        Case Else
-            'ドキュメント化されてない型があったら、安全のため。止めておく
-            printMsg ERROR_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName, doRaiseError:=True
-
-    End Select
-
-    'SETステートメントするかの判定を用意する
-    JSresultAnalysis = IsObject(ReturnValue)
 End Function
 
 '***************************************************************************************************
@@ -1165,7 +1040,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1601,20 +1476,22 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
 
     End Select
 
+    '3. 拡張用Classへのイベント発信
+    RaiseEvent ExEvent(methodName, RawJson)
 
-    '------------------ 3. 非同期イベントを収集します ------------------
-    '3-1. イベントキャプチャしない場合は、即抜け
+    '------------------ 4. 非同期イベントを収集します ------------------
+    '4-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '3-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    '4-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
     printMsg Trace_, "Checking public event filter settings...", FromProcedureName
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
-    '3-3. パース処理
+    '4-3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
-    '3-4. 専用のプロシージャにて、蓄積処理
+    '4-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
 End Sub
@@ -2560,225 +2437,166 @@ End Function
 '***************************************************************************************************
 '                           ■■■ `CDPElement.cls`継承準備 ■■■
 '***************************************************************************************************
+'* 機能　　：ID属性値で要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：Get an element class from the element ID, similar to the getElementByID of JS.
+'            The element class has useful properties and methods similar to the HTML element
+'            object in previous IE automation.
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
 Public Function getElementByID(strID As String) As CDPElement
-'----------------------------------------------------------------------------------
-' Get an element class from the element ID, similar to the getElementByID of JS.
-' The element class has useful properties and methods similar to the HTML element
-' object in previous IE automation.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    '1. ID値で、検索実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document.getElementById(""" & strID & """)"
-    resultSearch = jsEval(SearchJS)
-
-    '2. 結果を判定。文字型なら、ObjectIDを確保
-    Dim objectId As String, JsResultVarType As VbVarType
-    JsResultVarType = VarType(resultSearch)
-    If JsResultVarType = vbString Then objectId = resultSearch
-
-    '3. 結果を`CDPElement.cls`に格納
-    Set getElementByID = New CDPElement
-    getElementByID.Init Me, JsResultVarType, objectId, SearchJS
-
+    Set getElementByID = SearchElement("document.getElementById(""" & strID & """)")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：XPathで要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
+'            eg.1 "//b[text()='T-BILL CURVE']": tag "b" with innertext to be 'T-BILL CURVE'
+'            eg.2 "//input[@name='username']": tag "input" & attribute "name" to be 'username'
+'            eg.3 "//a[@a1='abc' and @a2='xyz']": tag "a" with attribute a1 = abc and a2 = xyz
+'            eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
+'            eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
+'            eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
 Public Function getElementByXPath(strXPath As String) As CDPElement
-'---------------------------------------------------------------------------------------
-' Get an element class from XPath. The element class is init in CDPElement module.
-' The element class has useful properties and methods similar to the HTML element
-' object in previous IE automation.
-' XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
-' Updated: 02/03/2023
-' Examples -----------------------------------------------------------------------------
-' eg.1 "//b[text()='T-BILL CURVE']": tag "b" with innertext to be 'T-BILL CURVE'
-' eg.2 "//input[@name='username']": tag "input" & attribute "name" to be 'username'
-' eg.3 "//a[@a1='abc' and @a2='xyz']": tag "a" with attribute a1 = abc and a2 = xyz
-' eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
-' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
-' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
-'---------------------------------------------------------------------------------------
-
-    '1. Verify double slash syntax
     'People normally get this wrong when using XPath
     If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
 
-    '2. Xpath方式で検索実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
-    resultSearch = jsEval(SearchJS)
-
-    '3. 結果を判定。文字型なら、ObjectIDを確保
-    Dim objectId As String, JsResultVarType As VbVarType
-    JsResultVarType = VarType(resultSearch)
-    If JsResultVarType = vbString Then objectId = resultSearch
-
-    '4. 結果を`CDPElement.cls`に格納
-    Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, JsResultVarType, objectId, SearchJS
-
+    Set getElementByXPath = SearchElement("document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：XPathで要素を複数検索し、`CDPElement`のコレクションとして返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 詳細説明：For further info on the particular XPath syntax used for retrieving the elements, refer to Mozilla doc below:
+'            https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
+'* 注意事項：・コレクションのIndexは、1始まりです
+'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
-'----------------------------------------------------------------------------------
-' Get a collection of elements by XPath. For further info on the particular XPath
-' syntax used for retrieving the elements, refer to Mozilla doc below:
-' https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
-' Note that index for accessing the collection members start at one (not zero).
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    '1. Verify double slash syntax
     'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-    '2. 複数Xpath方式で検索実行
-    Dim SearchJS As String, resultsSearch As Variant
-    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)"
-    resultsSearch = jsEval(SearchJS)
-
-    '3. 結果を判定。文字型なら、ObjectIDを確保
-    Dim collOid As String
-    If VarType(resultsSearch) = vbString Then
-        collOid = resultsSearch
-    Else
-        'ない場合は、即抜け
-        Exit Function
-    End If
-
-    '4. Get snapshotLength via callFunctionOn
-    Set getElementsByXPath = New Collection
-    Dim length_ As Long, N As Long
-    length_ = jsEval("function(){ return this.snapshotLength }", objectId:=collOid)
-
-    '5. Get each item's objectId via callFunctionOn
-    Dim tElement As CDPElement
-    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
-    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
-    For N = 0 To length_ - 1
-        '5-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArg = New Dictionary
-
-        '5-2. `callFunctionOn`に渡す引数をセット
-        itemArg.Add "value", N
-        Set itemArgs(0) = itemArg
-
-        '5-3. 引数付きで実行
-        itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
-
-        '5-4. 念のため、有効な`ObjectID`かチェック
-        itemResultVarType = VarType(itemResult)
-        If itemResultVarType = vbString Then
-            itemObjectID = itemResult
-
-            '5-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
-            Set tElement = New CDPElement
-            tElement.Init Me, itemResultVarType, itemObjectID
-            getElementsByXPath.Add tElement
-        End If
-    Next
-
+    Set getElementsByXPath = SearchElements("document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)", _
+                                            "function(){ return this.snapshotLength }", _
+                                            "function(n){ return this.snapshotItem(n) }")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：QuerySelectorで要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：Refer to the below for some examples.
+'            https://www.w3schools.com/jsref/met_document_queryselector.asp
+'            https://stackoverflow.com/a/29937844
+'            https://www.w3.org/TR/selectors-3/#context
+'            eg.1 "#abc": get the first element with id attribute = abc
+'            eg.2 "tb.xyz": get the first element with tag tb and with class xyz
+'            eg.3 "a[name='abc']": get the first element with tag a and attribute name = abc
+'            eg.4 "div > p": get the first element with tag 'p' and has parent with tag 'div'
+'            eg.5 "[a1='abc'][a2='xyz']": get element with attribute a1 = abc and a2 = 123
+'            eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
+'                 of an element with attribute a1 = abc
+'            eg.7 "#processType [id*='select_option']": get child element with id text that
+'                 contains "select_option" and is a child of element with id "processType"
+'            eg.8 "#upload:not([disabled])": get the first element with id=upload and does not
+'                 have attribute 'disabled'.
+'            eg.9 "#upload:disabled": get the first element with id=upload and has attribute
+'                 'disabled'.
+'            eg.10 "#id1 tr:last-child [id*='invoiceno']": first get element with id text
+'                  'id1', then look for the last child with tag 'tr', then finally look within the
+'                  child's children for the first element with id containing 'invoiceno'.
+'* 更新履歴：08/11/2023
+'***************************************************************************************************
 Public Function getElementByQuery(strQuery As String) As CDPElement
-'----------------------------------------------------------------------------------
-' Get an element class by QuerySelector - similar to that of the same in JS.
-' The element class has useful properties and methods similar to the HTML element
-' object in previous IE automation. Refer to the below for some examples.
-' https://www.w3schools.com/jsref/met_document_queryselector.asp
-' https://stackoverflow.com/a/29937844
-' https://www.w3.org/TR/selectors-3/#context
-' Updated: 08/11/2023
-' Examples ------------------------------------------------------------------------
-' eg.1 "#abc": get the first element with id attribute = abc
-' eg.2 "tb.xyz": get the first element with tag tb and with class xyz
-' eg.3 "a[name='abc']": get the first element with tag a and attribute name = abc
-' eg.4 "div > p": get the first element with tag 'p' and has parent with tag 'div'
-' eg.5 "[a1='abc'][a2='xyz']": get element with attribute a1 = abc and a2 = 123
-' eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
-' of an element with attribute a1 = abc
-' eg.7 "#processType [id*='select_option']": get child element with id text that
-' contains "select_option" and is a child of element with id "processType"
-' eg.8 "#upload:not([disabled])": get the first element with id=upload and does not
-' have attribute 'disabled'.
-' eg.9 "#upload:disabled": get the first element with id=upload and has attribute
-' 'disabled'.
-' eg.10 "#id1 tr:last-child [id*='invoiceno']": first get element with id text
-' 'id1', then look for the last child with tag 'tr', then finally look within the
-' child's children for the first element with id containing 'invoiceno'.
-'----------------------------------------------------------------------------------
+    Set getElementByQuery = SearchElement("document.querySelector(""" & strQuery & """)")
+End Function
 
-    '1. querySelector方式で検索実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document.querySelector(""" & strQuery & """)"
+'***************************************************************************************************
+'* 機能　　：QuerySelectorAllで要素を複数検索し、`CDPElement`のコレクションとして返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 注意事項：・コレクションのIndexは、1始まりです
+'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
+Public Function getElementsByQuery(strQuery As String) As Collection
+    Set getElementsByQuery = SearchElements("document.querySelectorAll(""" & strQuery & """)", _
+                                            "function(){ return this.length }", _
+                                            "function(n){ return this.item(n) }")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`CDPElement`に格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：SearchJS   検索JavaScript。`CDPElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
+'* 詳細説明：要素がある場合は`objectId`(文字列)、ない場合は`Null`が返るため、`vbNull`として格納されます
+'***************************************************************************************************
+Private Function SearchElement(SearchJS As String) As CDPElement
+    '1. 検索実行
+    Dim resultSearch As Variant
     resultSearch = jsEval(SearchJS)
 
-    '2. 結果を判定。文字型なら、ObjectIDを確保
+    '2. 結果を判定。文字型なら、`objectId`を確保
     Dim objectId As String, JsResultVarType As VbVarType
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
     '3. 結果を`CDPElement.cls`に格納
-    Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, JsResultVarType, objectId, SearchJS
-
+    Set SearchElement = New CDPElement
+    SearchElement.Init Me, JsResultVarType, objectId, SearchJS
 End Function
 
-Public Function getElementsByQuery(strQuery As String) As Collection
-'----------------------------------------------------------------------------------
-' Get a collection of elements by QuerySelectorAll. The syntax is as below:
-' https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
-' Note that index for accessing the collection members start at one (not zero).
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    '1. querySelectorAll方式で検索実行
-    Dim SearchJS As String, resultsSearch As Variant
-    SearchJS = "document.querySelectorAll(""" & strQuery & """)"
+'***************************************************************************************************
+'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`CDPElement`に格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：SearchJS   コレクション(NodeList/XPathResult等)を返す検索JavaScript
+'            LengthJS   コレクションの要素数を返す`function(){ return this... }`
+'            ItemJS     n番目の要素を返す`function(n){ return this...(n) }`
+'***************************************************************************************************
+Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS As String) As Collection
+    '1. 検索実行
+    Dim resultsSearch As Variant
     resultsSearch = jsEval(SearchJS)
 
-    '2. 結果を判定。文字型なら、ObjectIDを確保
+    '2. 結果を判定。文字型なら、コレクションの`objectId`を確保。ない場合は、即抜け
     Dim collOid As String
-    If VarType(resultsSearch) = vbString Then
-        collOid = resultsSearch
-    Else
-        'ない場合は、即抜け
-        Exit Function
-    End If
+    If VarType(resultsSearch) = vbString Then collOid = resultsSearch Else Exit Function
 
-    '3. Get length via callFunctionOn
-    Set getElementsByQuery = New Collection
+    '3. 要素数を取得
+    Set SearchElements = New Collection
     Dim length_ As Long, N As Long
-    length_ = jsEval("function(){ return this.length }", objectId:=collOid)
+    length_ = jsEval(LengthJS, objectId:=collOid)
 
-    '4. Get each item's objectId via callFunctionOn
+    '4. 要素数分、ループで順次取得していく
     Dim tElement As CDPElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
-    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
+    Dim itemResult As Variant, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
-        '4-1. `callFunctionOn`に渡す引数を初期化
+        '4-1. `Runtime.callFunctionOn`に渡す引数(`CallArgument`形式)をセット
         Set itemArg = New Dictionary
-
-        '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
-        '4-3. 引数付きで実行
-        itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
+        '4-2. 引数付きで実行
+        itemResult = jsEval(ItemJS, objectId:=collOid, objectArguments:=itemArgs)
 
-        '4-4. 念のため、有効な`ObjectID`かチェック
+        '4-3. 念のため、有効な`objectId`かチェックし、`CDPElement.cls`に格納
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
-            itemObjectID = itemResult
-
-            '4-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
             Set tElement = New CDPElement
-            tElement.Init Me, itemResultVarType, itemObjectID
-            getElementsByQuery.Add tElement
+            tElement.Init Me, itemResultVarType, CStr(itemResult)
+            SearchElements.Add tElement
         End If
     Next
 
+    '5. 用済みとなったコレクションの`objectId`を非同期解放
+    Dim paramsRelease As New Dictionary
+    paramsRelease.Add "objectId", collOid
+    ExecuteCDPAsync "Runtime.releaseObject", paramsRelease, False
 End Function
 
 '***************************************************************************************************
@@ -3052,13 +2870,6 @@ Property Get isTargetClosed() As Boolean
     isTargetClosed = ControlStatus.targetDestroyed
 End Property
 
-'***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Friend Property Get LogSettings() As StateLog
-    LogSettings = PipeCore.LogSettings
-End Property
-
 
 
 '***************************************************************************************************
@@ -3068,7 +2879,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, PipeCore.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -3109,9 +2920,6 @@ Private Sub Class_Initialize()
 '          22/10/25 Daniel Polak - prevent compilation errors because depending on whether we are running in Excel, Word or Access only one of ThisWorkbook, ActiveDocument and CurrentProject is available
 '          22/01/26 Long Vh - removed the auto deserialization feature to running multiple instances of browser profiles.
 '----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
     m_LogID = "TBID" & Format(Rnd * 1000, "000")
 

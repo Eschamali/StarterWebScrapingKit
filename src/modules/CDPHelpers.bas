@@ -33,12 +33,12 @@ Public Enum ReadyState      'Used for .wait method
     isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
-'ログ共通設定。`CDPCore` がホストし、各 Class は `CDPCore.LogSettings` 経由で参照する(コピーしない)。
-'`LogID` は各 Class が `Private m_LogID` として個別に持つ
-Public Type StateLog
+'ログ共通設定。
+Private Type StateLog
     seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
     logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
 End Type
+Public currentLog       As StateLog
 
 'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
 Public Enum WinState
@@ -75,8 +75,8 @@ Public Const EmptyPageName      As String = "about:blank"           '空のWeb�
 '***************************************************************************************************
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
-Private m_Frequency As Currency     '実行マシンでの周波数記録用
-Private LogControl  As New Logger   'ログレベルの制御
+Private m_Frequency     As Currency     '実行マシンでの周波数記録用
+Private LogControl      As New Logger   'ログレベルの制御
 
 
 
@@ -237,3 +237,22 @@ End Sub
 Public Function GetCustomUA() As String
     GetCustomUA = Replace(Application.Name, " ", "") & "-VBA/7.1 (StarterWebScrapingKit)"
 End Function
+
+
+
+'***************************************************************************************************
+'                                 ■■■ 汎用ヘルパー ■■■
+'***************************************************************************************************
+'* 機能　　：`Set`,`Let`の使い分けを隠蔽します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBAは変数への代入時に値型・参照型でLet・Setを使い分ける必要があるため、そこを隠蔽するためのものです。
+'            https://qiita.com/nukie_53/items/bde16afd9a6ca789949d#%E5%A4%89%E6%95%B0%E3%81%B8%E4%BB%A3%E5%85%A5
+'* 注意事項：本来は`vbDataObject`も考慮するべきだがこのツールでは出現しないため、`IsObject`で簡易化
+'***************************************************************************************************
+Public Property Let SetVar(ByRef outVariable As Variant, ByRef inExpression As Variant)
+    If IsObject(inExpression) Then
+        Set outVariable = inExpression
+    Else
+        Let outVariable = inExpression
+    End If
+End Property

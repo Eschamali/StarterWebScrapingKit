@@ -115,8 +115,7 @@ Private m_CustomChromiumPath    As String  'カスタムブラウザのexeフル
 Private DebugUserName           As String
 Private PipeMode                As Boolean
 
-'ログ設定
-Private currentLog      As StateLog
+'ログ識別ID
 Private m_LogID As String
 
 
@@ -299,12 +298,12 @@ Property Get getBrowserPath() As String
 
     '1. カスタムパスの指定があったらそっちを最優先
     If LenB(m_CustomChromiumPath) Then
-            'そのカスタムパスとして返却(ポータブル版ブラウザ等)
+        'そのカスタムパスとして返却(ポータブル版ブラウザ等)
         getBrowserPath = m_CustomChromiumPath
 
-            '以降の処理は不要なので、抜ける
+        '以降の処理は不要なので、抜ける
         Exit Property
-        End If
+    End If
 
     '2. ブラウザexe名を取得
     Dim BrowserExeName As String
@@ -737,9 +736,6 @@ End Sub
 '                                     ■■■ 初期化 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    'ログ設定
-    With currentLog
-        m_LogID = "CHID" & Format(Rnd * 1000, "000")                                                         'ユニークID
-        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName) 'ログフォルダパス
-    End With
+    'ログID
+    m_LogID = "CHID" & Format(Rnd * 1000, "000")
 End Sub
