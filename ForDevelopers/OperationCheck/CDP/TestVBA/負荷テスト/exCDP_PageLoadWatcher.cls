@@ -180,7 +180,6 @@ Friend Sub Init(Inheritance As CDPContext)
     CurrentSessionID = ex_CDPContext.CurrentSessionID
 
     '監視に必要なCDPドメインを有効化
-    ex_CDPContext.ExecuteCDP "Page.enable"
     ex_CDPContext.ExecuteCDP "Network.enable"
 End Sub
 
