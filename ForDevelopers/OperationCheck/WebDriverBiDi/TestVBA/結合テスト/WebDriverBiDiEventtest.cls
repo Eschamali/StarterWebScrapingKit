@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           `WebDriverBiDiCore.cls`に対する機能拡張を提供するテンプレートクラスファイルです
+'           `WebDriverBiDiMode.cls`の`ExEvent`を受け取る、テスト用の拡張クラスファイルです
 '***************************************************************************************************
 Option Explicit
 
@@ -82,7 +82,7 @@ End Property
 '* 機能　　：非同期イベントを処理したいときにご利用ください。あなたのイメージをコードに落とし込む場所の1つです
 '***************************************************************************************************
 Private Sub ex_BiDiMode_ExEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_WebDriverBiDi_detectionBiDiEvent"
+    Const FromProcedureName As String = ThisClassName & ".ex_BiDiMode_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
