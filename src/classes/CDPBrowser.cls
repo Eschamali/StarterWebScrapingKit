@@ -1042,7 +1042,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
                 '1-3. そのまま、蓄積
                 printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
                 TargetInfos.Add RawJson
-            End if
+            End If
 
         Case Else
             'None
