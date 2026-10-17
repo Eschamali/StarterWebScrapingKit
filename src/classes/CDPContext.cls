@@ -173,6 +173,13 @@ Private Const ThisClassName     As String = "CDPContext"    'ログのトレー�
 
 
 '***************************************************************************************************
+'                                 ■■■ 拡張用イベント定義 ■■■
+'***************************************************************************************************
+Public Event ExEvent(methodName As String, RawJson As String)    'コンテンツ(タブ)に対する非同期イベント(拡張用)
+
+
+
+'***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 'ブラウザ制御クラスオブジェクト
@@ -1469,20 +1476,22 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
 
     End Select
 
+    '3. 拡張用Classへのイベント発信
+    RaiseEvent ExEvent(methodName, RawJson)
 
-    '------------------ 3. 非同期イベントを収集します ------------------
-    '3-1. イベントキャプチャしない場合は、即抜け
+    '------------------ 4. 非同期イベントを収集します ------------------
+    '4-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '3-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    '4-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
     printMsg Trace_, "Checking public event filter settings...", FromProcedureName
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
-    '3-3. パース処理
+    '4-3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
-    '3-4. 専用のプロシージャにて、蓄積処理
+    '4-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
 End Sub
@@ -2649,15 +2658,6 @@ Public Sub Init(br As CDPBrowser, Core As CDPCore)
     Set BrowserCore = br
     Set PipeCore = Core
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：自作の拡張Class以外では、使うことはありません
-'***************************************************************************************************
-Property Get ExEventCore() As CDPCore
-    Set ExEventCore = PipeCore
-End Property
 
 
 
