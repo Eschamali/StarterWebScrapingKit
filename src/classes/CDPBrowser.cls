@@ -52,10 +52,17 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const ToolVer           As String = "4.0.0"
+Private Const ToolVer           As String = "4.1.0"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
+
+
+
+'***************************************************************************************************
+'                                 ■■■ 拡張用イベント定義 ■■■
+'***************************************************************************************************
+Public Event ExEvent(methodName As String, RawJson As String)    'ブラウザに対する非同期イベント(拡張用)
 
 
 
@@ -1030,17 +1037,20 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Select Case methodName
         '1-1. `attachToSession`が行えるように準備する
         Case "Target.targetCreated"
-            '1-2. `TargetInfo`を収集しない場合は、即抜け
-            If TargetInfos Is Nothing Then Exit Sub
-
-            '1-3. そのまま、蓄積
-            printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
-            TargetInfos.Add RawJson
+            '1-2. `TargetInfo`を収集しない場合は、蓄積処理しない
+            If Not TargetInfos Is Nothing Then
+                '1-3. そのまま、蓄積
+                printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
+                TargetInfos.Add RawJson
+            End If
 
         Case Else
             'None
 
     End Select
+
+    '2. 拡張用Classへのイベント発信
+    RaiseEvent ExEvent(methodName, RawJson)
 End Sub
 
 
@@ -1176,15 +1186,6 @@ End Property
 '***************************************************************************************************
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
-End Property
-
-'***************************************************************************************************
-'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：自作の拡張Class以外では、使うことはありません
-'***************************************************************************************************
-Property Get ExEventCore() As CDPCore
-    Set ExEventCore = PipeCore
 End Property
 
 
