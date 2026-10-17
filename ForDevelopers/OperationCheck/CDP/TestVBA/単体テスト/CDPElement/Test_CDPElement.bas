@@ -397,7 +397,7 @@ End Sub
 
 '==============================================================================
 ' ⑰ 診断プロパティ（UseSearchJS / varResult / CurrentObjectId / ExposeDevTools）
-'    と実行オプション（SetOptionStopException / SetOptionRunAsync / SetOptionUserGesture）
+'    と実行オプション（SetOptionStopException / SetOptionRunAsyncCDP / SetOptionUserGesture）
 '==============================================================================
 Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
     PrintSection "⑰ 診断プロパティ / 実行オプション"
@@ -413,12 +413,12 @@ Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
     exposedCheck = br.jsEval("typeof window.__vbaTestExposed !== 'undefined' ? 'yes' : 'no'", StopApiError:=False)
     AssertEq "ExposeDevTools後にwindowへ公開されていること", CStr(exposedCheck), "yes"
 
-    'SetOptionRunAsync: Trueにすると、jsEvalの戻り値が結果値ではなく非同期コマンドIDになる
-    el.SetOptionRunAsync = True
+    'SetOptionRunAsyncCDP: Trueにすると、jsEvalの戻り値が結果値ではなく非同期コマンドIDになる
+    el.SetOptionRunAsyncCDP = True
     Dim asyncResult As Variant
     asyncResult = el.jsEval("function(){ return 1 }")
-    AssertTrue "SetOptionRunAsync=True時、戻り値が数値の非同期コマンドIDであること", (IsNumeric(asyncResult) And CLng(asyncResult) > 0)
-    el.SetOptionRunAsync = False
+    AssertTrue "SetOptionRunAsyncCDP=True時、戻り値が数値の非同期コマンドIDであること", (IsNumeric(asyncResult) And CLng(asyncResult) > 0)
+    el.SetOptionRunAsyncCDP = False
 
     'SetOptionStopException: Trueにすると、JS例外発生時にVBA側でErr.Raiseされる
     '※エラートラップ：`クラスモジュールで中断`では止まります。設定で変更願います

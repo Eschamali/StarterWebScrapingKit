@@ -2538,7 +2538,7 @@ Private Function SearchElement(SearchJS As String) As CDPElement
 
     '3. 結果を`CDPElement.cls`に格納
     Set SearchElement = New CDPElement
-    SearchElement.InitCDP Me, JsResultVarType, objectId, SearchJS
+    SearchElement.Init Me, JsResultVarType, objectId, SearchJS
 End Function
 
 '***************************************************************************************************
@@ -2579,7 +2579,7 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
             Set tElement = New CDPElement
-            tElement.InitCDP Me, itemResultVarType, CStr(itemResult)
+            tElement.Init Me, itemResultVarType, CStr(itemResult)
             SearchElements.Add tElement
         End If
     Next
@@ -2609,7 +2609,7 @@ Public Function getIFrame(ExecutionContextId As Long) As CDPElement
 
     '3. 結果を`CDPElement.cls`に格納
     Set getIFrame = New CDPElement
-    getIFrame.InitCDP Me, JsResultVarType, objectId, SearchJS
+    getIFrame.Init Me, JsResultVarType, objectId, SearchJS
 End Function
 
 
