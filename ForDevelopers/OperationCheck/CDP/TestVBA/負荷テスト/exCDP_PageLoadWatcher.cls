@@ -19,10 +19,7 @@ Option Explicit
 '                                   ■■■ 各種定義変数/定数 ■■■
 '***************************************************************************************************
 'ブラウザ制御オブジェクト
-Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
-Attribute ex_CDPCore.VB_VarHelpID = -1
-Private ex_CDPBrowser               As CDPBrowser   '継承元のブラウザクラス
-Private ex_CDPContext               As CDPContext   '継承元のタブ
+Private WithEvents ex_CDPContext    As CDPContext   '継承元のタブ
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_PageLoadWatcher"
@@ -30,7 +27,6 @@ Private m_LogID                     As String   'ログ識別ID
 
 'ステート管理
 Private EnableBrowserEvents         As Boolean      '非同期イベント処理を有効化するかのスイッチング
-Private CurrentSessionID            As String       '`CDPContext.cls`継承時のSesssionID
 
 '監視結果
 Private HasLoadedFlag               As Boolean      '直近の`NavigateAsync`以降、`Page.loadEventFired`を受信したか
@@ -71,17 +67,14 @@ End Property
 '***************************************************************************************************
 '* 機能　　：タブ単位の非同期イベントを受信した時にここが呼ばれます
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
 
 
     '1. 非同期イベント処理そのものが無効状態なら、即抜け
     If Not EnableBrowserEvents Then Exit Sub
 
-    '2. このタブクラスで設定中の`SessionId`以外は無視
-    If CurrentSessionID <> sessionID Then Exit Sub
-
-    '3. 監視対象の非同期イベントを判定
+    '2. 監視対象の非同期イベントを判定
     Select Case methodName
         Case "Page.loadEventFired"
             HasLoadedFlag = True
@@ -110,7 +103,7 @@ Public Sub NavigateAsync(Url As String)
     NetworkEventCountValue = 0
 
     Dim CDPparams As New Dictionary
-    CDPparams.Add "url", url
+    CDPparams.Add "url", Url
     ex_CDPContext.ExecuteCDPAsync "Page.navigate", CDPparams
 End Sub
 
@@ -157,7 +150,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    ex_CDPCore.TakeEvents StopPipeError, destruction
+    ex_CDPContext.ThisCDPBrowser.TakeEvents StopPipeError, destruction
 End Sub
 
 
@@ -173,11 +166,6 @@ End Sub
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ExEventCore
-
-    'このタブのSessionIdを記録（他タブの非同期イベントを無視するため）
-    CurrentSessionID = ex_CDPContext.CurrentSessionID
 
     '監視に必要なCDPドメインを有効化
     ex_CDPContext.ExecuteCDP "Network.enable"
