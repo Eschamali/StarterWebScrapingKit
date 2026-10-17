@@ -961,7 +961,7 @@ Public Function getChildren() As Collection
 
     '1. 現在の要素の子要素を取得するJavaScriptコードを生成
     Dim collResult As Variant
-    collResult = jsEval(ChildrenSearchJS)
+    collResult = jsEval(ChildrenSearchJS, Ownership:=True)   'コレクションは`script.Handle`で受け取る
 
     '2. 結果を判定。文字型なら、コレクションの`script.Handle`を確保
     Dim collHandle As String
@@ -1124,7 +1124,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '2. QuerySelectorAll を使用して、現在の要素の子要素のコレクションを取得するJavaScriptコードを生成
     Dim collResult As Variant
-    collResult = jsEval(ElementsByQuerySearchJS, args)
+    collResult = jsEval(ElementsByQuerySearchJS, args, Ownership:=True)   'コレクションは`script.Handle`で受け取る
 
     '3. 結果を判定。文字型なら、コレクションの`script.Handle`を確保
     Dim collHandle As String
@@ -1293,7 +1293,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '4. Get XPathResult handle (ORDERED_NODE_SNAPSHOT_TYPE) using script.callFunction (this as contextNode)
     Dim collResult As Variant
-    collResult = jsEval(ChildrenSearchJS, xpArgs)
+    collResult = jsEval(ChildrenSearchJS, xpArgs, Ownership:=True)   'コレクションは`script.Handle`で受け取る
 
     '5. 結果を判定。文字型なら、コレクションの`script.Handle`を確保
     Dim collHandle As String
@@ -1389,7 +1389,7 @@ Public Function GetShadowRoot() As WebDriverBiDiElement
     serializeOption.Add "includeShadowTree", "all"
 
     Dim nodeResult As JsEvalResult
-    Set nodeResult = jsEval("function(){ return this }", returnByValue:=True, serializationOptions:=serializeOption, returnByDetails:=True)
+    Set nodeResult = jsEval("function(){ return this }", serializationOptions:=serializeOption, returnByDetails:=True)
     If nodeResult.isException Or nodeResult.ResultType <> "node" Then printMsg WARN_, "The current `WebDriverBiDiElement` could not be serialized as a node.", FromProcedureName: Exit Function
 
     '2. `shadowRoot`の存在確認　※ない場合は`null`
@@ -1462,8 +1462,9 @@ End Function
 '* 機能　　：見つけた`script.SharedId`に対して、高度なことをしたい方向け
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：objectArguments    `script.LocalValue`形式(`{"type": ..., "value": ...}`)で組み立ててください。変換は行いません
-'            returnByValue      `Ownership:= Not returnByValue`として扱います
-'                               `False`(既定)の場合、nodeは`script.SharedId`、それ以外のオブジェクトは`script.Handle`で返ります
+'            Ownership          `WebDriverBiDiContext.jsEval`の`Ownership`と同じです
+'                               `False`(既定)：nodeは`script.SharedId`、それ以外のオブジェクトは値(シリアライズ結果)で返ります
+'                               `True`      ：nodeは`script.SharedId`、それ以外のオブジェクトは`script.Handle`で返ります
 '            returnByDetails    `True`で、`JsEvalResult`(JavaScript実行結果の詳細オブジェクト)として返却します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・当然、`script.SharedId`は固定してます
@@ -1471,7 +1472,7 @@ End Function
 '            ・Class内でもこれを経由して使用しています
 '***************************************************************************************************
 Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
-                       Optional returnByValue As Boolean, _
+                       Optional Ownership As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional serializationOptions As Dictionary, _
                        Optional returnByDetails As Boolean, _
@@ -1484,7 +1485,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
 
     '2. 実行
     CDPHelpers.SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.sharedId, objectArguments, IFEXCEPTION, , _
-                                    Not returnByValue, _
+                                    Ownership, _
                                     awaitPromise, _
                                     RunOption.userGesture, _
                                     serializationOptions, _
