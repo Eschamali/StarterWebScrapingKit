@@ -1,13 +1,13 @@
 Attribute VB_Name = "Test_CDPElement_ShadowDOM"
 '==============================================================================
-' PageElement.cls 動作確認（ShadowDOM-Open/Close内操作編・Test_CDPElement.basの亜種）
+' CDPElement.cls 動作確認（ShadowDOM-Open/Close内操作編・Test_CDPElement.basの亜種）
 ' ・流れ：
 '     TOP層 → getElementByXPathでShadow-Root手前の要素(host)を発見
 '           → GetShadowRootでShadow-Root(open/close)内に侵入（通り抜けフープ）
 '           → 侵入先のShadow-Root内で、TOP層版(Test_CDPElement.bas)と同じテストケースを実施
 ' ・ShadowDOM圏内では document.evaluate によるXPath検索が機能しないため、
 '   getElementByXPath / getElementsByXPath 関連のテストケースはこのファイルでは除外しています。
-' ・open/closedどちらのShadow-Rootも、GetShadowRootが返すPageElementの扱いは同一（CDPの
+' ・open/closedどちらのShadow-Rootも、GetShadowRootが返すCDPElementの扱いは同一（CDPの
 '   DOM.describeNode(pierce:=True)経由で侵入するため、closed特有の分岐は不要）。
 ' ・HTML: ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html
 ' ・実行前に CDP が起動可、WORKSPACE_PATH をルートに設定してから RunAll_CDPElement_ShadowDOM_Tests を実行
@@ -35,15 +35,15 @@ Public Sub RunAll_CDPElement_ShadowDOM_Tests()
 
     passCount = 0: failCount = 0
 
-    PrintHeader "PageElement ShadowDOM内操作 検証テスト 開始"
+    PrintHeader "CDPElement ShadowDOM内操作 検証テスト 開始"
 
     'TOP層：Shadow-Root手前の要素(host)をXPathで発見 → GetShadowRootで侵入
-    Dim hostOpen As PageElement: Set hostOpen = br.getElementByXPath("//*[@id='shadowHostOpen']")
-    Dim rootOpen As PageElement: Set rootOpen = hostOpen.GetShadowRoot()
+    Dim hostOpen As CDPElement: Set hostOpen = br.getElementByXPath("//*[@id='shadowHostOpen']")
+    Dim rootOpen As CDPElement: Set rootOpen = hostOpen.GetShadowRoot()
     AssertTrue "GetShadowRoot(open)への侵入成功", Not (rootOpen Is Nothing)
 
-    Dim hostClosed As PageElement: Set hostClosed = br.getElementByXPath("//*[@id='shadowHostClosed']")
-    Dim rootClosed As PageElement: Set rootClosed = hostClosed.GetShadowRoot()
+    Dim hostClosed As CDPElement: Set hostClosed = br.getElementByXPath("//*[@id='shadowHostClosed']")
+    Dim rootClosed As CDPElement: Set rootClosed = hostClosed.GetShadowRoot()
     AssertTrue "GetShadowRoot(closed)への侵入成功", Not (rootClosed Is Nothing)
 
     Test01_Value_SendString_ClearValue br, rootOpen, rootClosed
@@ -74,7 +74,7 @@ End Sub
 '==============================================================================
 ' SD① value / sendString / clearValue
 '==============================================================================
-Private Sub Test01_Value_SendString_ClearValue(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test01_Value_SendString_ClearValue(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD① value / sendString / clearValue"
 
     RunValueTest rootOpen, "open"
@@ -83,8 +83,8 @@ Private Sub Test01_Value_SendString_ClearValue(br As CDPContext, rootOpen As Pag
     br.jsEval "updateStatus('s-sce01','SD① 完了 " & EOk() & " | value / sendString / clearValue（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunValueTest(root As PageElement, modeLabel As String)
-    Dim el As PageElement: Set el = root.getElementByID("sInput")
+Private Sub RunValueTest(root As CDPElement, modeLabel As String)
+    Dim el As CDPElement: Set el = root.getElementByID("sInput")
 
     el.value = "Hello VBA"
     AssertEq "[" & modeLabel & "] value(Let→Get)", el.value, "Hello VBA"
@@ -99,7 +99,7 @@ End Sub
 '==============================================================================
 ' SD② innerText / innerHTML
 '==============================================================================
-Private Sub Test02_InnerText_InnerHTML(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test02_InnerText_InnerHTML(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD② innerText / innerHTML"
 
     RunInnerTextHtmlTest rootOpen, "open"
@@ -108,13 +108,13 @@ Private Sub Test02_InnerText_InnerHTML(br As CDPContext, rootOpen As PageElement
     br.jsEval "updateStatus('s-sce02','SD② 完了 " & EOk() & " | innerText / innerHTML（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunInnerTextHtmlTest(root As PageElement, modeLabel As String)
-    Dim txtEl As PageElement: Set txtEl = root.getElementByID("sTextDiv")
+Private Sub RunInnerTextHtmlTest(root As CDPElement, modeLabel As String)
+    Dim txtEl As CDPElement: Set txtEl = root.getElementByID("sTextDiv")
     AssertEq "[" & modeLabel & "] innerText初期値", txtEl.innerText, "initial text"
     txtEl.innerText = "changed text"
     AssertEq "[" & modeLabel & "] innerText変更後", txtEl.innerText, "changed text"
 
-    Dim htmlEl As PageElement: Set htmlEl = root.getElementByID("sHtmlDiv")
+    Dim htmlEl As CDPElement: Set htmlEl = root.getElementByID("sHtmlDiv")
     AssertContains "[" & modeLabel & "] innerHTML初期値", htmlEl.innerHTML, "bold"
     htmlEl.innerHTML = "<i>italic</i>"
     AssertContains "[" & modeLabel & "] innerHTML変更後", htmlEl.innerHTML, "italic"
@@ -123,7 +123,7 @@ End Sub
 '==============================================================================
 ' SD③ checked（チェックボックス）
 '==============================================================================
-Private Sub Test03_Checked(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test03_Checked(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD③ checked"
 
     RunCheckedTest rootOpen, "open"
@@ -132,8 +132,8 @@ Private Sub Test03_Checked(br As CDPContext, rootOpen As PageElement, rootClosed
     br.jsEval "updateStatus('s-sce03','SD③ 完了 " & EOk() & " | checked（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunCheckedTest(root As PageElement, modeLabel As String)
-    Dim cb As PageElement: Set cb = root.getElementByID("sCheckbox")
+Private Sub RunCheckedTest(root As CDPElement, modeLabel As String)
+    Dim cb As CDPElement: Set cb = root.getElementByID("sCheckbox")
 
     cb.checked = True
     AssertTrue "[" & modeLabel & "] checked=True設定後", cb.checked
@@ -145,7 +145,7 @@ End Sub
 '==============================================================================
 ' SD④ selected / setSelection（セレクトボックス）
 '==============================================================================
-Private Sub Test04_Selected_SetSelection(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test04_Selected_SetSelection(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD④ selected / setSelection"
 
     RunSelectedTest rootOpen, "open"
@@ -154,8 +154,8 @@ Private Sub Test04_Selected_SetSelection(br As CDPContext, rootOpen As PageEleme
     br.jsEval "updateStatus('s-sce04','SD④ 完了 " & EOk() & " | selected / setSelection（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunSelectedTest(root As PageElement, modeLabel As String)
-    Dim sel As PageElement: Set sel = root.getElementByID("sSelect")
+Private Sub RunSelectedTest(root As CDPElement, modeLabel As String)
+    Dim sel As CDPElement: Set sel = root.getElementByID("sSelect")
 
     '`setSelection`はvalue属性で指定して選択する
     sel.setSelection "opt2"
@@ -172,7 +172,7 @@ End Sub
 '==============================================================================
 ' SD⑤ click / SimpleClick / fireEvent
 '==============================================================================
-Private Sub Test05_Click_SimpleClick_FireEvent(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test05_Click_SimpleClick_FireEvent(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑤ click / SimpleClick / fireEvent"
 
     RunClickTest rootOpen, "open"
@@ -181,8 +181,8 @@ Private Sub Test05_Click_SimpleClick_FireEvent(br As CDPContext, rootOpen As Pag
     br.jsEval "updateStatus('s-sce05','SD⑤ 完了 " & EOk() & " | click / SimpleClick / fireEvent（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunClickTest(root As PageElement, modeLabel As String)
-    Dim btn As PageElement: Set btn = root.getElementByID("sClickBtn")
+Private Sub RunClickTest(root As CDPElement, modeLabel As String)
+    Dim btn As CDPElement: Set btn = root.getElementByID("sClickBtn")
 
     AssertEq "[" & modeLabel & "] 初期クリック回数", btn.getAttribute("data-clickcount"), "0"
 
@@ -199,7 +199,7 @@ End Sub
 '==============================================================================
 ' SD⑥ sendClick / sendKey
 '==============================================================================
-Private Sub Test06_SendClick_SendKey(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test06_SendClick_SendKey(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑥ sendClick / sendKey"
 
     RunSendClickKeyTest rootOpen, "open"
@@ -208,13 +208,13 @@ Private Sub Test06_SendClick_SendKey(br As CDPContext, rootOpen As PageElement, 
     br.jsEval "updateStatus('s-sce06','SD⑥ 完了 " & EOk() & " | sendClick / sendKey（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunSendClickKeyTest(root As PageElement, modeLabel As String)
-    Dim scBtn As PageElement: Set scBtn = root.getElementByID("sSendClickBtn")
+Private Sub RunSendClickKeyTest(root As CDPElement, modeLabel As String)
+    Dim scBtn As CDPElement: Set scBtn = root.getElementByID("sSendClickBtn")
     AssertEq "[" & modeLabel & "] sendClick前のクリック回数", scBtn.getAttribute("data-clickcount"), "0"
     scBtn.sendClick
     AssertEq "[" & modeLabel & "] sendClick後のクリック回数", scBtn.getAttribute("data-clickcount"), "1"
 
-    Dim ki As PageElement: Set ki = root.getElementByID("sKeyInput")
+    Dim ki As CDPElement: Set ki = root.getElementByID("sKeyInput")
     ki.sendKey keyEnter
     AssertEq "[" & modeLabel & "] sendKey(keyEnter)後のkeyCode", ki.getAttribute("data-lastkeycode"), "13"
 
@@ -225,7 +225,7 @@ End Sub
 '==============================================================================
 ' SD⑦ getAttribute / setAttribute
 '==============================================================================
-Private Sub Test07_GetAttribute_SetAttribute(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test07_GetAttribute_SetAttribute(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑦ getAttribute / setAttribute"
 
     RunAttributeTest rootOpen, "open"
@@ -234,8 +234,8 @@ Private Sub Test07_GetAttribute_SetAttribute(br As CDPContext, rootOpen As PageE
     br.jsEval "updateStatus('s-sce07','SD⑦ 完了 " & EOk() & " | getAttribute / setAttribute（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunAttributeTest(root As PageElement, modeLabel As String)
-    Dim el As PageElement: Set el = root.getElementByID("sAttrTarget")
+Private Sub RunAttributeTest(root As CDPElement, modeLabel As String)
+    Dim el As CDPElement: Set el = root.getElementByID("sAttrTarget")
 
     AssertEq "[" & modeLabel & "] getAttribute初期値", el.getAttribute("data-foo"), "bar"
 
@@ -246,7 +246,7 @@ End Sub
 '==============================================================================
 ' SD⑧ focus / selectText
 '==============================================================================
-Private Sub Test08_Focus_SelectText(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test08_Focus_SelectText(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑧ focus / selectText"
 
     RunFocusSelectTextTest rootOpen, "open"
@@ -255,8 +255,8 @@ Private Sub Test08_Focus_SelectText(br As CDPContext, rootOpen As PageElement, r
     br.jsEval "updateStatus('s-sce08','SD⑧ 完了 " & EOk() & " | focus / selectText（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunFocusSelectTextTest(root As PageElement, modeLabel As String)
-    Dim fi As PageElement: Set fi = root.getElementByID("sFocusInput")
+Private Sub RunFocusSelectTextTest(root As CDPElement, modeLabel As String)
+    Dim fi As CDPElement: Set fi = root.getElementByID("sFocusInput")
     fi.focus
 
     '`document.activeElement`はShadow-Root内までは追えない（hostが返る）ため、
@@ -265,7 +265,7 @@ Private Sub RunFocusSelectTextTest(root As PageElement, modeLabel As String)
     activeId = root.jsEval("function(){ return this.activeElement ? this.activeElement.id : '' }", StopApiError:=False)
     AssertEq "[" & modeLabel & "] focus後のShadowRoot.activeElement.id", CStr(activeId), "sFocusInput"
 
-    Dim st As PageElement: Set st = root.getElementByID("sSelectTextTarget")
+    Dim st As CDPElement: Set st = root.getElementByID("sSelectTextTarget")
     st.selectText
     Dim selectedText As Variant
     selectedText = root.jsEval("function(){ return window.getSelection().toString() }", StopApiError:=False)
@@ -275,7 +275,7 @@ End Sub
 '==============================================================================
 ' SD⑨ submit
 '==============================================================================
-Private Sub Test09_Submit(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test09_Submit(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑨ submit"
 
     RunSubmitTest rootOpen, "open"
@@ -284,21 +284,21 @@ Private Sub Test09_Submit(br As CDPContext, rootOpen As PageElement, rootClosed 
     br.jsEval "updateStatus('s-sce09','SD⑨ 完了 " & EOk() & " | submit（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunSubmitTest(root As PageElement, modeLabel As String)
+Private Sub RunSubmitTest(root As CDPElement, modeLabel As String)
     '`submit`は`this.form.submit()`を呼ぶため、通常はページ遷移が発生する。
     'テストページを壊さず検証するため、HTML側で`<form>`インスタンスの`submit`メソッドを
     'JSでオーバーライドし、呼び出しがあったことだけを記録するようにしている（TOP層版と同じ仕掛け）。
-    Dim el As PageElement: Set el = root.getElementByID("sSubmitInput")
+    Dim el As CDPElement: Set el = root.getElementByID("sSubmitInput")
     el.submit
 
-    Dim frm As PageElement: Set frm = root.getElementByID("sForm")
+    Dim frm As CDPElement: Set frm = root.getElementByID("sForm")
     AssertEq "[" & modeLabel & "] submit呼び出し後のdata-submitted", frm.getAttribute("data-submitted"), "true"
 End Sub
 
 '==============================================================================
 ' SD⑩ DOM階層: getParent / getNextSibling / getPrevSibling / getFirstChild
 '==============================================================================
-Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑩ getParent / getNextSibling / getPrevSibling / getFirstChild"
 
     RunTraversalTest rootOpen, "open"
@@ -307,19 +307,19 @@ Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As CDPContext, rootOp
     br.jsEval "updateStatus('s-sce10','SD⑩ 完了 " & EOk() & " | getParent / getNextSibling / getPrevSibling / getFirstChild（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunTraversalTest(root As PageElement, modeLabel As String)
-    Dim parentEl As PageElement: Set parentEl = root.getElementByID("sTraversalParent")
-    Dim child1 As PageElement: Set child1 = parentEl.getFirstChild
+Private Sub RunTraversalTest(root As CDPElement, modeLabel As String)
+    Dim parentEl As CDPElement: Set parentEl = root.getElementByID("sTraversalParent")
+    Dim child1 As CDPElement: Set child1 = parentEl.getFirstChild
     AssertEq "[" & modeLabel & "] getFirstChildのid", child1.getAttribute("id"), "sChild1"
 
-    Dim child2 As PageElement: Set child2 = child1.getNextSibling
+    Dim child2 As CDPElement: Set child2 = child1.getNextSibling
     AssertEq "[" & modeLabel & "] getNextSiblingのid", child2.getAttribute("id"), "sChild2"
 
-    Dim child3 As PageElement: Set child3 = root.getElementByID("sChild3")
-    Dim backToChild2 As PageElement: Set backToChild2 = child3.getPrevSibling
+    Dim child3 As CDPElement: Set child3 = root.getElementByID("sChild3")
+    Dim backToChild2 As CDPElement: Set backToChild2 = child3.getPrevSibling
     AssertEq "[" & modeLabel & "] getPrevSiblingのid", backToChild2.getAttribute("id"), "sChild2"
 
-    Dim parentBack As PageElement: Set parentBack = child2.getParent
+    Dim parentBack As CDPElement: Set parentBack = child2.getParent
     AssertEq "[" & modeLabel & "] getParentのid", parentBack.getAttribute("id"), "sTraversalParent"
 End Sub
 
@@ -327,7 +327,7 @@ End Sub
 ' SD⑪ getChildren / getElementsByQuery（要素スコープ、複数取得）
 ' ※ShadowDOM圏内ではdocument.evaluateが機能しないため、getElementsByXPathは対象外
 '==============================================================================
-Private Sub Test11_GetChildren_ElementsByQuery(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test11_GetChildren_ElementsByQuery(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑪ getChildren / getElementsByQuery（XPathは対象外）"
 
     RunCollectionTest rootOpen, "open"
@@ -336,8 +336,8 @@ Private Sub Test11_GetChildren_ElementsByQuery(br As CDPContext, rootOpen As Pag
     br.jsEval "updateStatus('s-sce11','SD⑪ 完了 " & EOk() & " | getChildren / getElementsByQuery（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunCollectionTest(root As PageElement, modeLabel As String)
-    Dim ul As PageElement: Set ul = root.getElementByID("sCollectionList")
+Private Sub RunCollectionTest(root As CDPElement, modeLabel As String)
+    Dim ul As CDPElement: Set ul = root.getElementByID("sCollectionList")
 
     Dim children As Collection: Set children = ul.getChildren
     AssertEq "[" & modeLabel & "] getChildrenの件数", CStr(children.Count), "5"
@@ -351,7 +351,7 @@ End Sub
 ' SD⑫ getElementByID / getElementByQuery（要素スコープ、単一取得）
 ' ※ShadowDOM圏内ではdocument.evaluateが機能しないため、getElementByXPathは対象外
 '==============================================================================
-Private Sub Test12_ElementByID_Query_Scoped(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test12_ElementByID_Query_Scoped(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑫ getElementByID / getElementByQuery（スコープ検索、XPathは対象外）"
 
     RunScopedSearchTest rootOpen, "open"
@@ -360,20 +360,20 @@ Private Sub Test12_ElementByID_Query_Scoped(br As CDPContext, rootOpen As PageEl
     br.jsEval "updateStatus('s-sce12','SD⑫ 完了 " & EOk() & " | getElementByID / getElementByQuery（スコープ・open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunScopedSearchTest(root As PageElement, modeLabel As String)
-    Dim ul As PageElement: Set ul = root.getElementByID("sCollectionList")
+Private Sub RunScopedSearchTest(root As CDPElement, modeLabel As String)
+    Dim ul As CDPElement: Set ul = root.getElementByID("sCollectionList")
 
-    Dim byId As PageElement: Set byId = ul.getElementByID("sCollectionItem3")
+    Dim byId As CDPElement: Set byId = ul.getElementByID("sCollectionItem3")
     AssertEq "[" & modeLabel & "] getElementByID(スコープ)の内容", byId.innerText, "C"
 
-    Dim byQuery As PageElement: Set byQuery = ul.getElementByQuery("[data-n='2']")
+    Dim byQuery As CDPElement: Set byQuery = ul.getElementByQuery("[data-n='2']")
     AssertEq "[" & modeLabel & "] getElementByQuery(スコープ)の内容", byQuery.innerText, "B"
 End Sub
 
 '==============================================================================
 ' SD⑬ isExist / ifExist / onExist / onExistNot
 '==============================================================================
-Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑬ isExist / ifExist / onExist / onExistNot"
 
     RunExistenceTest rootOpen, "open"
@@ -382,9 +382,9 @@ Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext, rootOpen
     br.jsEval "updateStatus('s-sce13','SD⑬ 完了 " & EOk() & " | isExist / ifExist / onExist / onExistNot（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunExistenceTest(root As PageElement, modeLabel As String)
+Private Sub RunExistenceTest(root As CDPElement, modeLabel As String)
     '1. 追加前は存在しないこと
-    Dim dyn As PageElement: Set dyn = root.getElementByID("sDynamicElement")
+    Dim dyn As CDPElement: Set dyn = root.getElementByID("sDynamicElement")
     AssertFalse "[" & modeLabel & "] 追加前のisExist", dyn.isExist
 
     '2. ifExistチェーンは、存在しない要素へのメソッド呼び出しをエラーなく無視すること
@@ -398,7 +398,7 @@ Private Sub RunExistenceTest(root As PageElement, modeLabel As String)
 
     '3. 追加ボタンを押す（HTML側で1秒後に要素を追加）→ onExistでポーリング検知できること
     root.getElementByID("sBtnAddDynamic").click
-    Dim dyn2 As PageElement: Set dyn2 = root.getElementByID("sDynamicElement")
+    Dim dyn2 As CDPElement: Set dyn2 = root.getElementByID("sDynamicElement")
     Set dyn2 = dyn2.onExist(timeOutInSeconds:=5)
     AssertTrue "[" & modeLabel & "] 追加後のonExist成功", Not (dyn2 Is Nothing)
     If Not (dyn2 Is Nothing) Then AssertTrue "[" & modeLabel & "] onExist後のisExist", dyn2.isExist
@@ -408,7 +408,7 @@ Private Sub RunExistenceTest(root As PageElement, modeLabel As String)
     AssertTrue "[" & modeLabel & "] 削除後のonExistNot成功", dyn2.onExistNot(timeOutInSeconds:=5)
 
     '5. 存在し得ないID指定時、onExist(raiseTimeoutError:=False)がタイムアウトでNothingを返すこと
-    Dim ghost As PageElement
+    Dim ghost As CDPElement
     Set ghost = root.getElementByID("doesNotExist12345").onExist(timeOutInSeconds:=1, raiseTimeoutError:=False)
     AssertTrue "[" & modeLabel & "] 存在しない要素のonExistタイムアウトでNothingが返ること", (ghost Is Nothing)
 End Sub
@@ -416,7 +416,7 @@ End Sub
 '==============================================================================
 ' SD⑭ SetFileInputFiles
 '==============================================================================
-Private Sub Test14_SetFileInputFiles(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test14_SetFileInputFiles(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑭ SetFileInputFiles"
 
     RunFileInputTest rootOpen, "open"
@@ -425,14 +425,14 @@ Private Sub Test14_SetFileInputFiles(br As CDPContext, rootOpen As PageElement, 
     br.jsEval "updateStatus('s-sce14','SD⑭ 完了 " & EOk() & " | SetFileInputFiles（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunFileInputTest(root As PageElement, modeLabel As String)
+Private Sub RunFileInputTest(root As CDPElement, modeLabel As String)
     Dim dummyFile As String
     dummyFile = WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html"
 
     Dim files As New Collection
     files.Add dummyFile
 
-    Dim fileInput As PageElement: Set fileInput = root.getElementByID("sFileInput")
+    Dim fileInput As CDPElement: Set fileInput = root.getElementByID("sFileInput")
     fileInput.SetFileInputFiles files
 
     Dim FileName As Variant
@@ -444,7 +444,7 @@ End Sub
 ' SD⑮ 診断プロパティ（UseSearchJS / varResult / CurrentObjectId / ExposeDevTools）
 '     と実行オプション（SetOptionStopException / SetOptionRunAsync / SetOptionUserGesture）
 '==============================================================================
-Private Sub Test15_Diagnostics_And_Options(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test15_Diagnostics_And_Options(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑮ 診断プロパティ / 実行オプション"
 
     RunDiagnosticsTest rootOpen, "open"
@@ -453,11 +453,11 @@ Private Sub Test15_Diagnostics_And_Options(br As CDPContext, rootOpen As PageEle
     br.jsEval "updateStatus('s-sce15','SD⑮ 完了 " & EOk() & " | 診断プロパティ / 実行オプション（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunDiagnosticsTest(root As PageElement, modeLabel As String)
-    Dim el As PageElement: Set el = root.getElementByID("sInput")
+Private Sub RunDiagnosticsTest(root As CDPElement, modeLabel As String)
+    Dim el As CDPElement: Set el = root.getElementByID("sInput")
 
     'TOP層版と異なり、Shadow-Root圏内のスコープ検索は`document.getElementById`ではなく
-    '`querySelector` + `CSS.escape`で行われる（PageElement.getElementByID内部の仕様）
+    '`querySelector` + `CSS.escape`で行われる（CDPElement.getElementByID内部の仕様）
     AssertContains "[" & modeLabel & "] UseSearchJSがquerySelectorベースであること", el.UseSearchJS, "querySelector"
     AssertTrue "[" & modeLabel & "] varResultがvbStringであること", (el.varResult = vbString)
     AssertNotEmpty "[" & modeLabel & "] CurrentObjectIdが取得できていること", el.CurrentObjectId
@@ -480,7 +480,7 @@ Private Sub RunDiagnosticsTest(root As PageElement, modeLabel As String)
     Dim exNumber As Long
     On Error Resume Next
     Err.Clear
-    el.jsEval "function(){ throw new Error('PageElement-ShadowDOM-test'); }"
+    el.jsEval "function(){ throw new Error('CDPElement-ShadowDOM-test'); }"
     exNumber = Err.Number
     On Error GoTo 0
     el.SetOptionStopException = False
@@ -501,7 +501,7 @@ End Sub
 '==============================================================================
 ' SD⑯ sendHover
 '==============================================================================
-Private Sub Test16_SendHover(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test16_SendHover(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑯ sendHover"
 
     RunSendHoverTest rootOpen, "open"
@@ -510,8 +510,8 @@ Private Sub Test16_SendHover(br As CDPContext, rootOpen As PageElement, rootClos
     br.jsEval "updateStatus('s-sce16','SD⑯ 完了 " & EOk() & " | sendHover（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunSendHoverTest(root As PageElement, modeLabel As String)
-    Dim hv As PageElement: Set hv = root.getElementByID("sHoverTarget")
+Private Sub RunSendHoverTest(root As CDPElement, modeLabel As String)
+    Dim hv As CDPElement: Set hv = root.getElementByID("sHoverTarget")
     AssertEq "[" & modeLabel & "] sendHover前のhovered状態", hv.getAttribute("data-hovered"), "false"
     AssertEq "[" & modeLabel & "] sendHover前のhover回数", hv.getAttribute("data-hovercount"), "0"
 
@@ -523,7 +523,7 @@ End Sub
 '==============================================================================
 ' SD⑰ ホバーで出現するボタン（sendHover → sendClick）
 '==============================================================================
-Private Sub Test17_HoverReveal_Click(br As CDPContext, rootOpen As PageElement, rootClosed As PageElement)
+Private Sub Test17_HoverReveal_Click(br As CDPContext, rootOpen As CDPElement, rootClosed As CDPElement)
     PrintSection "SD⑰ ホバーで出現するボタン"
 
     RunHoverRevealTest rootOpen, "open"
@@ -532,9 +532,9 @@ Private Sub Test17_HoverReveal_Click(br As CDPContext, rootOpen As PageElement, 
     br.jsEval "updateStatus('s-sce17','SD⑰ 完了 " & EOk() & " | ホバーで出現するボタン（open+closed）', true)", StopApiError:=False
 End Sub
 
-Private Sub RunHoverRevealTest(root As PageElement, modeLabel As String)
-    Dim container As PageElement: Set container = root.getElementByID("sHoverRevealContainer")
-    Dim revealBtn As PageElement: Set revealBtn = root.getElementByID("sHoverRevealBtn")
+Private Sub RunHoverRevealTest(root As CDPElement, modeLabel As String)
+    Dim container As CDPElement: Set container = root.getElementByID("sHoverRevealContainer")
+    Dim revealBtn As CDPElement: Set revealBtn = root.getElementByID("sHoverRevealBtn")
 
     AssertEq "[" & modeLabel & "] ホバー前のクリック回数", revealBtn.getAttribute("data-clickcount"), "0"
 
@@ -560,7 +560,7 @@ End Sub
 '          → 起動時の追加引数に `--disable-backgrounding-occluded-windows` `--disable-renderer-backgrounding` を付けると安定する
 '            (2026/10/16 xlflow経由の5回連続実行で、引数なし：15回中9回失敗 → 引数あり：15回すべて合格)
 '==============================================================================
-Private Function WaitUntilClickable(el As PageElement, Optional timeoutMs As Long = 5000) As String
+Private Function WaitUntilClickable(el As CDPElement, Optional timeoutMs As Long = 5000) As String
     Dim waitJS As String
     waitJS = "function(){" & _
              "  const el = this, root = el.getRootNode(), parent = el.parentElement, deadline = performance.now() + " & timeoutMs & ";" & _

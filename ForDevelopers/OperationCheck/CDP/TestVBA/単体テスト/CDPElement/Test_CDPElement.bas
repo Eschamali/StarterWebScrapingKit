@@ -1,6 +1,6 @@
 Attribute VB_Name = "Test_CDPElement"
 '==============================================================================
-' PageElement.cls 動作確認（要素操作クラスの単体テスト）
+' CDPElement.cls 動作確認（要素操作クラスの単体テスト）
 ' ・HTML: ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html
 ' ・実行前に CDP が起動可、WORKSPACE_PATH をルートに設定してから RunAll_CDPElement_Tests を実行
 '==============================================================================
@@ -27,7 +27,7 @@ Public Sub RunAll_CDPElement_Tests()
 
     passCount = 0: failCount = 0
 
-    PrintHeader "PageElement 検証テスト 開始"
+    PrintHeader "CDPElement 検証テスト 開始"
 
     Test01_Value_SendString_ClearValue br
     Test02_InnerText_InnerHTML br
@@ -62,7 +62,7 @@ End Sub
 Private Sub Test01_Value_SendString_ClearValue(br As CDPContext)
     PrintSection "① value / sendString / clearValue"
 
-    Dim el As PageElement: Set el = br.getElementByID("testInput")
+    Dim el As CDPElement: Set el = br.getElementByID("testInput")
 
     el.value = "Hello VBA"
     AssertEq "value(Let→Get)", el.value, "Hello VBA"
@@ -82,12 +82,12 @@ End Sub
 Private Sub Test02_InnerText_InnerHTML(br As CDPContext)
     PrintSection "② innerText / innerHTML"
 
-    Dim txtEl As PageElement: Set txtEl = br.getElementByID("testTextDiv")
+    Dim txtEl As CDPElement: Set txtEl = br.getElementByID("testTextDiv")
     AssertEq "innerText初期値", txtEl.innerText, "initial text"
     txtEl.innerText = "changed text"
     AssertEq "innerText変更後", txtEl.innerText, "changed text"
 
-    Dim htmlEl As PageElement: Set htmlEl = br.getElementByID("testHtmlDiv")
+    Dim htmlEl As CDPElement: Set htmlEl = br.getElementByID("testHtmlDiv")
     AssertContains "innerHTML初期値", htmlEl.innerHTML, "bold"
     htmlEl.innerHTML = "<i>italic</i>"
     AssertContains "innerHTML変更後", htmlEl.innerHTML, "italic"
@@ -101,7 +101,7 @@ End Sub
 Private Sub Test03_Checked(br As CDPContext)
     PrintSection "③ checked"
 
-    Dim cb As PageElement: Set cb = br.getElementByID("testCheckbox")
+    Dim cb As CDPElement: Set cb = br.getElementByID("testCheckbox")
 
     cb.checked = True
     AssertTrue "checked=True設定後", cb.checked
@@ -118,7 +118,7 @@ End Sub
 Private Sub Test04_Selected_SetSelection(br As CDPContext)
     PrintSection "④ selected / setSelection"
 
-    Dim sel As PageElement: Set sel = br.getElementByID("testSelect")
+    Dim sel As CDPElement: Set sel = br.getElementByID("testSelect")
 
     '`setSelection`はvalue属性で指定して選択する
     sel.setSelection "opt2"
@@ -140,7 +140,7 @@ End Sub
 Private Sub Test05_Click_SimpleClick_FireEvent(br As CDPContext)
     PrintSection "⑤ click / SimpleClick / fireEvent"
 
-    Dim btn As PageElement: Set btn = br.getElementByID("testClickBtn")
+    Dim btn As CDPElement: Set btn = br.getElementByID("testClickBtn")
 
     AssertEq "初期クリック回数", btn.getAttribute("data-clickcount"), "0"
 
@@ -162,12 +162,12 @@ End Sub
 Private Sub Test06_SendClick_SendKey(br As CDPContext)
     PrintSection "⑥ sendClick / sendKey"
 
-    Dim scBtn As PageElement: Set scBtn = br.getElementByID("testSendClickBtn")
+    Dim scBtn As CDPElement: Set scBtn = br.getElementByID("testSendClickBtn")
     AssertEq "sendClick前のクリック回数", scBtn.getAttribute("data-clickcount"), "0"
     scBtn.sendClick
     AssertEq "sendClick後のクリック回数", scBtn.getAttribute("data-clickcount"), "1"
 
-    Dim ki As PageElement: Set ki = br.getElementByID("testKeyInput")
+    Dim ki As CDPElement: Set ki = br.getElementByID("testKeyInput")
     ki.sendKey keyEnter
     AssertEq "sendKey(keyEnter)後のkeyCode", ki.getAttribute("data-lastkeycode"), "13"
 
@@ -183,7 +183,7 @@ End Sub
 Private Sub Test07_GetAttribute_SetAttribute(br As CDPContext)
     PrintSection "⑦ getAttribute / setAttribute"
 
-    Dim el As PageElement: Set el = br.getElementByID("testAttrTarget")
+    Dim el As CDPElement: Set el = br.getElementByID("testAttrTarget")
 
     AssertEq "getAttribute初期値", el.getAttribute("data-foo"), "bar"
 
@@ -199,13 +199,13 @@ End Sub
 Private Sub Test08_Focus_SelectText(br As CDPContext)
     PrintSection "⑧ focus / selectText"
 
-    Dim fi As PageElement: Set fi = br.getElementByID("testFocusInput")
+    Dim fi As CDPElement: Set fi = br.getElementByID("testFocusInput")
     fi.focus
     Dim activeId As Variant
     activeId = br.jsEval("document.activeElement.id", StopApiError:=False)
     AssertEq "focus後のdocument.activeElement.id", CStr(activeId), "testFocusInput"
 
-    Dim st As PageElement: Set st = br.getElementByID("testSelectTextTarget")
+    Dim st As CDPElement: Set st = br.getElementByID("testSelectTextTarget")
     st.selectText
     Dim selectedText As Variant
     selectedText = br.jsEval("window.getSelection().toString()", StopApiError:=False)
@@ -223,10 +223,10 @@ Private Sub Test09_Submit(br As CDPContext)
     '`submit`は`this.form.submit()`を呼ぶため、通常はページ遷移が発生する。
     'テストページを壊さず検証するため、HTML側で`<form>`インスタンスの`submit`メソッドを
     'JSでオーバーライドし、呼び出しがあったことだけを記録するようにしている。
-    Dim el As PageElement: Set el = br.getElementByID("testSubmitInput")
+    Dim el As CDPElement: Set el = br.getElementByID("testSubmitInput")
     el.submit
 
-    Dim frm As PageElement: Set frm = br.getElementByID("testForm")
+    Dim frm As CDPElement: Set frm = br.getElementByID("testForm")
     AssertEq "submit呼び出し後のdata-submitted", frm.getAttribute("data-submitted"), "true"
 
     br.jsEval "updateStatus('s-ce09','⑨ 完了 " & EOk() & " | submit', true)", StopApiError:=False
@@ -238,18 +238,18 @@ End Sub
 Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As CDPContext)
     PrintSection "⑩ getParent / getNextSibling / getPrevSibling / getFirstChild"
 
-    Dim parentEl As PageElement: Set parentEl = br.getElementByID("traversalParent")
-    Dim child1 As PageElement: Set child1 = parentEl.getFirstChild
+    Dim parentEl As CDPElement: Set parentEl = br.getElementByID("traversalParent")
+    Dim child1 As CDPElement: Set child1 = parentEl.getFirstChild
     AssertEq "getFirstChildのid", child1.getAttribute("id"), "child1"
 
-    Dim child2 As PageElement: Set child2 = child1.getNextSibling
+    Dim child2 As CDPElement: Set child2 = child1.getNextSibling
     AssertEq "getNextSiblingのid", child2.getAttribute("id"), "child2"
 
-    Dim child3 As PageElement: Set child3 = br.getElementByID("child3")
-    Dim backToChild2 As PageElement: Set backToChild2 = child3.getPrevSibling
+    Dim child3 As CDPElement: Set child3 = br.getElementByID("child3")
+    Dim backToChild2 As CDPElement: Set backToChild2 = child3.getPrevSibling
     AssertEq "getPrevSiblingのid", backToChild2.getAttribute("id"), "child2"
 
-    Dim parentBack As PageElement: Set parentBack = child2.getParent
+    Dim parentBack As CDPElement: Set parentBack = child2.getParent
     AssertEq "getParentのid", parentBack.getAttribute("id"), "traversalParent"
 
     br.jsEval "updateStatus('s-ce10','⑩ 完了 " & EOk() & " | getParent / getNextSibling / getPrevSibling / getFirstChild', true)", StopApiError:=False
@@ -261,7 +261,7 @@ End Sub
 Private Sub Test11_GetChildren_ElementsByQuery_ElementsByXPath(br As CDPContext)
     PrintSection "⑪ getChildren / getElementsByQuery / getElementsByXPath"
 
-    Dim ul As PageElement: Set ul = br.getElementByID("collectionList")
+    Dim ul As CDPElement: Set ul = br.getElementByID("collectionList")
 
     Dim children As Collection: Set children = ul.getChildren
     AssertEq "getChildrenの件数", CStr(children.Count), "5"
@@ -282,15 +282,15 @@ End Sub
 Private Sub Test12_ElementByID_Query_XPath_Scoped(br As CDPContext)
     PrintSection "⑫ getElementByID / getElementByQuery / getElementByXPath（スコープ検索）"
 
-    Dim ul As PageElement: Set ul = br.getElementByID("collectionList")
+    Dim ul As CDPElement: Set ul = br.getElementByID("collectionList")
 
-    Dim byId As PageElement: Set byId = ul.getElementByID("collectionItem3")
+    Dim byId As CDPElement: Set byId = ul.getElementByID("collectionItem3")
     AssertEq "getElementByID(スコープ)の内容", byId.innerText, "C"
 
-    Dim byQuery As PageElement: Set byQuery = ul.getElementByQuery("[data-n='2']")
+    Dim byQuery As CDPElement: Set byQuery = ul.getElementByQuery("[data-n='2']")
     AssertEq "getElementByQuery(スコープ)の内容", byQuery.innerText, "B"
 
-    Dim byXPath As PageElement: Set byXPath = ul.getElementByXPath("li[3]")
+    Dim byXPath As CDPElement: Set byXPath = ul.getElementByXPath("li[3]")
     AssertEq "getElementByXPath(スコープ)の内容", byXPath.innerText, "C"
 
     br.jsEval "updateStatus('s-ce12','⑫ 完了 " & EOk() & " | getElementByID / getElementByQuery / getElementByXPath（スコープ）', true)", StopApiError:=False
@@ -303,7 +303,7 @@ Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext)
     PrintSection "⑬ isExist / ifExist / onExist / onExistNot"
 
     '1. 追加前は存在しないこと
-    Dim dyn As PageElement: Set dyn = br.getElementByID("dynamicElement")
+    Dim dyn As CDPElement: Set dyn = br.getElementByID("dynamicElement")
     AssertFalse "追加前のisExist", dyn.isExist
 
     '2. ifExistチェーンは、存在しない要素へのメソッド呼び出しをエラーなく無視すること
@@ -317,7 +317,7 @@ Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext)
 
     '3. 追加ボタンを押す（HTML側で1秒後に要素を追加）→ onExistでポーリング検知できること
     br.getElementByID("btnAddDynamic").click
-    Dim dyn2 As PageElement: Set dyn2 = br.getElementByID("dynamicElement")
+    Dim dyn2 As CDPElement: Set dyn2 = br.getElementByID("dynamicElement")
     Set dyn2 = dyn2.onExist(timeOutInSeconds:=5)
     AssertTrue "追加後のonExist成功", Not (dyn2 Is Nothing)
     If Not (dyn2 Is Nothing) Then AssertTrue "onExist後のisExist", dyn2.isExist
@@ -327,7 +327,7 @@ Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext)
     AssertTrue "削除後のonExistNot成功", dyn2.onExistNot(timeOutInSeconds:=5)
 
     '5. 存在し得ないID指定時、onExist(raiseTimeoutError:=False)がタイムアウトでNothingを返すこと
-    Dim ghost As PageElement
+    Dim ghost As CDPElement
     Set ghost = br.getElementByID("doesNotExist12345").onExist(timeOutInSeconds:=1, raiseTimeoutError:=False)
     AssertTrue "存在しない要素のonExistタイムアウトでNothingが返ること", (ghost Is Nothing)
 
@@ -342,8 +342,8 @@ Private Sub Test14_GetIFrame(br As CDPContext)
 
     CDPHelpers.sleep 0.5
 
-    Dim iframeDoc As PageElement: Set iframeDoc = br.getElementByID("testIFrame").getIFrame
-    Dim iframeTarget As PageElement: Set iframeTarget = iframeDoc.getElementByID("iframeTarget")
+    Dim iframeDoc As CDPElement: Set iframeDoc = br.getElementByID("testIFrame").getIFrame
+    Dim iframeTarget As CDPElement: Set iframeTarget = iframeDoc.getElementByID("iframeTarget")
     AssertEq "iframe内要素のinnerText", iframeTarget.innerText, "iframe content"
 
     br.jsEval "updateStatus('s-ce14','⑭ 完了 " & EOk() & " | getIFrame', true)", StopApiError:=False
@@ -355,15 +355,15 @@ End Sub
 Private Sub Test15_ShadowRoot_Open_Closed(br As CDPContext)
     PrintSection "⑮ GetShadowRoot / GetShadowRoots（open / closed）"
 
-    Dim hostOpen As PageElement: Set hostOpen = br.getElementByID("shadowHostOpen")
-    Dim rootOpen As PageElement: Set rootOpen = hostOpen.GetShadowRoot()
+    Dim hostOpen As CDPElement: Set hostOpen = br.getElementByID("shadowHostOpen")
+    Dim rootOpen As CDPElement: Set rootOpen = hostOpen.GetShadowRoot()
     AssertTrue "GetShadowRoot(open)が取得できること", Not (rootOpen Is Nothing)
     If Not (rootOpen Is Nothing) Then
         AssertEq "shadow(open)内要素の内容", rootOpen.getElementByQuery(".shadow-content").innerText, "Shadow content (open)"
     End If
     br.jsEval "updateStatus('s-ce15a','⑮-a 完了 " & EOk() & " | GetShadowRoot(open)', true)", StopApiError:=False
 
-    Dim hostClosed As PageElement: Set hostClosed = br.getElementByID("shadowHostClosed")
+    Dim hostClosed As CDPElement: Set hostClosed = br.getElementByID("shadowHostClosed")
     Dim rootsClosed As Collection: Set rootsClosed = hostClosed.GetShadowRoots()
     AssertTrue "GetShadowRoots(closed)が取得できること", Not (rootsClosed Is Nothing)
     If Not (rootsClosed Is Nothing) Then
@@ -385,7 +385,7 @@ Private Sub Test16_SetFileInputFiles(br As CDPContext)
     Dim files As New Collection
     files.Add dummyFile
 
-    Dim fileInput As PageElement: Set fileInput = br.getElementByID("testFileInput")
+    Dim fileInput As CDPElement: Set fileInput = br.getElementByID("testFileInput")
     fileInput.SetFileInputFiles files
 
     Dim FileName As Variant
@@ -402,7 +402,7 @@ End Sub
 Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
     PrintSection "⑰ 診断プロパティ / 実行オプション"
 
-    Dim el As PageElement: Set el = br.getElementByID("testInput")
+    Dim el As CDPElement: Set el = br.getElementByID("testInput")
 
     AssertContains "UseSearchJSに検索構文が含まれること", el.UseSearchJS, "getElementById"
     AssertTrue "varResultがvbStringであること", (el.varResult = vbString)
@@ -426,7 +426,7 @@ Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
     Dim exNumber As Long
     On Error Resume Next
     Err.Clear
-    el.jsEval "function(){ throw new Error('PageElement-test'); }"
+    el.jsEval "function(){ throw new Error('CDPElement-test'); }"
     exNumber = Err.Number
     On Error GoTo 0
     el.SetOptionStopException = False
@@ -452,7 +452,7 @@ End Sub
 Private Sub Test18_SendHover(br As CDPContext)
     PrintSection "⑱ sendHover"
 
-    Dim hv As PageElement: Set hv = br.getElementByID("testHoverTarget")
+    Dim hv As CDPElement: Set hv = br.getElementByID("testHoverTarget")
     AssertEq "sendHover前のhovered状態", hv.getAttribute("data-hovered"), "false"
     AssertEq "sendHover前のhover回数", hv.getAttribute("data-hovercount"), "0"
 
@@ -469,8 +469,8 @@ End Sub
 Private Sub Test19_HoverReveal_Click(br As CDPContext)
     PrintSection "⑲ ホバーで出現するボタン"
 
-    Dim container As PageElement: Set container = br.getElementByID("hoverRevealContainer")
-    Dim revealBtn As PageElement: Set revealBtn = br.getElementByID("hoverRevealBtn")
+    Dim container As CDPElement: Set container = br.getElementByID("hoverRevealContainer")
+    Dim revealBtn As CDPElement: Set revealBtn = br.getElementByID("hoverRevealBtn")
 
     AssertEq "ホバー前のクリック回数", revealBtn.getAttribute("data-clickcount"), "0"
 
@@ -498,7 +498,7 @@ End Sub
 '          → 起動時の追加引数に `--disable-backgrounding-occluded-windows` `--disable-renderer-backgrounding` を付けると安定する
 '            (2026/10/16 xlflow経由の5回連続実行で、引数なし：15回中9回失敗 → 引数あり：15回すべて合格)
 '==============================================================================
-Private Function WaitUntilClickable(el As PageElement, Optional timeoutMs As Long = 5000) As String
+Private Function WaitUntilClickable(el As CDPElement, Optional timeoutMs As Long = 5000) As String
     Dim waitJS As String
     waitJS = "function(){" & _
              "  const el = this, root = el.getRootNode(), parent = el.parentElement, deadline = performance.now() + " & timeoutMs & ";" & _
