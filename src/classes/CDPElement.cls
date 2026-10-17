@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 '------------------------------------------------------------------------------------------------
 '       JavaScript操作の基となる`objectId`を使用した便利な様々な要素操作をまとめた物です。
 '  主に`querySelector`や`Xpath`、`ID`といった検索で得た要素(objectId)に対する操作アシストを担います。
-'  ※WebDriver BiDi版は、`WebDriverElement.cls`をご利用ください
+'  ※WebDriver BiDi版は、`WebDriverBiDiElement.cls`をご利用ください
 '
 ' Author(s)   :
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
