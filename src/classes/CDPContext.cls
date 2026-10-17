@@ -2302,7 +2302,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：名前またはURLに基づいて検索しヒットしたら、`executionContextId`を返却します
 '* 注意事項：・これらの引数を両方とも省略すると、`getIFrameContextID`は最初のiframeの`executionContextId`を返却します
-'            ・返った`executionContextId`を`PageElement`で便利に扱いたい場合は別途`getIFrame`メソッドをご利用ください
+'            ・返った`executionContextId`を`CDPElement`で便利に扱いたい場合は別途`getIFrame`メソッドをご利用ください
 '            ・検索範囲は、親の子iframeまでです。親の子iframe内のiframe...といった多重ネストは非対応です。その場合は自力で「ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")」をして目的のを取り出してください。
 '***************************************************************************************************
 Public Function getIFrameContextID(Optional iframeName As String, Optional Url As String, Optional doRetrySecond As Double) As Long
@@ -2426,21 +2426,21 @@ End Function
 
 
 '***************************************************************************************************
-'                           ■■■ `PageElement.cls`継承準備 ■■■
+'                           ■■■ `CDPElement.cls`継承準備 ■■■
 '***************************************************************************************************
-'* 機能　　：ID属性値で要素を検索し、`PageElement`として返却します
+'* 機能　　：ID属性値で要素を検索し、`CDPElement`として返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Get an element class from the element ID, similar to the getElementByID of JS.
 '            The element class has useful properties and methods similar to the HTML element
 '            object in previous IE automation.
 '* 更新履歴：02/03/2023
 '***************************************************************************************************
-Public Function getElementByID(strID As String) As PageElement
+Public Function getElementByID(strID As String) As CDPElement
     Set getElementByID = SearchElement("document.getElementById(""" & strID & """)")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：XPathで要素を検索し、`PageElement`として返却します
+'* 機能　　：XPathで要素を検索し、`CDPElement`として返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
 '            eg.1 "//b[text()='T-BILL CURVE']": tag "b" with innertext to be 'T-BILL CURVE'
@@ -2451,7 +2451,7 @@ End Function
 '            eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
 '* 更新履歴：02/03/2023
 '***************************************************************************************************
-Public Function getElementByXPath(strXPath As String) As PageElement
+Public Function getElementByXPath(strXPath As String) As CDPElement
     'People normally get this wrong when using XPath
     If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
 
@@ -2459,13 +2459,13 @@ Public Function getElementByXPath(strXPath As String) As PageElement
 End Function
 
 '***************************************************************************************************
-'* 機能　　：XPathで要素を複数検索し、`PageElement`のコレクションとして返却します
+'* 機能　　：XPathで要素を複数検索し、`CDPElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：`PageElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
 '* 詳細説明：For further info on the particular XPath syntax used for retrieving the elements, refer to Mozilla doc below:
 '            https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
 '* 注意事項：・コレクションのIndexは、1始まりです
-'            ・複数検索の場合、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '* 更新履歴：02/03/2023
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
@@ -2478,7 +2478,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 End Function
 
 '***************************************************************************************************
-'* 機能　　：QuerySelectorで要素を検索し、`PageElement`として返却します
+'* 機能　　：QuerySelectorで要素を検索し、`CDPElement`として返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Refer to the below for some examples.
 '            https://www.w3schools.com/jsref/met_document_queryselector.asp
@@ -2502,16 +2502,16 @@ End Function
 '                  child's children for the first element with id containing 'invoiceno'.
 '* 更新履歴：08/11/2023
 '***************************************************************************************************
-Public Function getElementByQuery(strQuery As String) As PageElement
+Public Function getElementByQuery(strQuery As String) As CDPElement
     Set getElementByQuery = SearchElement("document.querySelector(""" & strQuery & """)")
 End Function
 
 '***************************************************************************************************
-'* 機能　　：QuerySelectorAllで要素を複数検索し、`PageElement`のコレクションとして返却します
+'* 機能　　：QuerySelectorAllで要素を複数検索し、`CDPElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：`PageElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
 '* 注意事項：・コレクションのIndexは、1始まりです
-'            ・複数検索の場合、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '* 更新履歴：02/03/2023
 '***************************************************************************************************
 Public Function getElementsByQuery(strQuery As String) As Collection
@@ -2521,12 +2521,12 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 End Function
 
 '***************************************************************************************************
-'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`PageElement`に格納します
+'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`CDPElement`に格納します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：SearchJS   検索JavaScript。`PageElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
+'* 引数　　：SearchJS   検索JavaScript。`CDPElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
 '* 詳細説明：要素がある場合は`objectId`(文字列)、ない場合は`Null`が返るため、`vbNull`として格納されます
 '***************************************************************************************************
-Private Function SearchElement(SearchJS As String) As PageElement
+Private Function SearchElement(SearchJS As String) As CDPElement
     '1. 検索実行
     Dim resultSearch As Variant
     resultSearch = jsEval(SearchJS)
@@ -2536,13 +2536,13 @@ Private Function SearchElement(SearchJS As String) As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`PageElement.cls`に格納
-    Set SearchElement = New PageElement
+    '3. 結果を`CDPElement.cls`に格納
+    Set SearchElement = New CDPElement
     SearchElement.InitCDP Me, JsResultVarType, objectId, SearchJS
 End Function
 
 '***************************************************************************************************
-'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`PageElement`に格納します
+'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`CDPElement`に格納します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：SearchJS   コレクション(NodeList/XPathResult等)を返す検索JavaScript
 '            LengthJS   コレクションの要素数を返す`function(){ return this... }`
@@ -2563,7 +2563,7 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
     length_ = jsEval(LengthJS, objectId:=collOid)
 
     '4. 要素数分、ループで順次取得していく
-    Dim tElement As PageElement
+    Dim tElement As CDPElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
@@ -2575,10 +2575,10 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
         '4-2. 引数付きで実行
         itemResult = jsEval(ItemJS, objectId:=collOid, objectArguments:=itemArgs)
 
-        '4-3. 念のため、有効な`objectId`かチェックし、`PageElement.cls`に格納
+        '4-3. 念のため、有効な`objectId`かチェックし、`CDPElement.cls`に格納
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
-            Set tElement = New PageElement
+            Set tElement = New CDPElement
             tElement.InitCDP Me, itemResultVarType, CStr(itemResult)
             SearchElements.Add tElement
         End If
@@ -2591,12 +2591,12 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`getIFrameContextID`メソッドで得た`executionContextId`を基に、`PageElement`で扱えるようにします
+'* 機能　　：`getIFrameContextID`メソッドで得た`executionContextId`を基に、`CDPElement`で扱えるようにします
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：`executionContextId`に基づく`PageElement`
+'* 返り値　：`executionContextId`に基づく`CDPElement`
 '* 引数　　：executionContextId     `getIFrameContextID`メソッドで得た`executionContextId`
 '***************************************************************************************************
-Public Function getIFrame(ExecutionContextId As Long) As PageElement
+Public Function getIFrame(ExecutionContextId As Long) As CDPElement
     '1. 要素として返却するように`document`を実行
     Dim SearchJS As String, resultSearch As Variant
     SearchJS = "document"
@@ -2607,8 +2607,8 @@ Public Function getIFrame(ExecutionContextId As Long) As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`PageElement.cls`に格納
-    Set getIFrame = New PageElement
+    '3. 結果を`CDPElement.cls`に格納
+    Set getIFrame = New CDPElement
     getIFrame.InitCDP Me, JsResultVarType, objectId, SearchJS
 End Function
 
