@@ -182,7 +182,6 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
     '------------------ この`Context`のステータスの更新を行います ------------------
     Dim BiDiEventNode As BiDiCDPJson
-    Dim StartPos As Long, SearchWord As String
     Select Case methodName
         '------------------ `Context`自体の生存ステータス ------------------
         '`context`が消えた
@@ -925,15 +924,6 @@ Public Sub Init(br As WebDriverBiDiMode, Core As WebDriverBiDiCore)
     Set m_BiDiMode = br
     Set m_BiDiCore = Core
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：自作の拡張Class以外では、使うことはありません
-'***************************************************************************************************
-Property Get ExEventCore() As WebDriverBiDiCore
-    Set ExEventCore = m_BiDiCore
-End Property
 
 '***************************************************************************************************
 '* 機能　　：`browsingContext.getTree`等で得た`context`を適用させます
