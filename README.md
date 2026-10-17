@@ -55,7 +55,7 @@ Whichever route you pick, you use **exactly the same API** — `CDPContext.navig
   * With the WebView2 route, there's no external browser exe to launch at all. **A single xlsm file** lets you drive everything from external browsers to a WebView2 embedded right inside Excel itself, all with the same feel
 
 * **Infinite Extensibility: Your Own Custom Tool!**
-  * Simply tell an AI about the "[Template](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/TemplateExtensions)" and the "function you want," and complex automation code will be completed in seconds!
+  * Simply tell an AI about the "[Template](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev-xlflow/ForDevelopers/TemplateExtensions)" and the "function you want," and complex automation code will be completed in seconds!
   * No need to memorize tedious CDP specifications. Anyone can easily extend functionality as long as they have an idea.
   * Depending on how you craft your prompts, you can even generate "demo code" with detailed explanations fully automatically!
 
