@@ -308,7 +308,21 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #fLim .a{position:absolute;font:900 120px var(--jp);white-space:nowrap}
 #fLim .b{position:absolute;font:900 26px/1.5 var(--jp);white-space:nowrap}
 .fch{position:absolute;left:960px;top:540px;padding:12px 24px;border-radius:14px;background:rgba(61,220,132,.14);border:2px solid var(--ok);font:900 28px var(--jp);white-space:nowrap;opacity:0;box-shadow:0 0 24px rgba(61,220,132,.35)}
+.fch.gold{font-size:34px;color:#ffe9a8;background:rgba(255,207,107,.18);border:3px solid #ffcf6b;box-shadow:0 0 40px rgba(255,176,32,.65)}
 #fBig{top:70px;font-size:66px;opacity:0}
+#fDist{position:absolute;inset:0;opacity:0}
+.fdc{position:absolute;top:190px;width:780px;height:510px;border-radius:26px;padding:34px 40px;background:rgba(14,19,32,.92);border:2px solid rgba(255,255,255,.2)}
+#fdN{left:130px}
+#fdV{left:1010px;border:3px solid #ffcf6b;box-shadow:0 0 60px rgba(255,176,32,.35)}
+.fdc .h{font:900 34px var(--jp);color:#aab}
+.fdc .h b{color:#fff}
+#fdN ol{list-style:none;margin-top:28px}
+#fdN li{font:700 32px/1 var(--jp);padding:20px 24px;margin-bottom:14px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);opacity:0}
+#fdN li code{font:700 28px var(--mono);color:#9cdcfe}
+#fdV .one{margin-top:70px;text-align:center;font:900 56px/1.45 var(--jp);color:#ffe9a8;opacity:0}
+#fdV .end{text-align:center;font:900 96px var(--jp);margin-top:34px;opacity:0}
+#fArms{top:760px;font-size:62px;opacity:0}
+#fArms .gold{background:linear-gradient(90deg,#ffe9a8,#ffb020 50%,#ffe9a8);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 20px rgba(255,176,32,.7))}
 #fRays{position:absolute;left:960px;top:540px;width:2400px;height:2400px;margin:-1200px 0 0 -1200px;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.07) 0 4deg,transparent 4deg 15deg);-webkit-mask:radial-gradient(circle,transparent 160px,#000 260px,transparent 1100px);mask:radial-gradient(circle,transparent 160px,#000 260px,transparent 1100px);opacity:0}
 
 /* ===== end ===== */
@@ -494,8 +508,14 @@ body.rec{cursor:none}
     <div class="frow" id="fr3"><div class="a">Node：<b>Buffer</b>（ネイティブ）</div><div class="ar">→</div><div class="c">CharacterCodeConversion.cls</div><div class="n" data-n="279">0<small>行</small></div></div>
     <div class="lbl" id="fSum">合計<b class="gradtext">0</b>行を、自作</div>
     <div id="fRays"></div>
-    <div id="fLim"><div class="a">VBA だから無理？</div><div class="b">イベントループ<br>async / await<br>配布形態</div></div>
+    <div id="fLim"><div class="a">VBA だから無理？</div><div class="b">イベントループ<br>async / await<br>Windows 専用</div></div>
     <div id="fChips"></div>
+    <div id="fDist">
+      <div class="fdc" id="fdN"><div class="h">Puppeteer / Playwright を<b>受け取った人</b></div>
+        <ol><li>① Node.js をインストール</li><li>② <code>npm install</code>（依存パッケージ）</li><li>③ 自動化用ブラウザを用意</li><li>④ <code>node script.js</code> を実行</li></ol></div>
+      <div class="fdc" id="fdV"><div class="h">このキットを<b>受け取った人</b></div><div class="one">📗 .xlsm を開いて、<br>ボタンを押す</div><div class="end gradtext">以上。</div></div>
+    </div>
+    <div class="lbl" id="fArms">他の言語には真似できない、<span class="gold">VBA だけの武器</span></div>
     <div class="lbl" id="fBig">「VBA だから無理」は、<span class="gradtext">思っていたより小さい。</span></div>
   </div>
 
@@ -614,6 +634,8 @@ const VO = {
   F1: { d: 6.005, t: "Pipe、バッファ、振り分け、三層モデル。コアのアルゴリズムは、肩を並べた。" },
   F2: { d: 5.557, t: "Node が数行で済ませる部分に、VBA は 4,000 行以上を注ぎ込んだ。" },
   F3: { d: 5.163, t: "「VBA だから無理」の範囲は、思っていたより、ずっと小さいのだ！" },
+  F4: { d: 5.653, t: "しかも、配るのはブック1冊だけ。ランタイムも、インストールも、要らないのだ。" },
+  F5: { d: 4.715, t: "これは他の言語には真似できない、VBA だけの武器なのだ！" },
   H1: { d: 4.181, t: "Excel VBA でも、ここまで近づける。" },
   H2: { d: 1.739, t: "令和のIE" },
 };
@@ -631,7 +653,7 @@ const SC = [
   { id: 'async', lead: .3, seq: [['A1', .4], ['A2', .4], ['A3', .5], ['A4', .3], ['A5', 1.8]], fn: sAsync, bg: [345, .9] },
   { id: 'cls', lead: .3, seq: [['L1', .4], ['L2', 1.6]], fn: sCls, bg: [150, .95] },
   { id: 'gaps', lead: .3, seq: [['G1', .4], ['G2', .5], ['G3', .3], ['G4', .4], ['G5', 1.5]], fn: sGaps, bg: [230, .7] },
-  { id: 'fin', lead: .5, seq: [['F1', .5], ['F2', .5], ['F3', 1.8]], fn: sFin, bg: null },
+  { id: 'fin', lead: .5, seq: [['F1', .5], ['F2', .5], ['F3', .4], ['F4', .3], ['F5', 1.9]], fn: sFin, bg: null },
   { id: 'end', lead: .9, seq: [['H1', .4], ['H2', 4.0]], fn: sEnd, bg: null, nosub: true },
 ];
 const S = {}, VAT = {};
@@ -1030,7 +1052,8 @@ const ss = (a, b, x) => { const k = cl((x - a) / (b - a)); return k * k * (3 - 2
 function spread(x) { let v = 190; for (const g of FG) v *= 1 - .2 * ss(g - 80, g + 40, x); return v * (1 - ss(1660, 1790, x)); }
 const finHx = (t, c) => lerp(60, 1900, eio(p(t, c.F1 - .3, c.F1 + 5.0)));
 (function () {
-  $('#fChips').innerHTML = ['Pipe 本流', 'NUL 区切りバッファ', 'sessionId 多重化', '4 本のイベント', '整理券（ExecuteCDPAsync）', '三層モデル', '生 WinSock', 'プロパティ構文', 'SafeTimer で自動ポンプ', 'Firefox も BiDi 直結'].map(n => `<div class="fch">${n}</div>`).join('');
+  $('#fChips').innerHTML = ['Pipe 本流', 'NUL 区切りバッファ', 'sessionId 多重化', '4 本のイベント', '整理券（ExecuteCDPAsync）', '三層モデル', '生 WinSock', 'プロパティ構文', 'SafeTimer で自動ポンプ', 'Firefox も BiDi 直結'].map(n => `<div class="fch">${n}</div>`).join('')
+    + '<div class="fch gold">📗 1 ブックで配布完結</div>';   // 最後の1つ(真下)は、他言語にない強み
 })();
 function drawFin(t, c, alpha) {
   const g = FX; g.clearRect(0, 0, 1920, 1080);
@@ -1082,16 +1105,24 @@ function sFin(t, s) {
   const sm = p(t, c.F2 + 1.8, c.F2 + 2.1); css($('#fSum'), sm * f2o, `scale(${1.2 - .2 * eb(sm)})`);
   txt($('#fSum b'), fmt(4693 * eo(p(t, c.F2 + 1.8, c.F2 + 3.4))));
   // 「VBA だから無理」の範囲が縮む
+  const f3o = 1 - p(t, c.F4 - .4, c.F4);
   const lk = eio(p(t, c.F3 + .1, c.F3 + 2.3)), D = lerp(2300, 360, lk);
   const lim = $('#fLim'); lim.style.width = lim.style.height = D + 'px';
-  css(lim, p(t, c.F3 - .3, c.F3 + .1), 'translate(-50%,-50%)');
+  css(lim, p(t, c.F3 - .3, c.F3 + .1) * f3o, 'translate(-50%,-50%)');
   css(lim.querySelector('.a'), 1 - p(t, c.F3 + .8, c.F3 + 1.3)); css(lim.querySelector('.b'), p(t, c.F3 + 1.9, c.F3 + 2.3));
   $$('.fch').forEach((e, i) => {
-    const k = eo(p(t, c.F3 + 2.2 + i * .06, c.F3 + 3.0 + i * .06)), ang = (i / 10) * Math.PI * 2 - Math.PI / 2 + .2;
-    css(e, p(t, c.F3 + 2.2 + i * .06, c.F3 + 2.4 + i * .06), `translate(calc(-50% + ${Math.cos(ang) * 560 * k}px), calc(-50% + ${Math.sin(ang) * 300 * k}px))`);
+    const d = i === 10 ? .6 : 0, k = eo(p(t, c.F3 + 2.2 + i * .06 + d, c.F3 + 3.0 + i * .06 + d)), ang = Math.PI / 2 + (i - 10) * Math.PI * 2 / 11;
+    css(e, p(t, c.F3 + 2.2 + i * .06 + d, c.F3 + 2.4 + i * .06 + d) * f3o, `translate(calc(-50% + ${Math.cos(ang) * 560 * k}px), calc(-50% + ${Math.sin(ang) * 300 * k}px)) scale(${i === 10 ? 1.6 - .6 * eb(p(t, c.F3 + 3.4, c.F3 + 3.8)) : 1})`);
   });
   css($('#fRays'), p(t, c.F3 + 2.2, c.F3 + 2.8), `rotate(${t * 12}deg) scale(${.7 + .3 * eo(p(t, c.F3 + 2.2, c.F3 + 3.2))})`);
-  const bk = p(t, c.F3 + 2.4, c.F3 + 2.8); css($('#fBig'), bk, `scale(${1.3 - .3 * eb(bk)})`);
+  const bk = p(t, c.F3 + 2.4, c.F3 + 2.8); css($('#fBig'), bk * f3o, `scale(${1.3 - .3 * eb(bk)})`);
+  // 1 ブックで配布が完結する、という唯一の強み
+  css($('#fDist'), p(t, c.F4 - .3, c.F4 + .1));
+  $$('#fdN li').forEach((e, i) => { const k = p(t, c.F4 + .3 + i * .45, c.F4 + .6 + i * .45); css(e, k, `translateX(${-50 * (1 - eo(k))}px)`); });
+  const vk = p(t, c.F4 + 2.6, c.F4 + 2.9); css($('#fdV .one'), vk, `scale(${1.5 - .5 * eb(vk)})`);
+  const ek = p(t, c.F4 + 3.6, c.F4 + 3.85); css($('#fdV .end'), ek, `scale(${2 - eb(ek)})`);
+  $('#fdV').style.boxShadow = `0 0 ${60 + 50 * p(t, c.F5, c.F5 + .5)}px rgba(255,176,32,${.35 + .3 * p(t, c.F5, c.F5 + .5)})`;
+  const ak = p(t, c.F5 + .1, c.F5 + .45); css($('#fArms'), ak, `scale(${1.5 - .5 * eb(ak)})`);
   $('#fin').style.opacity = 1 - p(t, s.d - .3, s.d);
 }
 
@@ -1339,7 +1370,13 @@ function buildSound() {
     at(T0 + fc.F3 + .1, (c, o, w) => { SE.whooshDown(c, o, w, 2.2, .3); tone(c, o, w, { type: 'sawtooth', f: 220, f2: 55, d: 2.2, g: .06, lp: 900 }); });
     at(T0 + fc.F3 + 2.2, (c, o, w) => { SE.impact(c, o, w, 1); SE.glass(c, o, w, .4); }); shake(T0 + fc.F3 + 2.2, .5, 14); flash(T0 + fc.F3 + 2.2, .5, .7);
     for (let i = 0; i < 10; i++) at(T0 + fc.F3 + 2.3 + i * .06, (c, o, w) => SE.pop8(c, o, w, 76 + i * 2));
+    at(T0 + fc.F3 + 3.4, (c, o, w) => { SE.slam(c, o, w); SE.chime(c, o, w + .08, 91, .08); });
     at(T0 + fc.F3 + 2.5, (c, o, w) => SE.chime(c, o, w, 84, .1));
+    at(T0 + fc.F4 - .3, (c, o, w) => SE.whooshDown(c, o, w, .6, .25));
+    for (let i = 0; i < 4; i++) at(T0 + fc.F4 + .3 + i * .45, (c, o, w) => SE.thock(c, o, w));
+    at(T0 + fc.F4 + 2.6, (c, o, w) => { SE.slam(c, o, w); SE.chime(c, o, w + .08, 91, .08); }); flash(T0 + fc.F4 + 2.6, .3, .35);
+    at(T0 + fc.F4 + 3.6, (c, o, w) => SE.ping(c, o, w, 88));
+    at(T0 + fc.F5 + .1, (c, o, w) => { SE.impact(c, o, w, 1); SE.chime(c, o, w + .1, 96, .09); }); flash(T0 + fc.F5 + .1, .45, .6);
     at(T1 - 1.4, (c, o, w) => SE.riser(c, o, w, 1.4, .3));
   }
   // --- エンド ---
