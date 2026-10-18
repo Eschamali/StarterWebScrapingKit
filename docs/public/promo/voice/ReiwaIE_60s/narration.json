@@ -2,7 +2,7 @@
   "movie": "ReiwaIE_60s.html",
   "speaker": "ずんだもん",
   "credit": "VOICEVOX:ずんだもん",
-  "note": "text=画面の字幕(の元) / say=VOICEVOXに読ませる文章(英語表記や数字の読みを直し、画面の出番に収まるよう短くしたもの) / at=ムービー内の開始秒 / style=ずんだもんのスタイル名 / speed,pitch,intonation,volume=話速・音高・抑揚・音量。声は generate.html で作り、このフォルダに <id>.wav として置く",
+  "note": "text=画面の字幕(の元) / say=VOICEVOXに読ませる文章(英語表記や数字の読みを直し、画面の出番に収まるよう短くしたもの) / at=ムービー内の開始秒 / style=ずんだもんのスタイル名 / speed,pitch,intonation,volume=話速・音高・抑揚・音量。声は VOICEVOX ENGINE で作り(作り方は ../README.md)、このフォルダに <id>.wav として置く",
   "lines": [
     {
       "id": "A1",

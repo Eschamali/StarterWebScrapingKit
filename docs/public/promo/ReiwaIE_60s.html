@@ -756,8 +756,9 @@ function pump() {
   }
 }
 /* ---------- ナレーション（任意） ----------
-   voice/narration_60s.json と、そこに書かれた voice/<id>.wav があれば、自動で重ねます。無ければ、従来どおりBGM+SEだけです
-   ※ wav は voice/generate.html (VOICEVOX) で作ります */
+   voice/ReiwaIE_60s/narration.json と、そこに書かれた voice/ReiwaIE_60s/<id>.wav があれば、自動で重ねます。無ければ、従来どおりBGM+SEだけです
+   ※ フォルダ構成と声の作り方は voice/README.md を参照 */
+const VOICE_DIR = 'voice/ReiwaIE_60s/';   // この動画の声の置き場所(動画ごとに1フォルダ)
 const VOICE = { lines: [] };
 const DUCK = .4;    // ナレーション中の BGM・SE の音量
 function playVoice(c, o, w, v, off = 0) {
@@ -773,13 +774,13 @@ function voiceResume() {
 }
 async function loadVoice() {
   try {
-    const res = await fetch('voice/narration_60s.json', { cache: 'no-cache' });
+    const res = await fetch(VOICE_DIR + 'narration.json', { cache: 'no-cache' });
     if (!res.ok) return;
     const man = await res.json();
     const dec = new OfflineAudioContext(1, 1, 44100);
     const lines = (await Promise.all((man.lines || []).map(async v => {
       try {
-        const r = await fetch('voice/' + v.id + '.wav'); if (!r.ok) return null;
+        const r = await fetch(VOICE_DIR + v.id + '.wav'); if (!r.ok) return null;
         v.buf = await dec.decodeAudioData(await r.arrayBuffer()); return v;
       } catch (e) { return null; }
     }))).filter(Boolean);

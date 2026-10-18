@@ -762,7 +762,7 @@ function typed(el, tokens, n, caret = true) {
 const tlen = tk => tk.reduce((a, [s]) => a + [...s].length, 0);
 
 /* ---------- ナレーション（ずんだもん）の尺と字幕 ----------
-   voice/history/<id>.wav の長さ(秒)です。台本(narration.json)や声を作り直したら、ここも更新してください */
+   voice/ReiwaIE_History/<id>.wav の長さ(秒)です。台本(narration.json)や声を作り直したら、ここも更新してください */
 // <VO>
 const VO = {
   P1: { d: 4.693, t: "かつて、たった数行で、ブラウザが立ち上がる時代があったのだ。" },
@@ -1766,8 +1766,10 @@ function pump() {
   }
 }
 /* ---------- ナレーション ----------
-   voice/history/narration.json と、そこに書かれた voice/history/<id>.wav を読み込んで重ねます。
+   voice/ReiwaIE_History/narration.json と、そこに書かれた voice/ReiwaIE_History/<id>.wav を読み込んで重ねます。
+   ※ フォルダ構成と声の作り方は voice/README.md を参照
    読めなければ、BGM+SEと字幕だけで再生します */
+const VOICE_DIR = 'voice/ReiwaIE_History/';   // この動画の声の置き場所(動画ごとに1フォルダ)
 const VOICE = { lines: [] };
 const DUCK = .35;    // ナレーション中の BGM・SE の音量
 function playVoice(c, o, w, v, off = 0) {
@@ -1782,13 +1784,13 @@ function voiceResume() {
 }
 const voiceReady = (async function loadVoice() {
   try {
-    const res = await fetch('voice/history/narration.json', { cache: 'no-cache' });
+    const res = await fetch(VOICE_DIR + 'narration.json', { cache: 'no-cache' });
     if (!res.ok) return;
     const man = await res.json();
     const dec = new OfflineAudioContext(1, 1, 44100);
     const lines = (await Promise.all((man.lines || []).map(async v => {
       try {
-        const r = await fetch('voice/history/' + v.id + '.wav'); if (!r.ok) return null;
+        const r = await fetch(VOICE_DIR + v.id + '.wav'); if (!r.ok) return null;
         v.buf = await dec.decodeAudioData(await r.arrayBuffer()); return v;
       } catch (e) { return null; }
     }))).filter(Boolean);
