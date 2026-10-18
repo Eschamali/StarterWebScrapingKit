@@ -6,6 +6,8 @@ description: VBA 単体で CDP を制御する3プロジェクト（StarterWebSc
 
 [Puppeteer / Playwright との比較](/core-comparison/)では「言語の壁を越えて同じ答えに辿り着いた」という話をしました。このコーナーはその逆で、**同じ VBA という土俵の上で、同じ CDP を相手にした3つのプロジェクトが、どこで同じ答えに至り、どこで道を分けたか**を追います。
 
+<PromoMovie src="/promo/ReiwaIE_VbaCompare.html" title="VBA 圏 CDP 三つ巴" />
+
 ## 比較対象
 
 | | 作者 | 位置づけ |
