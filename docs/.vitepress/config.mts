@@ -170,9 +170,7 @@ export default withMermaid(
           items: [
             { text: 'このツールの誕生秘話', link: '/stories/birth-story' },
             { text: 'BiDi 登場秘話', link: '/stories/bidi-story' },
-            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' },
-            { text: 'オプションオブジェクト 登場秘話', link: '/stories/option-object-story' },
-            { text: 'BiDi要素ヘルパー 登場秘話', link: '/stories/bidi-element-story' }
+            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' }
           ]
         },
         {
