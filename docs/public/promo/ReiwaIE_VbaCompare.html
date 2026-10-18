@@ -305,10 +305,19 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #fkHist .code{font-size:20px;line-height:46px;padding:20px 26px}
 #fkHist .n1{color:#ffb35c;font-weight:700} #fkHist .n2{color:#7fdcf0;font-weight:700} #fkHist .n3{color:var(--kit);font-weight:700}
 #fkHist .yr{position:absolute;right:20px;top:8px;font:700 18px var(--jp);color:#8a93a6}
-#fkZero{position:absolute;left:90px;top:250px;width:500px;padding:30px;border-radius:22px;text-align:center;background:rgba(14,19,32,.95);border:2px solid var(--dp);opacity:0}
+#fkZero{position:absolute;left:90px;top:200px;width:500px;padding:28px 30px;border-radius:22px;text-align:center;background:rgba(14,19,32,.95);border:2px solid var(--dp);opacity:0}
 #fkZero b{display:block;font:900 30px var(--mono);color:var(--dp)}
-#fkZero span{display:block;font:700 24px var(--jp);color:#aab;margin-top:16px}
-#fkZero i{display:block;font:900 110px/1.1 var(--mono);font-style:normal;color:#ccd;margin-top:6px}
+#fkZero span{display:block;font:700 22px var(--jp);color:#ccd;margin-top:14px}
+#fkZero span em{display:block;font:700 17px var(--jp);font-style:normal;color:#8a93a6;margin-top:2px}
+#fkZero .fmt{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px}
+#fkZero .fmt em{font:700 15px var(--jp);font-style:normal;color:#8a93a6}
+#fkZero .fmt code{padding:4px 12px;border-radius:8px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.12);font:700 17px "JetBrains Mono","Noto Sans JP",monospace;color:#6a9955}
+#fkZero .git{margin-top:12px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.15);font:700 16px var(--jp);color:#8a93a6;text-align:left;opacity:0}
+#fkHist .git2{position:absolute;left:26px;right:26px;bottom:14px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.15);font:700 17px var(--jp);color:#8a93a6;opacity:0}
+#fkZero .sc{height:30px;margin-top:12px;font:700 19px var(--mono);color:#9cdcfe;white-space:nowrap}
+#fkZero i{display:block;font:900 96px/1.1 var(--mono);font-style:normal;color:#ccd;margin-top:2px;opacity:0}
+#fkZero small{display:block;font:700 17px/1.55 var(--jp);color:#8a93a6;margin-top:10px;text-align:left;opacity:0}
+#fkZero small code{font:700 16px var(--mono);color:#aab}
 #fkTl{position:absolute;left:640px;top:670px;width:1200px;height:60px;opacity:0}
 #fkTl .ax{position:absolute;left:0;right:0;top:28px;height:4px;background:rgba(255,255,255,.25)}
 #fkTl span{position:absolute;top:40px;font:700 18px var(--mono);color:#aab;transform:translateX(-50%);white-space:nowrap}
@@ -627,8 +636,13 @@ tab2.<span class="fn">ExecuteCDP</span> <span class="str">"Page.navigate"</span>
       <div class="rw"><p>sessionId で 1 本の接続を多重化</p><i>✔</i><i>✔</i></div>
       <div class="rw"><p>非同期の下地<small>nowait / ExecuteCDPAsync</small></p><i>✔</i><i>✔</i></div>
       <div class="rw"><p>「別タブが開く」への専用の仕組み<small>openerId 追跡 / getTab のスコアリング</small></p><i>✔</i><i>✔</i></div></div>
-    <div id="fkZero"><b>VBAChromeDevProtocol</b><span>ソース全体の更新履歴コメント</span><i>0 件</i></div>
-    <div class="panel" id="fkHist"><div class="hd">StarterWebScrapingKit ／ CDPBrowser.cls の更新履歴コメント（抜粋）</div><div class="code"></div></div>
+    <div id="fkZero"><b>VBAChromeDevProtocol</b><span>コード内に書かれた更新履歴<em>（同梱ライブラリを除く）</em></span>
+      <div class="fmt"><em>書式の例</em><code>' Updated: 日付 名前 - 内容</code></div>
+      <div class="sc"></div><i>0 件</i>
+      <small>※ 同梱の <code>basUtf8FromString.bas</code> にだけ、<br>　 2015〜2018 年の履歴 4 行（David Ireland 氏作）</small>
+      <div class="git">参考（git）：コミット履歴も 2022-12-27 で止まっている</div></div>
+    <div class="panel" id="fkHist"><div class="hd">StarterWebScrapingKit ／ CDPBrowser.cls の更新履歴コメント（抜粋）</div><div class="code"></div>
+      <div class="git2">参考（git）：本家 longvh211 の最終コミットは 2026-01-23 ・ このキットは 2026-10 の今も更新中</div></div>
     <div id="fkTl"><div class="ax"></div></div>
     <div id="fkFlame"><div class="gl"></div><div class="f1"></div><div class="f2"></div></div>
     <div id="fkFl">情熱（有限で、消耗する）</div>
@@ -827,7 +841,7 @@ const SC = [
   { id: 'multi', lead: .3, seq: [['M1', .3], ['M2', .4], ['M3', .4], ['M4', 1.7]], fn: sMulti, bg: [190, 1] },
   { id: 'async', lead: .3, seq: [['A1', .4], ['A2', .4], ['A3', .3], ['A4', 1.7]], fn: sAsync, bg: [345, .9] },
   { id: 'struct', lead: .3, seq: [['G1', .4], ['G2', .4], ['G3', .4], ['G4', 1.6]], fn: sStruct, bg: [150, .95] },
-  { id: 'fork', lead: .4, seq: [['D1', .4], ['D2', .5], ['D3', .5], ['D4', 1.7]], fn: sFork, bg: [230, .7] },
+  { id: 'fork', lead: .4, seq: [['D1', .4], ['D2', .5], ['D3', 1.0], ['D4', 1.7]], fn: sFork, bg: [230, .7] },
   { id: 'invest', lead: .7, seq: [['P1', .5], ['P2', .3], ['P3', .6], ['P4', .3], ['P5', .8], ['P6', 1.0], ['P7', 2.2]], fn: sInvest, bg: 'ember' },
   { id: 'grass', lead: .4, seq: [['Q1', .4], ['Q2', 1.9]], fn: sGrass, bg: null },
   { id: 'grow', lead: .5, seq: [['U1', .4], ['U2', .6], ['U3', 1.0], ['U4', 2.0]], fn: sGrow, bg: null },
@@ -1285,6 +1299,10 @@ const HIST = [
   ["'          22/01/26 ", 'Long Vh:', 'n1', '      - Removed automatic reattachment …'],
   ["'          01/08/26 ", 'Eschamali', 'n3', '     - iframeへの切り替えができるように改良'],
 ];
+// VBAChromeDevProtocol の src/ 直下のうち、同梱ライブラリ(basUtf8FromString / JsonConverter / vba-websocket-class 由来の clsWebSocket・WinHttpCommon)を除いたファイル。
+// この順に検索して見せる。FKS = [検索の開始, 終了]
+const FKF = ['clsCDP.cls', 'AutomateBrowser.cls', 'clsElement.cls', 'clsElements.cls', 'clsSessionInfo.cls', 'clsNetworkRequest.cls', 'clsProcess.cls', 'Functions.bas', 'browsers.bas', 'NewObj.bas', 'PrintDomTree.bas', 'enumConverters.bas', 'WinWindowStyle.bas', 'ClipboardUtils.bas'];
+const FKS = c => [c.D3 + 1.6, c.D3 + 2.5];
 // コメント上の日付 (dd/mm/yy) を、2023-03 〜 2026-08 の軸に並べる
 const HTL = [['2023-03', 0, 'n1'], ['2025-05', .667, 'n1'], ['2025-10', .786, 'n2'], ['2026-01', .857, 'n1'], ['2026-08', 1, 'n3']];
 $('#fkTl').insertAdjacentHTML('beforeend', HTL.map(([d, x, c]) => `<i style="left:${x * 100}%;border-color:${c === 'n1' ? '#ffb35c' : c === 'n2' ? '#7fdcf0' : '#ff6fbf'}"></i><span style="left:${x * 100}%">${d}</span>`).join(''));
@@ -1303,6 +1321,14 @@ function sFork(t, s) {
   // 分かれたのは、その先
   const hz = Math.min(p(t, c.D3 + 1.5, c.D3 + 1.9), 1 - p(t, c.D4 - .3, c.D4 + .1));
   css($('#fkZero'), hz, `translateY(${30 * (1 - eo(p(t, c.D3 + 1.5, c.D3 + 1.9)))}px)`);
+  // ファイルを順に検索して、「0 件」にたどり着く
+  const [sa, sb] = FKS(c), fi = Math.floor(cl((t - sa) / (sb - sa), 0, .999) * FKF.length);
+  txt($('#fkZero .sc'), t < sb ? '検索中… ' + FKF[fi] : '検索完了 ・ 該当なし');
+  const zk = p(t, sb, sb + .25); css($('#fkZero i'), zk, `scale(${1.8 - .8 * eb(zk)})`);
+  css($('#fkZero small'), p(t, sb + .4, sb + .8));
+  // git のコミット履歴は、あくまで参考として最後に添える
+  css($('#fkZero .git'), p(t, sb + .8, sb + 1.2));
+  css($('#fkHist .git2'), p(t, c.D3 + 3.8, c.D3 + 4.2));
   const hp = Math.min(p(t, c.D3 + .9, c.D3 + 1.3), 1 - p(t, c.D4 - .3, c.D4 + .1));
   css($('#fkHist'), hp, `translateX(${60 * (1 - eo(p(t, c.D3 + .9, c.D3 + 1.3)))}px)`);
   const nl = Math.floor(cl((t - (c.D3 + 1.5)) / .42, 0, HIST.length));
@@ -1726,6 +1752,7 @@ function buildSound() {
   [.2, 2.3, 3.9, 5.1].forEach(d => C('fork', 'D2', d + .2, (c, o, w) => { SE.pop8(c, o, w, 84); SE.pop8(c, o, w + .15, 88); }));
   for (let i = 0; i < HIST.length; i++) C('fork', 'D3', 1.5 + i * .42, (c, o, w) => SE.thock(c, o, w));
   C('fork', 'D3', 1.5, (c, o, w) => SE.ding(c, o, w, -4));
+  { const [sa, sb] = FKS(S.fork.c); for (let k = 0; k < FKF.length; k++) at(S.fork.a + sa + k * (sb - sa) / FKF.length, (c, o, w) => SE.click(c, o, w, .06)); at(S.fork.a + sb, (c, o, w) => { SE.thud(c, o, w, .45); SE.pop8(c, o, w + .05, 60); }); }
   C('fork', 'D4', 1.1, (c, o, w) => tone(c, o, w, { type: 'sine', f: mf(64), f2: mf(52), d: 1.6, g: .08 }));
   C('fork', 'D4', 3.2, (c, o, w) => SE.whoosh(c, o, w, 1.0, .15));
   [3.7, 4.05, 4.4].forEach((d, i) => C('fork', 'D4', d, (c, o, w) => SE.bell(c, o, w, 72 + i * 4, .07)));
