@@ -12,8 +12,8 @@ description: テスト網羅・エラー分類・型安全性・マルチブラ�
 
 | | 自動テスト |
 | --- | ---: |
-| **Playwright** | `*.spec.ts` 約 556 ファイル（`tests/` 配下だけで約 575 の TS ファイル） |
-| **Puppeteer** | `*.test.ts` 約 138 ファイル + `test/` 配下 約 91 ファイル |
+| **Playwright** | `*.spec.ts` 581 ファイル（うち `tests/` 配下 545。`tests/` 配下の TS ファイルは 603） |
+| **Puppeteer** | `*.test.ts` 143 ファイル（`test/` 配下の TS ファイルは 91） |
 | **StarterWebScrapingKit** | `ForDevelopers/OperationCheck/` に 8 モジュール（アサーション約 78 件 + コア層のストレステスト） |
 
 Playwright は3ブラウザエンジン × 数百本のテストを CI で常時回しています。「Chrome の更新でこの操作が壊れた」を機械的に検出できる体制です。
@@ -257,9 +257,9 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 
 | 必要な機能 | Node | StarterWebScrapingKit |
 | --- | --- | --- |
-| WebSocket | `ws` パッケージ | `CDPCoreViaWebSocket`（1,335行、WinSock から自作） |
+| WebSocket | `ws` パッケージ | `CDPCoreViaWebSocket`（1,416行、WinSock から自作） |
 | JSON | `JSON.parse` / `stringify`（ネイティブ） | `BiDiCDPJson`（2,998行、自作パーサ） |
-| UTF-8 変換 | `Buffer` | `CharacterCodeConversion`（284行） |
+| UTF-8 変換 | `Buffer` | `CharacterCodeConversion`（279行） |
 | 非同期 I/O | libuv | `PeekNamedPipe` / `ioctlsocket` を直接呼ぶ |
 | Windows API エラー | 不要 | `WinApiError` |
 

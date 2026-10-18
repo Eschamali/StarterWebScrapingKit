@@ -25,20 +25,22 @@ description: Browser / Page / Element の三層モデルは3者共通。では�
 
 | | 主要な実装ファイル数 |
 | --- | --- |
-| **Puppeteer** | `api/` 約24 + `cdp/` 約47 + `bidi/` 約27 |
-| **Playwright** | `server/` 約50 + `server/chromium/` 約16（他に `firefox/` `webkit/` `bidi/` `android/` `electron/`） |
+| **Puppeteer** | `api/` 22 + `cdp/` 42 + `bidi/` 25 |
+| **Playwright** | `server/` 55 + `server/chromium/` 16（他に `firefox/` `webkit/` `bidi/` `android/` `electron/`） |
 | **StarterWebScrapingKit** | CDP スタック6クラス + BiDi スタック3クラス |
 
-キット側の実クラスは以下の規模です。
+※ Puppeteer / Playwright は、各ディレクトリ直下の `.ts` ファイル数です（`*.test.ts` を除く）。
+
+キット側の実クラスは以下の規模です（`main` ブランチの `src/classes/*.cls` の行数）。
 
 | クラス | 行数 | 役割 |
 | --- | ---: | --- |
 | `BiDiCDPJson` | 2,998 | JSON パーサ／ビュー |
-| `CDPContext` | 2,889 | 1タブ分の操作 |
-| `CDPBrowser` | 1,794 | プロセス起動・タブ管理 |
-| `CDPCore` | 1,600 | Pipe 送受信 |
-| `CDPElement` | 1,590 | 要素操作 |
-| `CDPCoreViaWebSocket` | 1,335 | WebSocket 送受信 |
+| `CDPContext` | 2,964 | 1タブ分の操作 |
+| `CDPCore` | 1,868 | Pipe 送受信 |
+| `CDPElement` | 1,727 | 要素操作 |
+| `CDPCoreViaWebSocket` | 1,416 | WebSocket 送受信 |
+| `CDPBrowser` | 1,249 | プロセス起動・タブ管理 |
 
 Puppeteer の `cdp/` にある `FrameManager` / `NetworkManager` / `TargetManager` / `LifecycleWatcher` / `IsolatedWorld` / `ExecutionContext` といった中間層が、キットでは `CDPContext` の内部に畳み込まれている、と考えると近いです。
 

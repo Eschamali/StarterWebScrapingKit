@@ -49,14 +49,20 @@ _onMessage(object: ProtocolResponse) {
     // 応答 → Promise を解決
   } else if (object.id && object.error?.code === -32001) {
     // 閉じたセッション宛て → 無視
+  } else if (object.id && this._crashed) {
+    // クラッシュ済み → 待機中の呼び出しは拒否済みなので何もしない
   } else {
-    // イベント → emit
+    // イベント → 生成時に渡されたリスナーと emit の両方へ
     Promise.resolve().then(() => {
+      if (this._eventListener)
+        this._eventListener(object.method!, object.params);
       (this.emit as any)(object.method as any, object.params);
     });
   }
 }
 ```
+
+`_eventListener` は `createChildSession` で子セッションを作るときに渡せる任意のコールバックです。同じファイルにある `CDPSession` クラスは、これを使ってイベントを中継しています。
 
 ### Puppeteer ―― 1つの関数で3分岐
 
@@ -72,6 +78,14 @@ if (object.sessionId) {
 } else if (object.id) {
   if (this.#callbacks.has(object.id)) {
     // 応答 → resolve / reject
+  } else {
+    // ルートに無い ID → その ID を待っているセッションを探して渡す
+    for (const session of this.#sessions.values()) {
+      if (session.hasCallback(object.id)) {
+        session.onMessage(object);
+        break;
+      }
+    }
   }
 } else {
   this.emit(object.method, object.params);

@@ -79,7 +79,7 @@ _dispatch(buffer: Buffer) {
 }
 ```
 
-Puppeteer の `#dispatch` もほぼ同型です。要点は **`Buffer.concat` を「区切りが見つかった時」まで遅延させている**ことと、探索が `Buffer.indexOf`（ネイティブ実装）である点です。
+Puppeteer の `#dispatch` もほぼ同型です。細部だけ違い、届いたチャンクをいったん無条件に `#pendingMessage` へ積み、`\0` が含まれていた時だけ全体を `Buffer.concat` してから、その結合済みバッファの中を `while` で切り出します。どちらも要点は **`Buffer.concat` を「区切りが見つかった時」まで遅延させている**ことと、探索が `Buffer.indexOf`（ネイティブ実装）である点です。
 
 ### VBA 側 ― 最初から大きく確保して、その場で書き換える
 
@@ -87,26 +87,35 @@ VBA の文字列は不変（immutable）なので、`&` 連結も `Right()` に�
 
 ```vb
 ' 1MB を初期確保。足りなくなったら倍々に拡張する（再確保自体を稀にする）
-Private Const InitialBuffer As Long = 2 ^ 20
-Private Const MAX_STR_LEN   As Long = 2 ^ 30 - 1   ' VBA文字列の限界
+Public Const InitialBuffer As Long = 2 ^ 20          ' CDPHelpers.bas
+Private Const MAX_STR_LEN  As Long = 2 ^ 30 - 1      ' VBA文字列の限界（CDPCore.cls）
 
-If .EndCursor + resSize > .length Then
+If .EndCursor + resSize > MAX_STR_LEN Then
+    ' VBA文字列の上限を超える → エラーで停止
+ElseIf .EndCursor + resSize > .length Then
     Dim AddLength As Long
     If .length > (MAX_STR_LEN \ 2) Then
         AddLength = MAX_STR_LEN - .length   ' 次に倍にすると上限超過 → 上限ピッタリに着地
     Else
         AddLength = .length                 ' 基本は倍々（バインバイン）
+        If .EndCursor + resSize > .length + AddLength Then
+            AddLength = (.EndCursor + resSize) - .length   ' 倍でも足りなければ、不足分を加算
+        End If
     End If
     .strBuffer = .strBuffer & String$(AddLength, vbNullChar)
     .length = .length + AddLength
 End If
 ```
 
-初期サイズ（`InitialBuffer`）も、素の1MBそのままではなく、`CreatePipe`／ソケットバッファのメモリアロケーション粒度（`dwAllocationGranularity`、既定 64KB）を上乗せして確保しています。OS側のバッファ確保単位とVBA文字列側のバッファサイズがズレていると、無駄な確保や境界での取りこぼしが起きうるためです。
+初期サイズも、素の1MB（`InitialBuffer`）そのままではなく、メモリアロケーション粒度（`dwAllocationGranularity`、既定 64KB）を上乗せして確保しています（`.length = InitialBuffer + dwAllocationGranularity`）。`CreatePipe` に渡すパイプのバッファサイズと VBA 文字列側のバッファサイズがズレていると、無駄な確保や境界での取りこぼしが起きうるためです。なお、ソース上のコメントにある通り、この補正は Pipe 経路を想定したものです。
 
 ```vb
-' 連結ではなく、Mid$ ステートメントで「その場書き換え」（再確保が起きない）
-Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = Utf8Converter.BytesToString((.Read))
+' ReadyCDPMessage：ADODB.Stream に貯めたバイト列を、UTF-8 → 文字列に変換して渡す
+AddCDPMessage Utf8Converter.BytesToString((.Read))
+
+' AddCDPMessage：連結ではなく、Mid$ ステートメントで「その場書き換え」（再確保が起きない）
+Mid$(.strBuffer, .AddCursor + 1) = TextJsonCDP
+.AddCursor = .AddCursor + Len(TextJsonCDP)
 ```
 
 ```vb
@@ -131,13 +140,13 @@ lngPos = InStr(StartPos, checkString, vbNullChar, vbBinaryCompare)
 | 段階 | Playwright / Puppeteer | StarterWebScrapingKit |
 | --- | --- | --- |
 | ① 生バイトを貯める | `pendingBuffers.push(buffer)` | `CDPPipeStream.Write res`（`ADODB.Stream`） |
-| ② バイト列を文字列に戻す | `Buffer.concat(...).toString()` | `ReadyCDPMessage`（`Mid$` でバッファへ流し込み） |
+| ② バイト列を文字列に戻す | `Buffer.concat(...).toString()` | `ReadyCDPMessage`（UTF-8 デコード）→ `AddCDPMessage`（`Mid$` でバッファへ流し込み） |
 | ③ 区切りで1件ずつ取り出す | `while (indexOf('\0') !== -1)` | `TakeCDPMessage`（`InStr` ＋ カーソル前進） |
 | コピー回数を減らす工夫 | 結合を「揃った時だけ」に遅延 | 事前確保 ＋ 倍々拡張で再確保を稀にする |
 | 探索関数 | `Buffer.indexOf`（ネイティブ） | `InStr`（ネイティブ） |
 
 ::: info 粒度の違い
-Node 側は `.toString()` の一行が「デコード」と「境界探索」を兼ねていますが、VBA 側は `ReadyCDPMessage`（デコード）と `TakeCDPMessage`（切り出し）という**別々のプロシージャに分離**されています。層の切り方としてはむしろこちらのほうが細かい粒度です。
+Node 側は `.toString()` の一行が「デコード」と「境界探索」を兼ねていますが、VBA 側は `ReadyCDPMessage`（デコード）、`AddCDPMessage`（書き込み）、`TakeCDPMessage`（切り出し）という**別々のプロシージャに分離**されています。層の切り方としてはむしろこちらのほうが細かい粒度です。
 :::
 
 ### 探索するタイミングが逆になっている

@@ -34,7 +34,15 @@ flowchart LR
 ::: info 検証方法
 Puppeteer / Playwright については、npm パッケージのドキュメントではなく **GitHub の実ソースツリー**（`packages/puppeteer-core/src`、`packages/playwright-core/src`）を直接読み、該当箇所のファイル名と行番号を添えています。StarterWebScrapingKit 側も同様に `src/classes/*.cls` の実コードを参照しています。
 
-いずれも 2026年8月時点のソースに基づきます。3者とも活発に更新されるため、行番号は将来ずれる可能性があります。
+初版は 2026年8月時点のソースに基づきます。2026年10月に、以下のソースで引用コードとファイル数・行数を再照合しました。
+
+| | 再照合したソース |
+| --- | --- |
+| **Puppeteer** | puppeteer-core `25.14.0`（コミット `ff3103c8`、2026-10-16） |
+| **Playwright** | playwright-core `1.65.0-next`（コミット `b335271c`、2026-10-17） |
+| **StarterWebScrapingKit** | `main` ブランチの `src/` |
+
+3者とも活発に更新されるため、行番号や数値は将来ずれる可能性があります。
 :::
 
 比較対象は次の3つに絞りました。VBA 製の他ライブラリとの比較はここでは扱いません。
