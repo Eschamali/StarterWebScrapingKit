@@ -194,11 +194,11 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #mHead .t small{display:block;font:700 30px var(--jp);color:#aab;margin-top:10px}
 #multi .col{top:250px;height:620px}
 .steps{position:absolute;left:24px;right:24px;top:262px;list-style:none}
-.steps li{font:700 20px/1.3 var(--jp);padding:6px 12px;margin-bottom:5px;border-radius:10px;background:rgba(255,255,255,.05);border:2px solid transparent;color:#99a}
+.steps li{font:700 19px/1.3 var(--jp);padding:4px 12px;margin-bottom:4px;border-radius:10px;background:rgba(255,255,255,.05);border:2px solid transparent;color:#99a}
 .steps li small{display:block;font:700 13px var(--mono);color:#889;white-space:nowrap}
 .steps li.on{border-color:var(--wd);background:rgba(255,201,77,.15);color:#fff}
 .steps code{font:700 19px var(--mono)}
-.mcnt{position:absolute;left:24px;right:24px;bottom:12px;text-align:center;font:700 22px var(--jp);color:#aab}
+.mcnt{position:absolute;left:24px;right:24px;bottom:8px;text-align:center;font:700 22px var(--jp);color:#aab}
 .mcnt b{font:900 34px var(--mono);color:#fff;margin:0 4px}
 #mSid{top:330px}
 #mMis{position:absolute;left:24px;right:24px;top:420px;padding:12px;border-radius:12px;text-align:center;font:900 24px var(--jp);background:rgba(255,77,94,.14);border:2px solid var(--ng);opacity:0}
@@ -552,7 +552,7 @@ body.rec{cursor:none}
     <div id="mHead"><div class="wh">window handle<i></i></div><div class="t">CDP に「ウィンドウハンドル」は無い<small>→ タブ管理の仕組みは、各ツールが自分で発明する</small></div></div>
     <div class="col wd c0" id="mc0" data-glow="rgba(255,201,77,.5)"><div class="h"><b>vba-cdp-webdriver</b><span>切り替えのたびに張り直す</span></div>
       <div class="bd"><svg class="bdsvg" id="mSv0" viewBox="0 0 540 400"></svg>
-        <ol class="steps" id="mSteps"><li>① HTTP <code>/json</code> を取り直す</li><li>② ソケットを切断</li><li>③ 新しいソケットを張る</li><li>④ CDP 7 往復<small>Attach・Activate・Page・DOM・Runtime・Network・Lifecycle</small></li></ol>
+        <ol class="steps" id="mSteps"><li>① HTTP <code>/json</code> を取り直す</li><li>② ソケットを切断</li><li>③ 新しいソケットを張る</li><li>④ CDP 9 往復<small>準備 7：Attach・Activate・enable ×4・Lifecycle</small><small>＋ document の ID 取得 2：evaluate・getDocument</small></li></ol>
         <div class="mcnt" id="mCnt0"></div></div></div>
     <div class="col dp c1" id="mc1" data-glow="rgba(106,168,255,.55)"><div class="h"><b>VBAChromeDevProtocol</b><span>多重化 ＋ グローバルな「現在地」</span></div>
       <div class="bd"><svg class="bdsvg" id="mSv1" viewBox="0 0 540 400"></svg>
@@ -781,7 +781,7 @@ const VO = {
   V3: { d: 8.363, t: "vba-cdp-webdriver は Select Case に21ケース決め打ち。増やすには、本体の改造が要るのだ。" },
   V4: { d: 5.792, t: "このキットは RaiseEvent が4本。WithEvents なら、何個でも独立して購読できるのだ！" },
   M1: { d: 5.312, t: "第2ラウンド、マルチタブ。CDP には、ウィンドウハンドルという概念が無いのだ。" },
-  M2: { d: 7.520, t: "vba-cdp-webdriver は、タブを替えるたびにソケットを張り直して、CDP を7往復。" },
+  M2: { d: 7.531, t: "vba-cdp-webdriver は、タブを替えるたびにソケットを張り直して、CDP を9往復。" },
   M3: { d: 7.563, t: "VBAChromeDevProtocol は、1本の接続で多重化。でも「今いるタブ」は、全体で1つだけ。" },
   M4: { d: 5.632, t: "このキットは、タブごとに独立したオブジェクト。切り替えという手順が、そもそも無いのだ！" },
   A1: { d: 4.352, t: "第3ラウンド、非同期。結果を待たずに、撃てるか。" },
@@ -1186,7 +1186,7 @@ function sMulti(t, s) {
   html($('#mSv0'), wdSvg(t, c)); html($('#mSv1'), dpSvg(t, c)); html($('#mSv2'), kitSvg(t, c));
   const st = wdState(t, c);
   $$('#mSteps li').forEach((e, i) => e.classList.toggle('on', st.sw >= 0 && st.ph >= .15 + i * .15 && st.ph < .85));
-  const rt = MSW(c).reduce((a, [at]) => a + (t >= at + MSD * .6 ? 7 : 0), 0);
+  const rt = MSW(c).reduce((a, [at]) => a + (t >= at + MSD * .6 ? 9 : 0), 0);
   html($('#mCnt0'), `切り替え<b>${st.n}</b>回 ・ CDP 往復<b>${rt}</b>回`);
   html($('#mSid'), `cdp.sessionId = <span class="str">"${t < c.M3 + 3.0 ? 'A' : 'B'}"</span>   <span class="cm">' 全体で 1 つ</span>`);
   const mm = p(t, c.M3 + 6.3, c.M3 + 6.6); css($('#mMis'), mm, `scale(${1.3 - .3 * eb(mm)})`);
@@ -1687,7 +1687,7 @@ function buildSound() {
   C('multi', 'M1', 0, (c, o, w) => SE.impact(c, o, w, .6));
   C('multi', 'M1', 3.0, (c, o, w) => { SE.glitch(c, o, w, .1); SE.thud(c, o, w, .6); });
   C('multi', 'M1', 4.7, (c, o, w) => SE.ding(c, o, w, -3));
-  for (const sw of [3.0, 5.6]) { C('multi', 'M2', sw, (c, o, w) => SE.glitch(c, o, w, .12)); for (let j = 0; j < 4; j++) C('multi', 'M2', sw + .3 + j * .26, (c, o, w) => SE.thock(c, o, w)); for (let j = 0; j < 7; j++) C('multi', 'M2', sw + 1.0 + j * .06, (c, o, w) => SE.click(c, o, w, .08)); C('multi', 'M2', sw + 1.5, (c, o, w) => SE.pop8(c, o, w, 76)); }
+  for (const sw of [3.0, 5.6]) { C('multi', 'M2', sw, (c, o, w) => SE.glitch(c, o, w, .12)); for (let j = 0; j < 4; j++) C('multi', 'M2', sw + .3 + j * .26, (c, o, w) => SE.thock(c, o, w)); for (let j = 0; j < 9; j++) C('multi', 'M2', sw + 1.0 + j * .05, (c, o, w) => SE.click(c, o, w, .08)); C('multi', 'M2', sw + 1.5, (c, o, w) => SE.pop8(c, o, w, 76)); }
   C('multi', 'M3', 3.0, (c, o, w) => { SE.whoosh(c, o, w, .3, .15); SE.ping(c, o, w + .2, 84); });
   C('multi', 'M3', 6.3, (c, o, w) => { SE.fail(c, o, w); SE.thud(c, o, w, .5); });
   for (let i = 0; i < 3; i++) C('multi', 'M4', .9 + i * .15, (c, o, w) => SE.pop8(c, o, w, 79 + i * 4));
