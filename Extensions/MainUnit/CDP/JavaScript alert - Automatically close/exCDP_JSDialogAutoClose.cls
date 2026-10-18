@@ -22,9 +22,8 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 'ブラウザ制御オブジェクト
-Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
-Attribute ex_CDPCore.VB_VarHelpID = -1
-Private ex_CDPContext               As CDPContext   '継承元のコンテキスト(タブ)
+Private WithEvents ex_CDPContext    As CDPContext   '継承元のコンテキスト(タブ)
+Attribute ex_CDPContext.VB_VarHelpID = -1
 
 
 '内部使用用
@@ -33,7 +32,6 @@ Private Const ThisClassName         As String = "exCDP_JSDialogAutoClose"
 '基本ステート管理
 Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'VBA側のイベント処理を有効/無効化のスイッチング
-Private CurrentSessionID            As String       '継承時のSesssionID
 
 '最後の記録用
 Private LastJavascriptDialogOpening As String
@@ -60,7 +58,7 @@ Public Property Let EnableEvents(v As Boolean)
     EnableBrowserEvents = v
 
     '2. ブラウザ側からも調整
-    ex_CDPContext.pageEnable v
+    If v Then ex_CDPContext.ExecuteCDP "Page.enable", , False
 End Property
 
 
@@ -106,8 +104,8 @@ End Property
 '***************************************************************************************************
 '                      ■■■ メインとなる機能拡張部分 - イベント処理 ■■■
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPContext_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -118,15 +116,12 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Exit Sub
     End If
 
-    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionID <> sessionID Then Exit Sub
+    Dim DialogInfos As BiDiCDPJson
 
-    '3. 対象のイベント以外も即抜け
+    '2. 対象のイベント以外も即抜け
     Select Case methodName
-        Dim DialogInfos As BiDiCDPJson
-
         Case "Page.javascriptDialogOpening"
-            '4. デバッグログ用に、Jsonパース処理
+            '3. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
             If CDPHelpers.currentLog.seeRawSendMsgDbg Then
                 Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
@@ -142,16 +137,16 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
-            '5. ダイアログを閉じる処理を発動
+            '4. ダイアログを閉じる処理を発動
             With JavaScriptDialogClose
                 ex_CDPContext.handleDialog .Accept, .promptText
             End With
 
-            '6. 最後の履歴として残しておく
+            '5. 最後の履歴として残しておく
             LastJavascriptDialogOpening = RawJson
 
         Case "Page.javascriptDialogClosed"
-            '4. デバッグログ用に、Jsonパース処理
+            '3. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
             If CDPHelpers.currentLog.seeRawSendMsgDbg Then
                 Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
@@ -164,7 +159,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
-            '5. 最後の履歴として残しておく
+            '4. 最後の履歴として残しておく
             LastJavascriptDialogClosed = RawJson
 
         Case Else
@@ -194,17 +189,13 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：CDP制御のベースとなる`CDPCore.cls`等を継承させます
+'* 機能　　：CDP制御のベースとなる`WithEvents`を継承させます
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：この拡張機能Classを動かすのに必要なオブジェクトや情報を渡し、イベント処理機能を有効化させます
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPCore = Inheritance.ExEventCore
-
-    'SessionIdを取得
-    CurrentSessionID = ex_CDPContext.CurrentSessionID
 
     'Pageドメインの有効化
     EnableEvents = True

@@ -21,11 +21,8 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部クラスオブジェクト
-Private ex_CDPContext           As CDPContext
+Private WithEvents ex_CDPContext           As CDPContext
 Attribute ex_CDPContext.VB_VarHelpID = -1
-Private ex_CDPBrowser           As CDPBrowser
-Private WithEvents ex_CDPCore   As CDPCore
-Attribute ex_CDPCore.VB_VarHelpID = -1
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_PromptAPI" 'ログのトレース用
@@ -40,7 +37,6 @@ Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private ProgressValue               As Double       'AIモデルデータのDL進捗値
 Private StreamingEOF                As Boolean      'ストリーミング受信が終わったかのサイン
-Private CurrentSessionID            As String       '`CDPContext.cls`継承時のSesssionID
 
 '`promptStreaming`のcursor管理
 Private Type TextCursor
@@ -122,8 +118,8 @@ End Property
 '***************************************************************************************************
 '                     ■■■ メインとなる機能拡張部分 非同期イベント編 ■■■
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPContext_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -133,9 +129,6 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         printMsg Trace_, "Asynchronous event handling is disabled in this extended class.", FromProcedureName
         Exit Sub
     End If
-
-    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionID <> sessionID Then Exit Sub
 
     '2. 処理したい対象の非同期イベント名を、各Case に記述
     Select Case methodName
@@ -408,7 +401,7 @@ End Sub
 
 '非同期イベント発火(RaiseEvent)に必要です
 Private Sub TakeEvents(Optional destruction As Boolean)
-    ex_CDPBrowser.TakeEvents destruction
+    ex_CDPContext.ThisCDPBrowser.TakeEvents destruction
 End Sub
 
 
@@ -416,20 +409,14 @@ End Sub
 '***************************************************************************************************
 '                             ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：CDP制御のベースとなる`CDPCore.cls`等を継承させます
+'* 機能　　：CDP制御のベースとなる`WithEvents`を継承させます
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：CDP制御に関する全てのオブジェクトをここで継承させ、タブのSesssionIDも適用させてください
-'* 注意事項：・タブの場合は、「CDPContext,CDPBrowser,CDPCore」の3つ、ブラウザの場合は、「CDPBrowser,CDPCore」の2つとなります
-'           ・SessionId は、タブで継承する際に使用します
+'* 詳細説明：CDP制御に関するオブジェクトをここで継承させます
+'* 注意事項：・タブの場合は、「CDPContext」、ブラウザの場合は、「CDPBrowser」となります
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ExEventCore
-
-    'SessionIdを取得
-    CurrentSessionID = ex_CDPContext.CurrentSessionID
 End Sub
 
 '***************************************************************************************************

@@ -1243,6 +1243,9 @@ End Function
 '            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
 Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Boolean
+    '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
+    If deserialize(caps.Set_UserDataDirName) Then DisconnectCDP
+
     '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
     Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.Init caps, False
 

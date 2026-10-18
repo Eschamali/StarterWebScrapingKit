@@ -22,9 +22,8 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 'ブラウザ制御オブジェクト
-Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
-Attribute ex_CDPCore.VB_VarHelpID = -1
-Private ex_CDPContext               As CDPContext   '継承元のタブクラス
+Private WithEvents ex_CDPContext    As CDPContext   '継承元のタブクラス
+Attribute ex_CDPContext.VB_VarHelpID = -1
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_FileChooser"
@@ -32,7 +31,6 @@ Private Const ThisClassName         As String = "exCDP_FileChooser"
 '基本ステート管理
 Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'この拡張によるブラウザ非同期イベント処理スイッチ
-Private CurrentSessionID            As String       '継承時のSesssionID
 
 'ファイル添付系のstatus管理
 Private LastFileChooserOpened       As String       '最後の`Page.fileChooserOpened`情報(Json文字列のまま)
@@ -59,7 +57,7 @@ Public Property Let EnableEvents(Optional cancel As Boolean, v As Boolean)
     EnableBrowserEvents = v
 
     '2. Pageの有効化
-    ex_CDPContext.pageEnable v
+    If v Then ex_CDPContext.ExecuteCDP "Page.enable", , False
 
     '3. ブラウザ側からも調整
     '「ファイル選択ダイアログ横取りモード」の切り替え
@@ -162,8 +160,8 @@ End Sub
 '***************************************************************************************************
 '                      ■■■ メインとなる機能拡張部分 - イベント処理 ■■■
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPContext_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -174,21 +172,18 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Exit Sub
     End If
 
-    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionID <> sessionID Then Exit Sub
-
-    '3. 対象のイベントを処理
+    '2. 対象のイベントを処理
     Dim FileChooserOpenedParams As BiDiCDPJson
     Select Case methodName
         Case "Page.fileChooserOpened"
             LastFileChooserOpened = RawJson
             Set FileChooserOpenedParams = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
-            '4. 主要な情報を取り出す
+            '3. 主要な情報を取り出す
             Dim Target_backendNodeId As Long
             Target_backendNodeId = FileChooserOpenedParams.NumberKey("backendNodeId")
 
-            '5. デバック用に表示
+            '4. デバック用に表示
             If CDPHelpers.currentLog.seeRawSendMsgDbg Then
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "Page.fileChooserOpened information", FromProcedureName
@@ -199,11 +194,11 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
-            '5. キャンセルモードの場合は、ログのみに留める
+            '4. キャンセルモードの場合は、ログのみに留める
             If CancelMode Then
                 printMsg Debug_, "Page.fileChooserOpened - backendNodeId: " & Target_backendNodeId & " was received, but it will be skipped because it is in cancel mode.", FromProcedureName
             Else
-                '6. 登録ファイル数チェック
+                '5. 登録ファイル数チェック
                 If Me.FilePathCount Then
                     'ファイルリストがあれば添付処理
                     printMsg Debug_, "Attach the file to Page.fileChooserOpened - backendNodeId: " & Target_backendNodeId, FromProcedureName
@@ -215,7 +210,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 End If
             End If
 
-            '7. `AutoWaitFileChooserOpened`による待機ループを解除させておく
+            '6. `AutoWaitFileChooserOpened`による待機ループを解除させておく
             WaitLock = False
 
         'ページ遷移時の過去の未処理リストの初期化
@@ -346,7 +341,7 @@ Private Function ExecuteCDP(methodName As String, Optional params As Dictionary,
 End Function
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    ex_CDPCore.TakeEvents StopPipeError, destruction
+    ex_CDPContext.ThisCDPBrowser.TakeEvents StopPipeError, destruction
 End Sub
 
 Private Function TimerCounter() As Double
@@ -363,10 +358,6 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPCore = Inheritance.ExEventCore
-
-    '渡した際のSessionIDをセット
-    CurrentSessionID = Inheritance.CurrentSessionID
 
     '非同期イベント処理を有効化
     EnableEvents = True

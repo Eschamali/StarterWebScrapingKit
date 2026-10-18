@@ -18,18 +18,16 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_CDPCore       As CDPCore
-Private ex_CDPBrowser               As CDPBrowser
-Private ex_CDPContext               As CDPContext
+Private WithEvents ex_CDPContext    As CDPContext
 Private WithEvents st               As SafeTimer
+Attribute st.VB_VarHelpID = -1
 
 '内部使用用
-Private Const ThisClassName         As String = "exCDP_NetworkEvents"             'ログのトレース用
+Private Const ThisClassName         As String = "exCDP_WebSocketEvents" 'ログのトレース用
 
 'ステート管理
-Private m_LogID                    As String   'ログ識別ID
-Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
-Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
+Private m_LogID                     As String   'ログ識別ID
+Private EnableBrowserEvents         As Boolean  'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 
 
 
@@ -55,7 +53,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：非同期イベントを処理したいときにご利用ください。あなたのイメージをコードに落とし込む場所の1つです
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
 
@@ -67,10 +65,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Exit Sub
     End If
 
-    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionId <> sessionID Then Exit Sub
-
-    '3. WebSocket関連の非同期イベント名を、各Case に沿ったDemoプロシージャ実行
+    '2. WebSocket関連の非同期イベント名を、各Case に沿ったDemoプロシージャ実行
     Dim tmp As BiDiCDPJson
     Select Case methodName
         Case "Network.webSocketClosed"
@@ -125,7 +120,7 @@ End Sub
 Private Sub st_TimerCall(ByVal wTime As Long, varData As Variant)
     '1. 既に`TakeEvents`プロシージャに入ってる場合は、多重介入によるスタック領域不足を防ぐため即抜け
     Static isInnerTakeEvents As Boolean
-    if isInnerTakeEvents then exit Sub
+    If isInnerTakeEvents Then Exit Sub
 
     '2. フラグを`True`にして、多重介入を阻止し、イベント取り出し処理へ
     isInnerTakeEvents = True
@@ -162,7 +157,7 @@ End Sub
 '***************************************************************************************************
 '負荷を抑えるときにどうぞ
 Private Sub sleep(Optional seconds As Double = 0.5)
-    CDPHelpers.Sleep seconds
+    CDPHelpers.sleep seconds
 End Sub
 
 'ログメッセージを出すときにどうぞ
@@ -180,7 +175,7 @@ End Function
 
 '非同期イベント発火(RaiseEvent)に必要です
 Private Sub TakeEvents(Optional destruction As Boolean)
-    ex_CDPBrowser.TakeEvents , destruction
+    ex_CDPContext.ThisCDPBrowser.TakeEvents , destruction
 End Sub
 
 
@@ -193,11 +188,6 @@ End Sub
 Friend Sub Init(Inheritance As CDPContext)
     '継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ExEventCore
-
-    'SessionIdを取得
-    CurrentSessionId = ex_CDPContext.CurrentSessionId
 End Sub
 
 '***************************************************************************************************
