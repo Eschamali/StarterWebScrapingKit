@@ -128,6 +128,51 @@ If LoopCounter Mod RunDoEventsCount = 0 Then DoEvents
 `DoEvents` 中はユーザーのセル操作や他マクロの起動を許してしまいます。長時間の待機処理では、この点を踏まえた設計が必要です。逆に、これがあるおかげで待機中でも「中断」ボタンが効きます。
 :::
 
+### 手回しをタイマーに任せる ―― VBA-SafeTimer（拡張機能）
+
+ここまでの方式は、どれも「誰かが `TakeEvents` を呼び続ける」ことが前提でした。外部ライブラリ [VBA-SafeTimer](https://github.com/cristianbuse/VBA-SafeTimer) を組み合わせると、この前提を**条件付きで外せます**。Windows の `SetTimer` で一定間隔のコールバックを受け取り、その中で `TakeEvents` を呼ぶことで、**呼び出し元のプロシージャが終了した後も、受信処理が自動で回り続けます**。
+
+| 場所 | 内容 |
+| --- | --- |
+| [`Extensions` ブランチ：`Extensions/MainUnit/CDP/Data Streamer For WebSocketDemo`](https://github.com/Eschamali/StarterWebScrapingKit/tree/Extensions/Extensions/MainUnit/CDP/Data%20Streamer%20For%20WebSocketDemo) | ページ内の WebSocket フレームを、イミディエイトウィンドウと Excel テーブルへ記録し続けるデモ。Do〜Loop 版と SafeTimer 版を比べられる |
+| [`dev-xlflow` ブランチ：`ForDevelopers/TemplateExtensions/CDP/Advanced`](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev-xlflow/ForDevelopers/TemplateExtensions/CDP/Advanced) | VBA-SafeTimer 一式（`SafeTimer.cls` / `LibTimers.bas` / `TimerForm.frm`）と、それを組み込んだ拡張クラスのテンプレート |
+
+```vb
+' Demo_SafeTimerWithCDP.bas（抜粋）
+Static d As New exCDP_WebSocketEvents   ' Static なので、プロシージャを抜けても破棄されない
+d.Init WebSocketDemo_SafeTimer
+d.StartCheckAsyncEvents 50              ' 50ms ごとに TakeEvents を自動で呼ぶ
+' ← ここでプロシージャは終了するが、イベントの受信は続く
+```
+
+```vb
+' exCDP_WebSocketEvents.cls（抜粋）
+Private Sub st_TimerCall(ByVal wTime As Long, varData As Variant)
+    ' TakeEvents 内の DoEvents でタイマーが再び発火するため、多重介入を防ぐ
+    Static isInnerTakeEvents As Boolean
+    If isInnerTakeEvents Then Exit Sub
+
+    isInnerTakeEvents = True
+    TakeEvents
+    isInnerTakeEvents = False
+End Sub
+```
+
+| | Do〜Loop で待つ | VBA-SafeTimer に任せる |
+| --- | --- | --- |
+| プロシージャの終了 | ループが終わるまで戻らない | すぐ戻り、監視は続く |
+| 待っている間の他の操作 | `DoEvents` の範囲のみ | Excel を普通に操作できる |
+| VBA の中断時 | ループが止まる | タイマーも止まる（クラッシュしない） |
+
+::: warning 「条件付き」である理由
+- 本体（`src/`）ではなく**拡張機能**です。VBA-SafeTimer の導入と、それを組み込んだ拡張クラスが必要です
+- `TakeEvents` の中で `DoEvents` が呼ばれると、そのすきにタイマーが再び発火します。上のコードのような**多重呼び出しの防止が必須**です
+- コールバックは Excel の UI スレッドで実行されます。**並列に動くわけではない**ので、コールバックの中で重い処理をすると Excel が固まります
+- OS から「データが届いた」と通知を受ける libuv とは違い、**一定間隔で覗きに行くポーリング**です。間隔の調整は引き続き設計パラメータとして残ります
+:::
+
+それでも、「誰かが呼び続けないと何も起きない」という VBA の前提からは、一段抜け出せます。イベントループそのものは作れませんが、**イベントループのように振る舞わせる**ところまでは近づけるわけです。
+
 ## 5. 「待つ」の実装比較
 
 ページ読み込み完了を待つ処理を並べると、差がはっきりします。
@@ -158,12 +203,12 @@ End Sub
 | --- | --- | --- | --- |
 | コマンド ID と応答の待ち合わせ | `Map` に callback 登録 | `Dictionary` に結果を蓄積 | 同等 |
 | 待たずに送る手段 | Promise | 整理券（コマンド ID） | 同等（回収が手動） |
-| 受信の駆動 | libuv が自動起動 | `TakeEvents` を手動で呼ぶ | **言語ランタイム** |
+| 受信の駆動 | libuv が自動起動 | `TakeEvents` を手動で呼ぶ（VBA-SafeTimer 併用でタイマー駆動も可） | **言語ランタイム** |
 | 待機中の他処理 | 他の Promise が普通に進む | `DoEvents` の範囲のみ | **言語ランタイム** |
 | 並行実行 | `Promise.all` で自然に書ける | 連続 Async 発行で往復はまとめられる | 記述性の差 |
 | キャンセル | `AbortSignal` 等 | タイムアウト到達で `Err.Raise` | 実装投資 |
 
-イベントループの有無だけは、VBA 側でどれだけ工夫しても埋まりません。逆に言えば、**それ以外の要素（ID 管理・整理券・タイムアウト・パイプライン化）はすべて実装で埋められており、実際に埋めてある**というのがこのキットの位置づけです。
+イベントループそのものは、VBA 側でどれだけ工夫しても作れません。ただし、受信ポンプを OS のタイマー（VBA-SafeTimer）に任せれば、「呼ばなくても回る」状態までは条件付きで近づけます。逆に言えば、**それ以外の要素（ID 管理・整理券・タイムアウト・パイプライン化）はすべて実装で埋められており、実際に埋めてある**というのがこのキットの位置づけです。
 
 ## まとめ
 
@@ -173,7 +218,7 @@ End Sub
 | 往復のパイプライン化 | ✅ 連続 Async 発行で可能 |
 | タイムアウト・エラー離脱 | ✅ 受信ループに組み込み済み |
 | UI をブロックしない配慮 | ✅ `DoEvents` の間引き呼び出し |
-| 自動的な受信駆動 | ❌ 言語に存在しないため手動 |
+| 自動的な受信駆動 | △ 言語には無い。VBA-SafeTimer 併用で条件付きで自動化（拡張機能） |
 | `await` の記述性 | ❌ 構文が無いため冗長 |
 
 ## 次に読む

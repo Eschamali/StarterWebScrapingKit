@@ -60,6 +60,7 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #hud .slot b{font:900 25px var(--jp)}
 #hud .slot em{margin-left:auto;font:900 20px var(--jp);font-style:normal;padding:4px 12px;border-radius:8px;opacity:0}
 #hud .slot em.ok{background:rgba(61,220,132,.16);color:var(--ok);border:2px solid var(--ok)}
+#hud .slot em.warn{background:rgba(255,176,32,.16);color:var(--warn);border:2px solid var(--warn)}
 #hud .slot em.ng{background:rgba(255,77,94,.16);color:var(--ng);border:2px solid var(--ng)}
 #hud .slot.on{border-color:#e0479e;box-shadow:0 0 26px rgba(224,71,158,.55);background:rgba(40,16,40,.9)}
 #hud .slot.on i{color:#ff9bd0}
@@ -214,6 +215,29 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #aSvg text{font:700 26px "Noto Sans JP",sans-serif;fill:#fff}
 #aSvg .m{font:700 22px "JetBrains Mono",monospace;fill:#9cdcfe}
 
+/* async: SafeTimer */
+#aOld,#aNew{position:absolute;inset:0}
+#sfCode{left:90px;top:150px;width:1040px;opacity:0}
+#sfCode .code{font-size:21px;padding:16px 26px;min-height:236px}
+#sfEnd{position:absolute;right:20px;bottom:16px;padding:6px 18px;border-radius:10px;background:rgba(61,220,132,.16);border:2px solid var(--ok);color:var(--ok);font:900 26px var(--jp);opacity:0}
+#sfCmp{position:absolute;left:90px;top:480px;width:1040px}
+#sfCmp .r{display:flex;align-items:center;gap:24px;height:70px;margin-bottom:12px;padding:0 26px;border-radius:14px;background:rgba(14,19,32,.9);border:2px solid rgba(255,255,255,.18);opacity:0}
+#sfCmp b{width:260px;font:900 28px var(--jp)}
+#sfCmp span{font:700 26px var(--jp);color:#ccd}
+#sfCmp i{margin-left:auto;font:900 36px var(--jp);font-style:normal}
+#sfCmp i.ok{color:var(--ok)} #sfCmp i.ng{color:var(--ng)}
+#sfClock{position:absolute;left:1220px;top:140px;width:220px;height:220px;border-radius:50%;border:6px solid #ffcf6b;box-shadow:0 0 40px rgba(255,176,32,.45);opacity:0}
+#sfClock i{position:absolute;left:100px;top:16px;width:8px;height:88px;border-radius:4px;background:#ffcf6b;transform-origin:4px 88px}
+#sfClock .t{position:absolute;left:0;right:0;top:118px;text-align:center;font:700 20px var(--mono);color:#ddd}
+#sfClock .t b{font-size:30px;color:#fff}
+#sfArrow{position:absolute;left:1470px;top:220px;font:900 34px var(--mono);color:#ffcf6b;opacity:0}
+#sfLog{left:1180px;top:400px;width:650px;height:250px;opacity:0}
+#sfLog .lines{padding:12px 20px;font:18px/1.75 var(--mono);white-space:pre;color:#cfe0ff}
+#sfLog .lines .s{color:#ff9bd0} #sfLog .lines .r{color:#7dffb4}
+#sfCond{position:absolute;left:90px;right:90px;top:690px;display:flex;gap:16px;align-items:center;justify-content:center}
+#sfCond span{padding:10px 20px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.22);font:700 24px var(--jp);opacity:0}
+#sfCond .big{font:900 40px var(--jp);color:var(--warn);border:3px solid var(--warn);background:rgba(255,176,32,.12)}
+
 /* ===== cls ===== */
 .cc{position:absolute;height:80px;border-radius:14px;display:flex;align-items:center;justify-content:center;text-align:center;font:700 26px var(--mono);background:rgba(14,19,32,.92);border:2px solid rgba(255,255,255,.18);opacity:0;white-space:nowrap}
 .cc.h{background:none;border:none;font:900 32px var(--mono)}
@@ -245,6 +269,25 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #gB1 .t{color:var(--ok)} #gB2 .t{color:var(--ng)}
 .gbin .its{display:flex;flex-wrap:wrap;gap:14px;margin-top:22px}
 .gbin .its div{padding:12px 20px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);font:700 26px var(--jp);opacity:0}
+.gbin .its p{padding:12px 20px;border-radius:12px;background:rgba(255,138,61,.18);border:2px solid #ff8a3d;font:900 26px var(--jp);opacity:0}
+#gFox{position:absolute;left:0;top:0;padding:12px 20px;border-radius:12px;background:rgba(255,138,61,.2);border:2px solid #ff8a3d;box-shadow:0 0 30px rgba(255,138,61,.6);font:900 26px var(--jp);white-space:nowrap;opacity:0;z-index:2}
+#gFx{position:absolute;left:100px;right:100px;top:150px;height:560px;opacity:0}
+#gFx .ttl{font:900 40px var(--jp);text-align:center}
+#gFx .ttl b{font-family:var(--mono);color:#ff9bd0}
+#gFx .row{position:absolute;left:0;right:0;height:140px;display:flex;align-items:center}
+#gfr1{top:90px} #gfr2{top:280px}
+#gFx .n{flex:none;width:360px;height:120px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font:700 26px/1.35 var(--mono);background:rgba(14,19,32,.92);border:2px solid rgba(255,255,255,.25);opacity:0}
+#gFx .n small{font:700 18px var(--jp);color:#aab}
+#gFx .cls{border-color:#ff9bd0;box-shadow:0 0 24px rgba(224,71,158,.4)}
+#gFx .map{width:300px;border-style:dashed;color:#9cdcfe}
+#gFx .br{width:260px;font:900 34px var(--jp)}
+#gFx .fox{border-color:#ff8a3d;box-shadow:0 0 30px rgba(255,138,61,.5);color:#ffb070}
+#gFx .ln{flex:1;position:relative;height:6px;margin:0 14px;border-radius:3px;background:linear-gradient(90deg,#ff9bd0,#9cdcfe);transform-origin:0 50%}
+#gFx .ln.fx{background:linear-gradient(90deg,#ff9bd0,#ff8a3d)}
+#gFx .ln span{position:absolute;left:50%;top:-40px;transform:translateX(-50%);white-space:nowrap;font:700 20px var(--mono);color:#ddd}
+#gFx .bd{position:absolute;left:0;right:0;top:470px;display:flex;justify-content:center;gap:18px}
+#gFx .bd span{padding:10px 22px;border-radius:12px;background:rgba(61,220,132,.12);border:2px solid var(--ok);font:900 26px var(--jp);opacity:0}
+#gInv{top:760px;font-size:52px;opacity:0}
 #gHum{position:absolute;left:30px;right:30px;bottom:34px;text-align:center;font:900 64px var(--jp);opacity:0}
 
 /* ===== fin ===== */
@@ -379,6 +422,7 @@ body.rec{cursor:none}
 
   <!-- ROUND4: 非同期 -->
   <div class="scene" id="async">
+    <div id="aOld">
     <div class="alb" id="aNT"><div class="h">Node.js</div></div>
     <div class="aring" id="aNR"></div><div id="aNRc">libuv</div>
     <div class="alb" id="aNB"><div class="s">イベントループが<b>自動</b>で回る</div></div>
@@ -392,6 +436,15 @@ body.rec{cursor:none}
     <div class="atk" id="aTk1"><div><b>#102</b><small>ExecuteCDPAsync</small></div><div class="ck">✔</div></div>
     <div class="atk" id="aTk2"><div><b>#103</b><small>ExecuteCDPAsync</small></div><div class="ck">✔</div></div>
     <svg id="aSvg" viewBox="0 0 1920 300"></svg>
+    </div>
+    <div id="aNew">
+      <div class="panel" id="sfCode"><div class="hd">Demo_SafeTimerWithCDP.bas（Extensions ブランチ）</div><div class="code"></div><div id="sfEnd">✔ 実行終了</div></div>
+      <div id="sfCmp"><div class="r"><b>Do〜Loop 版</b><span>プロシージャが戻らない</span><i class="ng">✕</i></div><div class="r"><b>SafeTimer 版</b><span>すぐ戻り、監視は続く</span><i class="ok">✔</i></div></div>
+      <div id="sfClock"><i></i><div class="t">SafeTimer<br><b>50ms</b></div></div>
+      <div id="sfArrow">→ TakeEvents</div>
+      <div class="panel" id="sfLog"><div class="hd">exCDP_WebSocketEvents ― 届いたイベント</div><div class="lines"></div></div>
+      <div id="sfCond"><span class="big">△ 条件付き</span><span>VBA-SafeTimer の導入（拡張機能）</span><span>TakeEvents の多重呼び出しを防ぐ</span><span>処理は Excel の UI スレッドのまま</span></div>
+    </div>
   </div>
 
   <!-- ROUND5: クラス構成 -->
@@ -416,12 +469,20 @@ body.rec{cursor:none}
     <div class="gcard" id="gc3"><div class="t">マルチブラウザ</div>
       <div class="r"><span>Playwright</span>Chromium / Firefox / WebKit</div>
       <div class="r"><span>Puppeteer</span>Chromium ＋ Firefox（BiDi）</div>
-      <div class="r"><span>このキット</span>Chromium 系のみ</div></div>
+      <div class="r"><span>このキット</span>Chromium 系が中心</div></div>
     <div class="gbin" id="gB1"><div class="t">実装投資で埋まる差</div>
-      <div class="its"><div>自動テストの拡充</div><div>エラー分類の細分化</div><div>CDP メソッド名の型付け</div><div>Handle の明示的解放</div><div>CDP / BiDi の抽象化</div><div>WebSocket の堅牢化</div></div>
+      <div class="its"><div>自動テストの拡充</div><div>エラー分類の細分化</div><div>CDP メソッド名の型付け</div><div>Handle の明示的解放</div><div>CDP / BiDi の抽象化</div><div>WebSocket の堅牢化</div><p id="gFoxT">🦊 Firefox（BiDi 直結）</p></div>
       <div id="gHum">＝ <span class="gradtext">人 × 時間</span> の差</div></div>
     <div class="gbin" id="gB2"><div class="t">言語・環境の制約で埋まらない差</div>
-      <div class="its"><div>イベントループ</div><div>async / await</div><div>マルチエンジン</div><div>パッケージ配布</div><div>クロスプラットフォーム</div><div>大規模なクラス分割</div></div></div>
+      <div class="its"><div>イベントループ</div><div>async / await</div><div id="gME">マルチエンジン</div><div>パッケージ配布</div><div>クロスプラットフォーム</div><div>大規模なクラス分割</div></div></div>
+    <div id="gFox">🦊 Firefox（BiDi 直結）</div>
+    <div id="gFx">
+      <div class="ttl">同じ <b>WebDriverBiDiMode / Context</b> で、2 つのブラウザへ</div>
+      <div class="row" id="gfr1"><div class="n cls">WebDriverBiDiMode<br>WebDriverBiDiContext</div><div class="ln"><span>BiDi-Json</span></div><div class="n map">mapperTab.js<small>BiDi → CDP に翻訳</small></div><div class="ln"><span>CDP-Json</span></div><div class="n br">Chromium</div></div>
+      <div class="row" id="gfr2"><div class="n cls">WebDriverBiDiMode<br>WebDriverBiDiContext</div><div class="ln fx"><span>BiDi-Json をそのまま（WebSocket 直結）</span></div><div class="n br fox">🦊 Firefox</div></div>
+      <div class="bd"><span>専用クラス：なし</span><span>コア追記：3 ファイル・100 行足らず</span><span>ex-Firefox ブランチ（メイン配布外）</span></div>
+    </div>
+    <div class="lbl" id="gInv">🫠 これも「<span class="gradtext">人 × 時間</span>」の投資</div>
   </div>
 
   <!-- フィナーレ -->
@@ -506,7 +567,7 @@ const tlen = tk => tk.reduce((a, [s]) => a + [...s].length, 0);
 
 // 簡易シンタックスハイライト(vb=true で VBA)
 function toks(src, vb) {
-  const re = vb ? /('[^\n]*|"[^"\n]*"|\b(?:Public|Event|Dim|As|String|Long|If|Then|Else|End|ElseIf|RaiseEvent|Set|Function|Or|And)\b|&H[0-9A-F]+\b|\b\d+\b)/g
+  const re = vb ? /('[^\n]*|"[^"\n]*"|\b(?:Public|Event|Dim|As|String|Long|If|Then|Else|End|ElseIf|RaiseEvent|Set|Function|Sub|Static|New|Or|And)\b|&H[0-9A-F]+\b|\b\d+\b)/g
     : /(\/\/[^\n]*|'[^'\n]*'|"[^"\n]*"|\b(?:const|await|import|from|if|else|return|new|throw|this)\b|\b\d+\b)/g;
   const out = []; let i = 0, m;
   while ((m = re.exec(src))) {
@@ -541,10 +602,15 @@ const VO = {
   A1: { d: 8.821, t: "第4ラウンド、非同期。ここには言語の壁がある。VBA には、イベントループが無いのだ。" },
   A2: { d: 5.312, t: "なら、自分で回す。整理券を配って、TakeEvents でまとめて回収するのだ。" },
   A3: { d: 5.579, t: "3つ投げても、往復は1回分。Promise.all と同じ効き目なのだ。" },
+  A4: { d: 7.659, t: "さらに VBA-SafeTimer を組み込めば、プロシージャが終わった後も、タイマーが TakeEvents を回し続ける。" },
+  A5: { d: 3.947, t: "条件付きではあるけど、非同期に、ぐっと近づけるのだ！" },
   L1: { d: 6.987, t: "最終ラウンド、クラス構成。ブラウザ・ページ・要素。三層モデルは、完全に一致したのだ。" },
   L2: { d: 5.888, t: "しかも要素の読み書きは、VBA のほうが短い。プロパティ構文の勝ちなのだ！" },
   G1: { d: 4.672, t: "もちろん、差はある。テストの量、エラーの型、マルチブラウザ。" },
   G2: { d: 5.227, t: "でもその多くは、言語の限界じゃない。注がれた人と時間の差なのだ。" },
+  G3: { d: 5.952, t: "実際、マルチブラウザの壁も、コアに少し書き足すだけで、Firefox が動いたのだ。" },
+  G4: { d: 6.581, t: "chromium-bidi のために研ぎ澄ました WebDriver BiDi のクラスが、そのまま通じたのだ！" },
+  G5: { d: 4.587, t: "……まあ、これも「人と時間」の投資なのだ。" },
   F1: { d: 6.005, t: "Pipe、バッファ、振り分け、三層モデル。コアのアルゴリズムは、肩を並べた。" },
   F2: { d: 5.557, t: "Node が数行で済ませる部分に、VBA は 4,000 行以上を注ぎ込んだ。" },
   F3: { d: 5.163, t: "「VBA だから無理」の範囲は、思っていたより、ずっと小さいのだ！" },
@@ -562,9 +628,9 @@ const SC = [
   { id: 'pipe', lead: .3, seq: [['C1', .3], ['C2', .9], ['W1', .3], ['W2', 1.6]], fn: sPipe, bg: [190, 1] },
   { id: 'buf', lead: .3, seq: [['N1', .3], ['N2', .4], ['N3', 1.6]], fn: sBuf, bg: [175, .95] },
   { id: 'disp', lead: .3, seq: [['D1', .4], ['D2', 1.5]], fn: sDisp, bg: [265, 1] },
-  { id: 'async', lead: .3, seq: [['A1', .4], ['A2', .4], ['A3', 1.6]], fn: sAsync, bg: [345, .9] },
+  { id: 'async', lead: .3, seq: [['A1', .4], ['A2', .4], ['A3', .5], ['A4', .3], ['A5', 1.8]], fn: sAsync, bg: [345, .9] },
   { id: 'cls', lead: .3, seq: [['L1', .4], ['L2', 1.6]], fn: sCls, bg: [150, .95] },
-  { id: 'gaps', lead: .3, seq: [['G1', .4], ['G2', 1.4]], fn: sGaps, bg: [230, .7] },
+  { id: 'gaps', lead: .3, seq: [['G1', .4], ['G2', .5], ['G3', .3], ['G4', .4], ['G5', 1.5]], fn: sGaps, bg: [230, .7] },
   { id: 'fin', lead: .5, seq: [['F1', .5], ['F2', .5], ['F3', 1.8]], fn: sFin, bg: null },
   { id: 'end', lead: .9, seq: [['H1', .4], ['H2', 4.0]], fn: sEnd, bg: null, nosub: true },
 ];
@@ -611,6 +677,9 @@ function drawBg(t, sc, lt) {
 /* ---------- 共通: スコアボード ----------
    [シーン, セリフID, そこからの秒, 判定, 表示] */
 const HUDV = [['pipe', 'W2', 5.5, 'ok', 'Pipe✅ WS⚠️'], ['buf', 'N3', 3.5, 'ok', '✅ 同等'], ['disp', 'D2', 5.1, 'ok', '✅ 同等'], ['async', 'A3', 4.2, 'ng', '❌ 言語の壁'], ['cls', 'L2', 4.0, 'ok', '✅ 一致']];
+// 判定の格上げ [スロット番号, シーン, セリフID, そこからの秒, 判定, 表示]
+const HUDU = [[3, 'async', 'A5', .4, 'warn', '△ 条件付き']];
+const hudUp = i => { const u = HUDU.find(x => x[0] === i); return u && S[u[1]].a + S[u[1]].c[u[2]] + u[3]; };
 const ROUND = { pipe: 0, buf: 1, disp: 2, async: 3, cls: 4 };
 const hudAt = i => { const [id, cue, off] = HUDV[i]; return S[id].a + S[id].c[cue] + off; };
 function drawHud(t) {
@@ -622,9 +691,10 @@ function drawHud(t) {
   let cur = -1; for (const id in ROUND) if (t >= S[id].a && t < S[id].a + S[id].d) cur = ROUND[id];
   $$('#hud .slot').forEach((e, i) => {
     e.classList.toggle('on', i === cur);
-    const em = e.querySelector('em'), at = hudAt(i), k = p(t, at, at + .3);
-    if (em.className !== HUDV[i][3]) em.className = HUDV[i][3];
-    txt(em, HUDV[i][4]); css(em, k, `scale(${1.8 - .8 * eb(k)})`);
+    const em = e.querySelector('em'), up = hudUp(i), isUp = up !== undefined && t >= up;
+    const at = isUp ? up : hudAt(i), k = p(t, at, at + .3), u = isUp ? HUDU.find(x => x[0] === i) : null;
+    const cls = isUp ? u[4] : HUDV[i][3]; if (em.className !== cls) em.className = cls;
+    txt(em, isUp ? u[5] : HUDV[i][4]); css(em, isUp ? 1 : k, `scale(${1.8 - .8 * eb(k)})`);
   });
 }
 
@@ -831,8 +901,31 @@ function sDisp(t, s) {
   $('#aSvg').innerHTML = h;
   $$('#aSvg .tr1').forEach(e => e.setAttribute('stroke', '#ff7a88')); $$('#aSvg .tr2').forEach(e => e.setAttribute('stroke', '#3ddc84'));
 })();
+const tkSF = toks(`Sub StartSetTimerVer()\n    Static d As New exCDP_WebSocketEvents   ' 抜けても破棄されない\n    d.Init WebSocketDemo_SafeTimer\n    WebSocketDemo_SafeTimer.navigate "https://echo.websocket.org/.ws"\n    d.StartCheckAsyncEvents 50              ' 50ms ごとに自動でポンプ\nEnd Sub                                     ' ← ここで終わっても…`, true), nSF = tlen(tkSF);
+const SFL = [['s', '⇡ webSocketFrameSent    ', '"hello"'], ['r', '⇣ webSocketFrameReceived', '"hello"'], ['s', '⇡ webSocketFrameSent    ', '"令和のIE"'], ['r', '⇣ webSocketFrameReceived', '"令和のIE"'], ['s', '⇡ webSocketFrameSent    ', '"VBA"'], ['r', '⇣ webSocketFrameReceived', '"VBA"']];
+const SF0 = c => c.A4 + 3.0, SFG = .5;
+function sSafeTimer(t, c) {
+  const old = 1 - p(t, c.A4 - .4, c.A4);
+  $('#aOld').style.opacity = old; $('#aOld').style.display = old > 0 ? 'block' : 'none';
+  const nw = p(t, c.A4 - .2, c.A4 + .2);
+  $('#aNew').style.opacity = nw; $('#aNew').style.display = nw > 0 ? 'block' : 'none';
+  if (nw <= 0) return;
+  css($('#sfCode'), p(t, c.A4, c.A4 + .3));
+  typed($('#sfCode .code'), tkSF, Math.floor(p(t, c.A4 + .2, c.A4 + 2.6) * nSF), t < c.A4 + 2.9);
+  const ek = p(t, c.A4 + 2.7, c.A4 + 2.95); css($('#sfEnd'), ek, `scale(${1.6 - .6 * eb(ek)})`);
+  $$('#sfCmp .r').forEach((e, i) => { const k = p(t, c.A4 + 4.0 + i * .4, c.A4 + 4.3 + i * .4); css(e, k, `translateX(${-60 * (1 - eo(k))}px)`); });
+  const ck = p(t, c.A4 + .6, c.A4 + 1.0); css($('#sfClock'), ck, `scale(${.7 + .3 * eb(ck)})`);
+  $('#sfClock i').style.transform = `rotate(${Math.floor(t * 20) * 18}deg)`;
+  css($('#sfArrow'), p(t, c.A4 + 1.2, c.A4 + 1.5) * (.6 + .4 * Math.abs(Math.sin(t * 6))));
+  css($('#sfLog'), p(t, c.A4 + 2.8, c.A4 + 3.1));
+  const n = t < SF0(c) ? 0 : Math.floor((t - SF0(c)) / SFG) + 1, L = [];
+  for (let q = Math.max(0, n - 6); q < n; q++) { const [k, m, v] = SFL[q % SFL.length]; L.push(`<span class="${k}">${esc(m)}</span>  ${esc(v)}`); }
+  html($('#sfLog .lines'), L.join('\n'));
+  $$('#sfCond span').forEach((e, i) => { const k = p(t, c.A5 + .3 + i * .25, c.A5 + .55 + i * .25); css(e, k, `scale(${(i ? 1.2 : 1.8) - (i ? .2 : .8) * eb(k)})`); });
+}
 function sAsync(t, s) {
   const c = s.c;
+  sSafeTimer(t, c);
   ['#aNT', '#aNB', '#aVT', '#aVB'].forEach((id, i) => css($(id), p(t, .2 + (i % 2) * .2 + (i > 1) * .5, .5 + (i % 2) * .2 + (i > 1) * .5)));
   css($('#aNR'), p(t, .2, .6), `rotate(${t * 260}deg)`); css($('#aNRc'), p(t, .2, .6));
   $$('.acb').forEach((e, i) => {
@@ -899,6 +992,7 @@ function sCls(t, s) {
 }
 
 // ---- 残る差 ----
+let GFX0 = null, GFX1 = null;
 function sGaps(t, s) {
   const c = s.c, out = 1 - p(t, c.G2 - .3, c.G2 + .1);
   [1.2, 2.0, 2.8].forEach((a, i) => { const k = p(t, c.G1 + a, c.G1 + a + .3); css($('#gc' + (i + 1)), k * out, `translateY(${50 * (1 - eb(k))}px)`); });
@@ -906,6 +1000,25 @@ function sGaps(t, s) {
   $$('#gB1 .its div').forEach((e, i) => { const k = p(t, c.G2 + .6 + i * .16, c.G2 + .85 + i * .16); css(e, k, `translateY(${-40 * (1 - eb(k))}px)`); });
   $$('#gB2 .its div').forEach((e, i) => { const k = p(t, c.G2 + .9 + i * .16, c.G2 + 1.15 + i * .16); css(e, k, `translateY(${-40 * (1 - eb(k))}px)`); });
   const hk = p(t, c.G2 + 3.2, c.G2 + 3.5); css($('#gHum'), hk, `scale(${1.4 - .4 * eb(hk)})`);
+  // マルチエンジンの札から、Firefox が「埋まる差」へ引っ越す
+  txt($('#gME'), t < c.G3 + 1.0 ? 'マルチエンジン' : 'WebKit 等の他エンジン');
+  const bins = 1 - p(t, c.G4 - .4, c.G4);
+  $('#gB1').style.opacity *= bins; $('#gB2').style.opacity *= bins;
+  const me = $('#gME'), tg = $('#gFoxT');
+  if (me.offsetWidth && !GFX0) { GFX0 = [$('#gB2').offsetLeft + me.offsetLeft, $('#gB2').offsetTop + me.offsetTop]; GFX1 = [$('#gB1').offsetLeft + tg.offsetLeft, $('#gB1').offsetTop + tg.offsetTop]; }
+  const fk = eio(p(t, c.G3 + 1.0, c.G3 + 2.2)), landed = t >= c.G3 + 2.2;
+  if (GFX0) css($('#gFox'), (t >= c.G3 + .8 && !landed ? p(t, c.G3 + .8, c.G3 + 1.0) : 0) * bins,
+    `translate(${lerp(GFX0[0], GFX1[0], fk)}px,${lerp(GFX0[1], GFX1[1], fk) - 160 * Math.sin(Math.PI * fk)}px) scale(${1 + .25 * Math.sin(Math.PI * fk)})`);
+  const lk = p(t, c.G3 + 2.2, c.G3 + 2.45); css(tg, landed ? 1 : 0, `scale(${1.5 - .5 * eb(lk)})`);
+  // 同じクラスで、Chromium と Firefox へ
+  css($('#gFx'), p(t, c.G4 - .1, c.G4 + .3));
+  const nodeK = (e, a) => { const k = p(t, a, a + .3); css(e, k, `scale(${1.3 - .3 * eb(k)})`); };
+  $$('#gfr1 .n').forEach((e, i) => nodeK(e, c.G4 + .2 + i * .45));
+  $$('#gfr1 .ln').forEach((e, i) => e.style.transform = `scaleX(${eo(p(t, c.G4 + .4 + i * .45, c.G4 + .7 + i * .45))})`);
+  $$('#gfr2 .n').forEach((e, i) => nodeK(e, c.G4 + 2.2 + i * 1.0));
+  $$('#gfr2 .ln').forEach(e => e.style.transform = `scaleX(${eo(p(t, c.G4 + 2.4, c.G4 + 3.1))})`);
+  $$('#gFx .bd span').forEach((e, i) => { const k = p(t, c.G4 + 4.0 + i * .3, c.G4 + 4.3 + i * .3); css(e, k, `translateY(${30 * (1 - eb(k))}px)`); });
+  const ik = p(t, c.G5 + .2, c.G5 + .5); css($('#gInv'), ik, `scale(${1.4 - .4 * eb(ik)}) rotate(${-3 * Math.sin(t * 3)}deg)`);
   fadeScene('gaps', t, s);
 }
 
@@ -917,7 +1030,7 @@ const ss = (a, b, x) => { const k = cl((x - a) / (b - a)); return k * k * (3 - 2
 function spread(x) { let v = 190; for (const g of FG) v *= 1 - .2 * ss(g - 80, g + 40, x); return v * (1 - ss(1660, 1790, x)); }
 const finHx = (t, c) => lerp(60, 1900, eio(p(t, c.F1 - .3, c.F1 + 5.0)));
 (function () {
-  $('#fChips').innerHTML = ['Pipe 本流', 'NUL 区切りバッファ', 'sessionId 多重化', '4 本のイベント', '整理券（ExecuteCDPAsync）', '三層モデル', '生 WinSock', 'プロパティ構文'].map(n => `<div class="fch">${n}</div>`).join('');
+  $('#fChips').innerHTML = ['Pipe 本流', 'NUL 区切りバッファ', 'sessionId 多重化', '4 本のイベント', '整理券（ExecuteCDPAsync）', '三層モデル', '生 WinSock', 'プロパティ構文', 'SafeTimer で自動ポンプ', 'Firefox も BiDi 直結'].map(n => `<div class="fch">${n}</div>`).join('');
 })();
 function drawFin(t, c, alpha) {
   const g = FX; g.clearRect(0, 0, 1920, 1080);
@@ -974,7 +1087,7 @@ function sFin(t, s) {
   css(lim, p(t, c.F3 - .3, c.F3 + .1), 'translate(-50%,-50%)');
   css(lim.querySelector('.a'), 1 - p(t, c.F3 + .8, c.F3 + 1.3)); css(lim.querySelector('.b'), p(t, c.F3 + 1.9, c.F3 + 2.3));
   $$('.fch').forEach((e, i) => {
-    const k = eo(p(t, c.F3 + 2.2 + i * .06, c.F3 + 3.0 + i * .06)), ang = (i / 8) * Math.PI * 2 - Math.PI / 2 + .2;
+    const k = eo(p(t, c.F3 + 2.2 + i * .06, c.F3 + 3.0 + i * .06)), ang = (i / 10) * Math.PI * 2 - Math.PI / 2 + .2;
     css(e, p(t, c.F3 + 2.2 + i * .06, c.F3 + 2.4 + i * .06), `translate(calc(-50% + ${Math.cos(ang) * 560 * k}px), calc(-50% + ${Math.sin(ang) * 300 * k}px))`);
   });
   css($('#fRays'), p(t, c.F3 + 2.2, c.F3 + 2.8), `rotate(${t * 12}deg) scale(${.7 + .3 * eo(p(t, c.F3 + 2.2, c.F3 + 3.2))})`);
@@ -1128,6 +1241,7 @@ function buildSound() {
   ambient(S.gaps.a, S.fin.a - .1, { bpm: 84, g: .75, lp: 900, arp: false, prog: [[57, 60, 64], [53, 57, 60]] });
   for (const id of ['route', 'pipe', 'buf', 'disp', 'async', 'cls', 'gaps']) A(id, 0, (c, o, w) => SE.whoosh(c, o, w, .35, .12));
   // スコアボードの判定
+  HUDU.forEach(([i]) => at(hudUp(i), (c, o, w) => { SE.stamp(c, o, w); SE.chime(c, o, w + .08, 84, .06); }));
   HUDV.forEach(([, , , cls], i) => at(hudAt(i), (c, o, w) => { SE.stamp(c, o, w); if (cls === 'ok') SE.chime(c, o, w + .08, 88, .06); else SE.ding(c, o, w + .08, -4); }));
   // --- 範囲 ---
   for (let i = 0; i < 6; i++) C('route', 'R1', .1 + i * .3, (c, o, w) => SE.pop8(c, o, w, 72 + i * 2));
@@ -1169,6 +1283,14 @@ function buildSound() {
   for (let i = 0; i < 3; i++) C('async', 'A3', .3 + i * .55, (c, o, w) => SE.ping(c, o, w, 72));
   C('async', 'A3', 2.2, (c, o, w) => { [0, .06, .12].forEach(d => SE.ping(c, o, w + d, 84)); SE.whoosh(c, o, w, .5, .2); });
   C('async', 'A3', 2.8, (c, o, w) => SE.chime(c, o, w, 84, .08));
+  // SafeTimer
+  C('async', 'A4', -.2, (c, o, w) => SE.whoosh(c, o, w, .5, .2));
+  for (let k = 0; k < 16; k++) C('async', 'A4', .2 + k * .15, (c, o, w) => SE.click(c, o, w, .06));
+  C('async', 'A4', .7, (c, o, w) => SE.ping(c, o, w, 79));
+  C('async', 'A4', 2.7, (c, o, w) => SE.ding(c, o, w));
+  { const s = S.async; for (let q = 0; SF0(s.c) + q * SFG < s.d - .4; q++) at(s.a + SF0(s.c) + q * SFG, (c, o, w) => SE.pop8(c, o, w, q % 2 ? 76 : 84)); }
+  [0, 1].forEach(i => C('async', 'A4', 4.0 + i * .4, (c, o, w) => SE.thock(c, o, w)));
+  C('async', 'A5', .3, (c, o, w) => { SE.stamp(c, o, w); SE.chime(c, o, w + .1, 81, .07); });
   // --- ROUND5 ---
   C('cls', 'L1', 0, (c, o, w) => SE.impact(c, o, w, .6));
   for (let r = 0; r < 4; r++) C('cls', 'L1', .3 + r * .3, (c, o, w) => SE.whoosh(c, o, w, .4, .12));
@@ -1182,6 +1304,13 @@ function buildSound() {
   [1.2, 2.0, 2.8].forEach(a => C('gaps', 'G1', a, (c, o, w) => SE.thud(c, o, w, .45)));
   for (let i = 0; i < 12; i++) C('gaps', 'G2', .6 + i * .16 + (i > 5 ? .3 - .96 : 0), (c, o, w) => SE.click(c, o, w, .08));
   C('gaps', 'G2', 3.2, (c, o, w) => SE.chime(c, o, w, 79, .08));
+  C('gaps', 'G3', 1.0, (c, o, w) => { SE.whoosh(c, o, w, 1.1, .25); SE.riser(c, o, w, 1.1, .12); });
+  C('gaps', 'G3', 2.2, (c, o, w) => { SE.slam(c, o, w); SE.chime(c, o, w + .1, 88, .09); }); flash(G('gaps', 'G3', 2.2), .3, .4);
+  for (let i = 0; i < 5; i++) C('gaps', 'G4', .2 + i * .45, (c, o, w) => SE.pop8(c, o, w, 72 + i * 2));
+  C('gaps', 'G4', 2.2, (c, o, w) => SE.whoosh(c, o, w, .6, .2));
+  C('gaps', 'G4', 3.2, (c, o, w) => { SE.impact(c, o, w, .8); SE.chime(c, o, w + .1, 84, .09); }); shake(G('gaps', 'G4', 3.2), .4, 10);
+  for (let i = 0; i < 3; i++) C('gaps', 'G4', 4.0 + i * .3, (c, o, w) => SE.stamp(c, o, w));
+  C('gaps', 'G5', .2, (c, o, w) => tone(c, o, w, { type: 'triangle', f: mf(67), f2: mf(55), d: .9, g: .12 }));
   A('gaps', S.gaps.d - 1.6, (c, o, w) => SE.riser(c, o, w, 1.6, .3));
   flash(S.fin.a, .6, 1);
   // --- フィナーレのメインテーマ ---
@@ -1209,7 +1338,7 @@ function buildSound() {
     at(T0 + fc.F2 + 3.4, (c, o, w) => SE.ping(c, o, w, 88));
     at(T0 + fc.F3 + .1, (c, o, w) => { SE.whooshDown(c, o, w, 2.2, .3); tone(c, o, w, { type: 'sawtooth', f: 220, f2: 55, d: 2.2, g: .06, lp: 900 }); });
     at(T0 + fc.F3 + 2.2, (c, o, w) => { SE.impact(c, o, w, 1); SE.glass(c, o, w, .4); }); shake(T0 + fc.F3 + 2.2, .5, 14); flash(T0 + fc.F3 + 2.2, .5, .7);
-    for (let i = 0; i < 8; i++) at(T0 + fc.F3 + 2.3 + i * .06, (c, o, w) => SE.pop8(c, o, w, 76 + i * 2));
+    for (let i = 0; i < 10; i++) at(T0 + fc.F3 + 2.3 + i * .06, (c, o, w) => SE.pop8(c, o, w, 76 + i * 2));
     at(T0 + fc.F3 + 2.5, (c, o, w) => SE.chime(c, o, w, 84, .1));
     at(T1 - 1.4, (c, o, w) => SE.riser(c, o, w, 1.4, .3));
   }

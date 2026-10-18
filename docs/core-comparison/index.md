@@ -63,12 +63,12 @@ Puppeteer / Playwright については、npm パッケージのドキュメン�
 | WebSocket のフレーム解析 | ⚠️ 土俵が違う | Node 側は `ws` ライブラリに丸投げ、こちらは自前実装 |
 | `method` / `id` / `sessionId` の振り分け | ✅ 同等 | [ディスパッチとイベント配信](/core-comparison/dispatch) |
 | イベントの pub / sub 設計 | ✅ 概念的に同等 | `EventEmitter` ⇄ `RaiseEvent` / `WithEvents` |
-| 非同期実行 | ❌ 言語仕様の壁 | [非同期実行とイベントループ](/core-comparison/async) |
+| 非同期実行 | △ 言語仕様の壁（VBA-SafeTimer 併用で条件付きで近づける） | [非同期実行とイベントループ](/core-comparison/async) |
 | Browser / Page / Element の三層モデル | ✅ 完全に一致 | [クラス構成の考え方](/core-comparison/classes) |
 | クラス分割の粒度・抽象層 | ❌ VBA の制約により粗い | 同上 |
 | テストによる品質保証 | ⚠️ 網羅性と自動化に差 | [残る差分と、埋まらない差](/core-comparison/gaps) |
 | エラー分類・自動リカバリ | ❌ 体系化されていない | 同上 |
-| マルチブラウザエンジン対応 | ❌ Chromium 限定 | 同上 |
+| マルチブラウザエンジン対応 | △ Chromium 中心（Firefox は `ex-Firefox` ブランチで BiDi 直結） | 同上 |
 
 ::: tip このコーナーの要旨
 コアのアルゴリズムは、3者とも**独立に同じ答えへたどり着いています**。CDP というプロトコルを正しく捌く方法は結局1つしかないからです。

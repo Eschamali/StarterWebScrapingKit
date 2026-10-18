@@ -245,11 +245,44 @@ tab.ExecuteCDP "Page.navigate", params   ' タイポは実行時まで分から�
 | --- | --- |
 | **Playwright** | Chromium / Firefox / WebKit（＋ Android / Electron） |
 | **Puppeteer** | Chromium（＋ Firefox を BiDi 経由で） |
-| **StarterWebScrapingKit** | Chromium 系のみ（Chrome / Edge） |
+| **StarterWebScrapingKit** | Chromium 系（Chrome / Edge）が中心。Firefox は `ex-Firefox` ブランチで BiDi 直結 |
 
 Playwright は Firefox と WebKit に**独自のパッチを当てたビルドを配布**することでこれを実現しています。ブラウザバイナリのメンテナンスを含む取り組みであり、個人開発で追随できる範囲を超えています。
 
-キットは BiDi スタックを持っていますが、これは `mapperTab.js`（chromium-bidi）を CDP の上に載せる方式であり、あくまで Chromium 上での BiDi です。Firefox の BiDi エンドポイントへ直接繋ぐには、WebSocket 経路の成熟が前提になります（[Transport のページ](/core-comparison/transport)参照）。
+キットの BiDi スタックは、通常は `mapperTab.js`（chromium-bidi）を CDP の上に載せる方式で、Chromium 上での BiDi です。
+
+### Firefox は「少しの追記」で動いた
+
+一方 Firefox は、WebDriver BiDi をネイティブで話せるので、翻訳役の `mapperTab.js` が要りません。[`ex-Firefox` ブランチの `Extensions/MainUnit/WebDriverBiDi/Firefox`](https://github.com/Eschamali/StarterWebScrapingKit/tree/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox) では、BiDi の JSON を WebSocket でそのまま Firefox へ送受信して制御しています。
+
+```mermaid
+flowchart LR
+  subgraph "Chromium（通常ルート）"
+    direction LR
+    A1["WebDriverBiDiMode<br/>WebDriverBiDiContext"] -->|BiDi-Json| A2["mapperTab.js<br/>（BiDi → CDP）"] -->|CDP-Json| A3["Chromium"]
+  end
+  subgraph "Firefox（ex-Firefox ブランチ）"
+    direction LR
+    B1["WebDriverBiDiMode<br/>WebDriverBiDiContext"] -->|"BiDi-Json<br/>（WebSocket 直結）"| B2["Firefox"]
+  end
+```
+
+注目すべきは、そのために必要だった量です。
+
+- コア（`src/`）への追記は `CDPCore` / `ReattachOptions` / `WebDriverBiDiCore` の **3 ファイル・100 行足らず**
+- **Firefox 専用のクラスは無し**。chromium-bidi に合わせて作り込んできた `WebDriverBiDiMode` / `WebDriverBiDiContext` が、上側の使い方（`navigate` / `getTab` / `SubscribeBiDiEvent` / `TakeEvents` など）を変えずにそのまま動く
+- 切り替えは `ReattachOptions.Set_DirectWebDriverBiDi = True` の 1 プロパティ
+
+受信を `RaiseEvent` で上位へ配る責務分離（v2.0.0）、BiDi で会話する側として作った `WebDriverBiDiMode` / `Context`（v1.6.0）、生 WinSock の WebSocket 経路（v2.3.0）、オプションオブジェクト（v4.0.0）と、別の目的で積み上げてきた設計が、そのまま下地になりました。
+
+::: warning ex-Firefox ブランチの制約
+- コアへの追記が必要なため、**メインの配布物には含まれていません**
+- **WebSocket 経路のみ**です（Pipe 経路では使えません）。Firefox は事前に `--remote-debugging-port` 付きで自分で起動します
+- BiDi+（`goog:cdp.*`）、`UpgradeBiDiPlus`、`CDPContext` / `CDPElement` など **Chromium 独自の機能は使えません**。使えるのは標準の WebDriver BiDi の範囲です
+- Firefox は WebDriver BiDi を独自に実装しているため、Chromium（Mapper 経由）と挙動や対応状況が異なるコマンド・イベントがあり得ます
+:::
+
+つまりマルチブラウザ対応のうち、**Firefox は「言語の壁」ではなく「実装投資」で埋まる側だった**ことが、実際に動かして確かめられたことになります。WebKit のように、パッチを当てたブラウザのビルドが前提になるエンジンは、引き続き個人開発の範囲外です。
 
 ## 5. エコシステム ―― 差の原因が逆転する領域
 
@@ -289,14 +322,16 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 | Handle の明示的解放 | `Runtime.releaseObject` の呼び出し設計 |
 | CDP / BiDi の抽象化 | `Implements` による共通インターフェース |
 | WebSocket の堅牢化 | Ping/Pong 応答、ハンドシェイク検証の厳密化 |
+| Firefox 対応 | コアへの小規模な追記（`ex-Firefox` ブランチで実証済み） |
+| 受信ポンプの自動化 | VBA-SafeTimer の組み込み（拡張機能で実証済み。条件付き） |
 
 ### 言語・環境の制約で埋まらない差
 
 | 項目 | 理由 |
 | --- | --- |
-| イベントループによる自動的な受信駆動 | VBA に存在しない |
+| イベントループそのもの | VBA に存在しない（タイマー駆動による代替は上記の通り条件付きで可能） |
 | `async` / `await` の記述性 | 構文が存在しない |
-| マルチブラウザエンジン対応 | ブラウザバイナリのメンテナンスが必要 |
+| WebKit など、パッチ版ビルドが前提のエンジン対応 | ブラウザバイナリのメンテナンスが必要 |
 | パッケージマネージャによる配布・更新 | `.cls` の手動インポートが前提 |
 | クロスプラットフォーム | Windows API に直接依存 |
 | 大規模なクラス分割 | 名前空間・フォルダ・`import` が無い |
@@ -305,7 +340,7 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 
 **コアロジックそのものは、驚くほど近い。** メッセージの切り出し方、`method` / `id` / `sessionId` による振り分け、セッション多重化、コマンド ID と応答の待ち合わせ、三層のオブジェクトモデル ―― これらは3者ともほぼ同じ解に到達しています。CDP という共通のプロトコルを相手にする以上、行き着く先が同じになるのは自然なことです。
 
-差が生まれているのは、その周辺です。テスト・型・エラー分類・マルチブラウザ・エコシステム。これらの多くは**言語の限界ではなく、投じられたリソースの差**です。そして残る一部（イベントループ、`await`、配布形態）だけが、VBA という選択に付随して動かせない制約です。
+差が生まれているのは、その周辺です。テスト・型・エラー分類・マルチブラウザ・エコシステム。これらの多くは**言語の限界ではなく、投じられたリソースの差**です。実際、Firefox 対応（`ex-Firefox` ブランチ）や、VBA-SafeTimer による受信ポンプの自動化（拡張機能）は、人と時間を投じることで手が届きました。そして残る一部（イベントループ、`await`、配布形態）だけが、VBA という選択に付随して動かせない制約です。
 
 つまり **「VBA だからここまでしかできない」という部分は、思っていたより小さい**というのが、このコーナーの結論になります。
 
