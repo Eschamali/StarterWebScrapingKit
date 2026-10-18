@@ -10,6 +10,8 @@ Puppeteer と Playwright は、Google と Microsoft がそれぞれ何年もか�
 
 このコーナーは、その疑問に「印象」ではなく**実際のソースコードの突き合わせ**で答えるための検証レポートです。
 
+<PromoMovie src="/promo/ReiwaIE_CoreCompare.html" title="コア設計 徹底比較" />
+
 ## 何を比較したのか
 
 「コア」の範囲を、CDP メッセージがブラウザから届いてユーザーコードに渡るまでの一連の経路と定義しました。

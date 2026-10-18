@@ -8,14 +8,18 @@
 promo/
 ├─ ReiwaIE_60s.html
 ├─ ReiwaIE_History.html
+├─ ReiwaIE_CoreCompare.html
 └─ voice/
    ├─ README.md            … このファイル
    ├─ ReiwaIE_60s/         … ReiwaIE_60s.html の声
    │  ├─ narration.json
    │  └─ A1.wav, A2.wav, …
-   └─ ReiwaIE_History/     … ReiwaIE_History.html の声
+   ├─ ReiwaIE_History/     … ReiwaIE_History.html の声
+   │  ├─ narration.json
+   │  └─ P1.wav, P2.wav, …
+   └─ ReiwaIE_CoreCompare/ … ReiwaIE_CoreCompare.html の声
       ├─ narration.json
-      └─ P1.wav, P2.wav, …
+      └─ I1.wav, I2.wav, …
 ```
 
 ## ルール
@@ -79,7 +83,7 @@ VOICEVOX を起動しておくと、`http://127.0.0.1:50021` で ENGINE の API 
 1. `POST /audio_query?text=<say>&speaker=<スタイルID>` で合成用のクエリ(JSON)を受け取る
 2. 受け取った JSON の `speedScale` / `pitchScale` / `intonationScale` を `narration.json` の値で上書きし、`POST /synthesis?speaker=<スタイルID>` に送る。返ってきた音声を `<id>.wav` として保存する
 
-`ReiwaIE_History` では、間延びを防ぐため `prePhonemeLength = 0.05`、`postPhonemeLength = 0.1` にしています。
+`ReiwaIE_History` と `ReiwaIE_CoreCompare` では、間延びを防ぐため `prePhonemeLength = 0.05`、`postPhonemeLength = 0.1` にしています。
 
 > [!WARNING]
-> `ReiwaIE_History.html` は、各 wav の長さ（秒）を HTML 内の `VO` テーブルに持っていて、そこからシーンの尺を決めています。wav を作り直したときは、`VO` テーブルの `d`（秒）も更新してください。
+> `ReiwaIE_History.html` と `ReiwaIE_CoreCompare.html` は、各 wav の長さ（秒）を HTML 内の `VO` テーブルに持っていて、そこからシーンの尺を決めています。wav を作り直したときは、`VO` テーブルの `d`（秒）も更新してください。
