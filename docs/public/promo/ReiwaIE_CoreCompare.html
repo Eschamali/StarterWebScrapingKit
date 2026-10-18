@@ -1052,7 +1052,7 @@ const ss = (a, b, x) => { const k = cl((x - a) / (b - a)); return k * k * (3 - 2
 function spread(x) { let v = 190; for (const g of FG) v *= 1 - .2 * ss(g - 80, g + 40, x); return v * (1 - ss(1660, 1790, x)); }
 const finHx = (t, c) => lerp(60, 1900, eio(p(t, c.F1 - .3, c.F1 + 5.0)));
 (function () {
-  $('#fChips').innerHTML = ['Pipe 本流', 'NUL 区切りバッファ', 'sessionId 多重化', '4 本のイベント', '整理券（ExecuteCDPAsync）', '三層モデル', '生 WinSock', 'プロパティ構文', 'SafeTimer で自動ポンプ', 'Firefox も BiDi 直結'].map(n => `<div class="fch">${n}</div>`).join('')
+  $('#fChips').innerHTML = ['Pipe 本流', 'NUL 区切りバッファ', '整理券（ExecuteCDPAsync）', 'sessionId 多重化', '4 本のイベント', '三層モデル', '生 WinSock', 'SafeTimer で自動ポンプ', 'プロパティ構文', 'Firefox も BiDi 直結'].map(n => `<div class="fch">${n}</div>`).join('')
     + '<div class="fch gold">📗 1 ブックで配布完結</div>';   // 最後の1つ(真下)は、他言語にない強み
 })();
 function drawFin(t, c, alpha) {
@@ -1111,8 +1111,10 @@ function sFin(t, s) {
   css(lim, p(t, c.F3 - .3, c.F3 + .1) * f3o, 'translate(-50%,-50%)');
   css(lim.querySelector('.a'), 1 - p(t, c.F3 + .8, c.F3 + 1.3)); css(lim.querySelector('.b'), p(t, c.F3 + 1.9, c.F3 + 2.3));
   $$('.fch').forEach((e, i) => {
-    const d = i === 10 ? .6 : 0, k = eo(p(t, c.F3 + 2.2 + i * .06 + d, c.F3 + 3.0 + i * .06 + d)), ang = Math.PI / 2 + (i - 10) * Math.PI * 2 / 11;
-    css(e, p(t, c.F3 + 2.2 + i * .06 + d, c.F3 + 2.4 + i * .06 + d) * f3o, `translate(calc(-50% + ${Math.cos(ang) * 560 * k}px), calc(-50% + ${Math.sin(ang) * 300 * k}px)) scale(${i === 10 ? 1.6 - .6 * eb(p(t, c.F3 + 3.4, c.F3 + 3.8)) : 1})`);
+    const d = i === 10 ? .6 : 0, k = eo(p(t, c.F3 + 2.2 + i * .06 + d, c.F3 + 3.0 + i * .06 + d)), ang = Math.PI / 2 + .7 + i * (Math.PI * 2 - 1.4) / 9;
+    // 緑の10個は真下を空けた楕円の弧に、金色(i=10)はその真下・字幕の上に置く
+    const fx = i === 10 ? 0 : Math.cos(ang) * 640, fy = i === 10 ? 352 : Math.sin(ang) * 320;
+    css(e, p(t, c.F3 + 2.2 + i * .06 + d, c.F3 + 2.4 + i * .06 + d) * f3o, `translate(calc(-50% + ${fx * k}px), calc(-50% + ${fy * k}px)) scale(${i === 10 ? 1.6 - .6 * eb(p(t, c.F3 + 3.4, c.F3 + 3.8)) : 1})`);
   });
   css($('#fRays'), p(t, c.F3 + 2.2, c.F3 + 2.8), `rotate(${t * 12}deg) scale(${.7 + .3 * eo(p(t, c.F3 + 2.2, c.F3 + 3.2))})`);
   const bk = p(t, c.F3 + 2.4, c.F3 + 2.8); css($('#fBig'), bk * f3o, `scale(${1.3 - .3 * eb(bk)})`);
