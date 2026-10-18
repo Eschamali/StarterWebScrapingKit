@@ -48,6 +48,15 @@ Private Declare PtrSafe Function CreateProcess Lib "kernel32" Alias "CreateProce
     lpStartupInfo As Any, _
     lpProcessInformation As Any) As Long
 
+'----- 子プロセスに渡す環境変数ブロック関連 -----
+Private Declare PtrSafe Function CreateEnvironmentBlock Lib "userenv" ( _
+    lpEnvironment As LongPtr, _
+    ByVal hToken As LongPtr, _
+    ByVal bInherit As Long) As Long
+
+Private Declare PtrSafe Function DestroyEnvironmentBlock Lib "userenv" ( _
+    ByVal lpEnvironment As LongPtr) As Long
+
 '----- パイプ通信関連 -----
 Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
     phReadPipe As LongPtr, _
@@ -161,6 +170,7 @@ End Enum
 Private Const STARTF_USESTDHANDLES  As Long = &H100&
 Private Const NORMAL_PRIORITY_CLASS As Long = &H20&
 Private Const STARTF_USESHOWWINDOW  As Long = &H1&
+Private Const CREATE_UNICODE_ENVIRONMENT As Long = &H400&   '`lpEnvironment`がUTF-16の環境変数ブロックであることを示す
 
 'その他
 Private Const ThisClassName             As String = "CDPCore"   'ログのトレース用
@@ -435,11 +445,25 @@ Private Function InitCDP(strExec As String, showWindowMode As WinState) As Long
         .lpReserved2 = VarPtr(pipes2)
     End With
 
-    result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
+    '-------------------------------------------------------------------------------------------------------------------------------------
+    '起動元(Git Bash等)が付与した環境変数を引き継がないよう、システム環境変数のみの環境変数ブロックで起動する
+    '※例：`__COMPAT_LAYER`を引き継ぐと、ブラウザが自身を再起動し、`remote-debugging-pipe`のハンドルが失われる
+    '※`hToken:=0`でシステム環境変数のみ、`bInherit:=False`でExcelの環境変数を引き継がない。作成失敗時は、従来通りExcelの環境変数を引き継ぐ
+    '[Playwright](https://github.com/microsoft/playwright/issues/36292)もこの問題を認知済み
+    '> https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/server/chromium/chromiumSwitches.ts#L92
+    '  > Edge は Windows 上で再起動する可能性があり (msRelaunchNoCompatLayer)、その際にファイルディスクリプタ (stdout/stderr) と CDP (3/4) が失われます。上流で修正されるまで無効にします。
+    'このツールの場合は、根本原因である環境変数側で、対処します。`Playwright`の方針に従い、上流で修正されるまで、この戦法を適用します。
+    Dim envBlock As LongPtr, creationFlags As Long
+    creationFlags = NORMAL_PRIORITY_CLASS
+    If CreateEnvironmentBlock(envBlock, 0, 0&) Then
+        creationFlags = creationFlags Or CREATE_UNICODE_ENVIRONMENT
+    Else
+        envBlock = 0
+        printMsg WARN_, "CreateEnvironmentBlock failed, so the browser will inherit Excel's environment variables. ErrorCode:" & Err.LastDllError, ThisClassName & ".InitCDP"
+    End If
+    '-------------------------------------------------------------------------------------------------------------------------------------
 
-    '起動アプリハンドルを取得
-    hProcess = proc.hProcess
-    dwProcessId = proc.dwProcessId
+    result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, creationFlags, envBlock, 0&, start, proc)
 
     '実行結果チェック
     If result = 0 Then
@@ -451,7 +475,14 @@ Private Function InitCDP(strExec As String, showWindowMode As WinState) As Long
     Else
         '成功は、0として返却
         InitCDP = 0
+
+        '成功したので、起動アプリハンドルを取得
+        hProcess = proc.hProcess
+        dwProcessId = proc.dwProcessId
     End If
+
+    '環境変数ブロックは、起動後は不要なので破棄
+    If envBlock <> 0 Then DestroyEnvironmentBlock envBlock
 
    'We close the sides of the handles that we dont need anymore
     CloseHandle hStdOutWr

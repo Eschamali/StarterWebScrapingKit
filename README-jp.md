@@ -43,13 +43,13 @@ t.navigate "URL"
 
 ## 🔥【本ツールの強み】🔥
 
-* **ゼロ・インストール。WebDriver不要。xlsmファイル1つでChromiumもWebView2も思いのまま**
+* **ゼロ・インストール。WebDriver不要。xlsmファイル1つでEdge/Chrome、そしてWebView2も思いのまま**
   * Selenium等で悩まされる「ブラウザとWebDriverのバージョン不一致エラー」は一切起こりません！
-  * Edge/Chromeは、安定版だけでなく **Beta / Dev / Canary** も、設定シートで選ぶだけで使い分けられます
+  * **いま開いているブラウザを、そのまま操作！** [スイッチを1つ許可](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja#step_1_set_up_remote_debugging_in_chrome)するだけで、いつものログイン済みブラウザにVBAからつながります
   * WebView2経路なら、そもそも外部ブラウザexeの起動自体が不要。**xlsmファイル1つ**で、外部ブラウザからExcel自身に埋め込んだWebView2まで、同じ感覚で操れます
 
 * **無限の拡張性で、あなた専用のツールに！**
-  * AIに「[テンプレート](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/TemplateExtensions)」と「欲しい機能」を伝えるだけで、複雑な自動化コードが秒速で完成！
+  * AIに「[テンプレート](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev-xlflow/ForDevelopers/TemplateExtensions)」と「欲しい機能」を伝えるだけで、複雑な自動化コードが秒速で完成！
   * 面倒なCDPの仕様を覚える必要はありません。アイデアさえあれば、誰でも簡単に機能拡張が可能です。
   * プロンプトの工夫次第で、丁寧な解説付きの「デモコード」まで全自動で生成できます！
 
@@ -80,7 +80,7 @@ Sub CDPによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -98,9 +98,28 @@ Sub BiDiによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 ```
+
+### ヘルパーを使わずに、直接起動する場合
+
+`ShSetting01_StartBrowser` のヘルパーを経由せず、起動オプションの設定保持専用クラス `BrowserCapabilities` を渡して直接起動することもできます。設定の既定値はワークシートから読み込まれるので、変えたい項目だけ上書きすれば OK です。
+
+```bas
+Sub 直接起動する()
+    '変えたい項目だけ上書き(任意)。何も指定しなければ、設定シートの内容で起動します
+    BrowserCapabilities.Set_StartURL = "https://example.com"
+
+    Dim t As CDPContext
+    Set t = New CDPContext
+    t.OpenBrowserAndConnectTab BrowserCapabilities
+
+    t.ThisCDPBrowser.CloseBrowser
+End Sub
+```
+
+詳しくは [`BrowserCapabilities`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/BrowserCapabilities) を参照してください。
 
 ---
 
@@ -128,7 +147,7 @@ Sub WebSocketモードで新規にブラウザを起動する()
     t.navigate "https://www.youtube.com/@islandfox6864"
 
     '3. 終了
-    t.ThisCDPBrowser.quit
+    t.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -152,19 +171,22 @@ Sub AutoConnectTab()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '2. 指定のWebSocketForCDP-pageへ接続
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim t As New CDPContext
-    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    '3. 繋げたWebSocketオブジェクトを、WebSocketモードとして設定
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 
-    '4. ページ遷移
+    '4. 再接続情報を`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(ReattachOptions) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '5. ページ遷移
     'ちなみにこのURLは、開発者の推しのYouTubeチャンネルに飛びます🤠
     t.navigate "https://www.youtube.com/@islandfox6864"
 
-    '5. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
+    '6. WebSocketから切断
+    t.ThisCDPBrowser.DisconnectCDP
 End Sub
 ```
 
@@ -173,7 +195,9 @@ End Sub
 * **このコードを基にして**：
   面倒なログイン認証はユーザーがブラウザ上で手動で終わらせておき、 **「Excelのボタンを押した瞬間から、ログイン済みの画面をVBAが引き継いで複雑なスクレイピングを爆速で開始する」** といった、実務上最高に便利で壊れにくいハイブリッド自動化システムを簡単に組み立てることができます。
 * **接続の種類について**：
-  特定のページ（`AutoConnectPageCDP`）、ブラウザそのもの（`AutoConnectBrowserCDP`）、今目の前のブラウザ（`ReConnectCDP`）　の３種類をご用意しております。この辺の使い方も `Demo_CDP` のデモにありますので参考に。
+  特定のページ（`AutoConnectPageCDP`）、ブラウザそのもの（`AutoConnectBrowserCDP`）、今目の前のブラウザ（`AutoConnectDevToolsActivePort`）　の３種類をご用意しております。この辺の使い方も `Demo_CDP` のデモにありますので参考に。
+* **再接続について**：
+  接続経路（Pipe / Port / WebView2）の指定は、再接続用のオプション設定クラス `ReattachOptions` に集約されています。詳しくは [`ReattachOptions`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/ReattachOptions) / [再接続ガイド](https://eschamali.github.io/StarterWebScrapingKit/guides/reattach) を参照してください。
 
 ### 🥉 WebView2
 
@@ -190,11 +214,12 @@ Sub WebView2OnExcelUserForm()
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
 
         '2. WebView2プロセスを起動
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
+        .StartCDPModeWebView2
 
         '3. 遷移前の事前設定を施す(任意)
         .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
         .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
+        .ThisWebView2.StatusBarEnabled = False      '左下に出るステータステキストを表示しない
 
         '3. CDPとして、ページ遷移
         'シングルサインオンを無効：Microsoftアカウントの紹介
@@ -233,12 +258,15 @@ CDP (Chrome DevTools Protocol) 操作に加え、現在 W3C で世界標準と�
 
 ## 🎁 おまけ機能
 
-CDP制御のほかに、次の2つも同梱しています。
+CDP制御のほかに、次のおまけがあります。
 
 * **🚀 REST WebAPI（WinHTTP 5.1）**
   * 高速・軽量なデータ収集の王道。参照設定のみで完結する堅牢な実装です。基礎を組むためのテンプレートとして、標準モジュール `Template_WebAPI` を用意しています。
-* **⚡ WebSocket 通信（汎用）**
-  * ブラウザ制御とは別の、リアルタイム通信への挑戦。WinAPIを駆使し、最低限の接続・送受信機能を搭載しました。VBAの限界を押し広げる、発展途上の機能です。デモは標準モジュール `Demo_WebSocket` にあります。
+* **🦊 Firefox制御（WebDriver BiDi 直結）**
+  * 「いざとなれば、Firefoxもこのツールで制御できる」という切り札です。Firefox は WebDriver BiDi をネイティブで話せるため、コアへの約80行の追記だけで、BiDi の JSON を WebSocket でそのまま送って制御できます。
+  * コアへの追記が必要なため、メインの配布物には含めていません。デモと説明は、[ex-Firefox ブランチ](https://github.com/Eschamali/StarterWebScrapingKit/tree/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox)で公開しています。
+
+![ExcelのVBAからFirefoxを制御している様子](doc/firefoxIntro.gif)
 
 ---
 
@@ -247,10 +275,7 @@ CDP制御のほかに、次の2つも同梱しています。
 このツールは、世界中のVBA職人が公開してくれた素晴らしいライブラリの数々を、実務で使いやすい形に統合（マッシュアップ）したものです。
 偉大な先人たちの知恵とコードに、心からの敬意と感謝を表します。
 
-* **WebSocket実装のコアロジック**
-  * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
-    * 製作者：[@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)氏
-* **CDP制御・パイプ通信の基盤**
+* **全ての始まり。CDP制御・パイプ通信の基盤**
   * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
     * 製作者：longvh211氏
 * **WinHTTP 5.1 ラッパー**

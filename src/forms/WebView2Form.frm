@@ -103,6 +103,7 @@ Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As CDPBrowse
     ReattachOptions.Set_WebView2Mode(fWebView2) = SwitchUser
 
     '8. このUserForm内用の、非同期イベント処理に備える
+    '※WebView2は少し特殊なポジションなので、`Core`側のイベントとして、受け取る
     Set fCDPEvent = ReattachOptions.ClsGet_CDPCore
 
     '9. タブ接続まで行い、UserForm内用の`CDPContext`オブジェクトに残す

@@ -605,7 +605,8 @@ Sub runNewTab()
    'Google search result returns links that open in the same tab window
    'For this demonstration, we need to make it open in a new tab window instead
     Dim targetElement As CDPElement
-    Set targetElement = chrome.getElementByXPath(".//a[contains(@href, 'https://www.newstarget.com/')]")
+    '※2026/10/17確認時、Googleの検索結果リンクは`href="/goto?url=..."`(リダイレクト)形式に変わったため、リンク内に表示されるURL(`cite`)でも判定する
+    Set targetElement = chrome.getElementByXPath("//a[contains(@href, 'https://www.newstarget.com/') or .//cite[contains(., 'https://www.newstarget.com')]]")
     targetElement.setAttribute "target", "_blank"   'Modify the element attribute to open in a new tab instead
     targetElement.click                             'Click the link, a new tab will be spontaneously open. 別タブで開いてしまうため、ここは待機なしクリックにする
 
