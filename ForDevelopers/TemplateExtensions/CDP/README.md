@@ -35,24 +35,25 @@ ForDevelopers/TemplateExtensions/CDP/
 ### 仕組み
 
 ```
-CDPContext / CDPBrowser
-  └── ExEventCore ──→ WithEvents ex_CDPCore（CDPCore）
-        ├── CDPContextEvent → タブ向けの処理をここに書く
-        └── CDPBrowserEvent → ブラウザ向けの処理をここに書く
+CDPContext（タブ）
+  └── WithEvents ex_CDPContext ── ExEvent → タブ向けの処理をここに書く
+CDPBrowser（ブラウザ）※必要な場合のみ
+  └── WithEvents ex_CDPBrowser ── ExEvent → ブラウザ向けの処理をここに書く
 ```
 
-`Init` で受け取った `CDPContext` の `ExEventCore` を `WithEvents` で保持し、ブラウザから非同期イベントが届いたとき、\
-`ex_CDPCore_CDPContextEvent`（タブ向け）/ `ex_CDPCore_CDPBrowserEvent`（ブラウザ向け）が呼び出されます。\
+`Init` で受け取った `CDPContext`（と、その親の `CDPBrowser`）を `WithEvents` で保持します。ブラウザから非同期イベントが届くと、\
+`ex_CDPContext_ExEvent`（このタブ宛て）/ `ex_CDPBrowser_ExEvent`（ブラウザ単位）が呼び出されます。\
+`ex_CDPContext_ExEvent` には**このタブ宛てのイベントだけ**が届くため、SessionID の判定は不要です。\
 `TakeEvents` を手動で呼ぶことでイベントをポーリングします。
 
 ### 主な構成要素
 
 | プロシージャ / プロパティ                    | 役割                                                                 |
 | ---------------------------------- | ------------------------------------------------------------------ |
-| `Init(Inheritance As CDPContext)`  | `CDPContext` を継承する初期化メソッド。イベント受け取り用の `CDPCore` は `ExEventCore` から取得します |
+| `Init(Inheritance As CDPContext)`  | `CDPContext` を継承する初期化メソッド。ブラウザ単位のイベントが要らなければ、`ex_CDPBrowser` の行は消して構いません |
 | `EnableEvents` プロパティ               | 非同期イベント処理の ON/OFF スイッチ                                             |
-| `ex_CDPCore_CDPContextEvent`       | タブ向けの非同期イベントのハンドラ（ここに実装する）                                         |
-| `ex_CDPCore_CDPBrowserEvent`       | ブラウザ向けの非同期イベントのハンドラ（ここに実装する）                                       |
+| `ex_CDPContext_ExEvent`            | このタブ宛ての非同期イベントのハンドラ（ここに実装する）                                       |
+| `ex_CDPBrowser_ExEvent`            | ブラウザ単位の非同期イベント（`Target.targetCreated` など）のハンドラ（ここに実装する）              |
 | `Main01`                           | 独自機能の実装場所（自由に追加・改名してOK）                                            |
 | `printMsg`                         | ログ出力のラッパー。ログの設定はツール全体で共通で、この拡張側は識別ID（`m_LogID`）だけ持ちます              |
 | `TakeEvents`                       | イベントをポーリングして発火させる                                                  |
@@ -80,10 +81,10 @@ exCDP_Template.cls  ← これだけインポートすればOK
 ### 仕組み
 
 ```
-CDPContext / CDPBrowser
-  └── ExEventCore ──→ WithEvents ex_CDPCore（CDPCore）
-        ├── CDPContextEvent → タブ向けの処理をここに書く
-        └── CDPBrowserEvent → ブラウザ向けの処理をここに書く
+CDPContext（タブ）
+  └── WithEvents ex_CDPContext ── ExEvent → タブ向けの処理をここに書く
+CDPBrowser（ブラウザ）※必要な場合のみ
+  └── WithEvents ex_CDPBrowser ── ExEvent → ブラウザ向けの処理をここに書く
 
 SafeTimer.cls  ← Windows SetTimer API による定期タイマー
   └── WithEvents st
@@ -93,7 +94,7 @@ SafeTimer.cls  ← Windows SetTimer API による定期タイマー
 ```
 
 `VBA-SafeTimer`（[元リポジトリ](https://github.com/cristianbuse/VBA-SafeTimer)）の機能を `StarterWebScrapingKit` に合わせて統合したテンプレートです。\
-`StartCheckAsyncEvents` を1回呼ぶだけで、指定間隔（デフォルト 50ms）ごとに\
+`StartAsyncTakeEvents` を1回呼ぶだけで、指定間隔（デフォルト 50ms）ごとに\
 `TakeEvents` が自動的に呼ばれ、CDP 非同期イベントを継続監視し続けます。
 
 ### Normal との違い
@@ -110,7 +111,7 @@ SafeTimer.cls  ← Windows SetTimer API による定期タイマー
 
 | プロシージャ                                 | 役割                                |
 | -------------------------------------- | --------------------------------- |
-| `StartCheckAsyncEvents(msec, addData)` | タイマーを起動し、イベント自動監視を開始する            |
+| `StartAsyncTakeEvents(msec, addData)`  | タイマーを起動し、イベント自動監視を開始する            |
 | `st_TimerCall`                         | タイマーコールバック。内部で `TakeEvents` を呼ぶだけ |
 
 ### 導入ファイル
@@ -165,7 +166,7 @@ Set t = ShSetting01_StartBrowser.StartCDPModeContext
 
 Dim ex As New exCDP_TemplateWithSafeTimer
 ex.Init t                            ' CDPContext を継承
-ex.StartCheckAsyncEvents 50          ' 50ms 間隔でイベント自動監視開始
+ex.StartAsyncTakeEvents 50           ' 50ms 間隔でイベント自動監視開始
 ex.Main01 "arg1", "arg2"
 ```
 
@@ -176,9 +177,66 @@ ex.Main01 "arg1", "arg2"
 1. 対応するフォルダのファイルを `StarterWebScrapingKit`にインポートする
 2. クラス名を用途に合わせてリネームする（例: `exCDP_DownloadWatcher`）
 3. `ThisClassName` 定数もリネームに合わせて変更する
-4. `ex_CDPCore_CDPContextEvent`（タブ向け）/ `ex_CDPCore_CDPBrowserEvent`（ブラウザ向け）の `Select Case` に、\
+4. `ex_CDPContext_ExEvent`（タブ向け）/ `ex_CDPBrowser_ExEvent`（ブラウザ向け）の `Select Case` に、\
    監視したい CDP イベント名（例: `"Page.downloadWillBegin"`）を追加する
 5. `Main01` などのパブリックメソッドに、独自のロジックを実装する
+
+***
+
+## 🧪 補足：`CDPCore` から直接イベントを受け取る方法
+
+テンプレートは、通信コア（`CDPCore`）に触れずに済む `ExEvent` 方式です。ただし、`CDPCore` のイベントを直接受け取る方法も残っています。
+
+### 使いどころ
+
+* **全タブに対する共通処理**：`CDPContext` の `ExEvent` には、そのタブ宛てのイベントしか届きません。`CDPCore` の `CDPContextEvent(methodName, RawJson, sessionID)` なら、**全タブ分のイベントが `sessionID` 付きで1か所に届く**ため、タブをまたいだ集計や監視をまとめて書けます
+* **特殊な構成**：WebView2 のように、`CDPContext` / `CDPBrowser` の外側でイベントを受けたい場合
+
+### 受け取り方
+
+`CDPCore` は、起動・再接続のオプションオブジェクトから取り出します。オプションオブジェクトは起動・再接続のあとで破棄されるため、**起動・再接続の前**に取り出してください。
+
+```vba
+' 起動の場合（BrowserCapabilities から）
+Dim CoreEvent As CDPCore
+Set CoreEvent = BrowserCapabilities.ClsGet_CDPCore
+
+Dim chrome As New CDPBrowser
+chrome.OpenBrowser BrowserCapabilities
+
+' 再接続の場合（ReattachOptions から。経路の設定後に取り出す）
+' ReattachOptions.Set_PipeMode = UserName
+' Set CoreEvent = ReattachOptions.ClsGet_CDPCore
+' chrome.reattach ReattachOptions
+```
+
+```vba
+' 拡張クラス側
+Private WithEvents ex_CDPCore As CDPCore
+
+Friend Sub InitCore(Inheritance As CDPCore)
+    Set ex_CDPCore = Inheritance
+End Sub
+
+' 全タブ分のイベントが、sessionID 付きで届く
+Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+End Sub
+
+' ブラウザ単位のイベント
+Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
+End Sub
+```
+
+* 特定のタブだけを処理したい場合は、`sessionID` を `CDPContext.CurrentSessionID` と比べて判定します
+* `ClsGet_` で始まるプロパティは、本来はクラス内部向けです。`CDPCore` はツールの心臓部なので、イベントを受け取る以外の操作はしないでください
+
+### 参考にできる実装
+
+| ファイル | 内容 |
+| --- | --- |
+| `src/forms/WebView2Form.frm` の `StartCDPModeWebView2` | `ReattachOptions.ClsGet_CDPCore` から `CDPCore` を受け取り、UserForm 内でイベントを処理する例 |
+| `ForDevelopers/OperationCheck/CDP/TestVBA/負荷テスト/exCDP_PageLoadWatcherForCore.cls` | `exCDP_PageLoadWatcher.cls` を、`CDPCore` から直接受け取る形にした版（`InitCore` で受け取る） |
+| タグ `従来通りのCDPCoreからのイベント受け取りの方法メモ` | 上記ファイルを追加したコミット。`Test_AsyncBenchmark.bas` 側の呼び出し方（`BrowserCapabilities.ClsGet_CDPCore` → `InitCore`）も入っています |
 
 ***
 
