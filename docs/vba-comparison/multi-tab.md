@@ -79,14 +79,19 @@ Private Sub ReconnectToTarget(ByVal targetId As String)
     Set CDP_ = New a4_ExecuteCDP                               ' ④ 実行層オブジェクトも作り直す
     CDP_.Init msgGenerator, Handler, json_, events_
 
-    CDP_.AttachToTarget targetId                               ' ⑤ ここから CDP 5往復
+    CDP_.AttachToTarget targetId                               ' ⑤ ここから CDP 7往復
     CDP_.ActivateTarget targetId
     CDP_.PageEnable
     CDP_.DOMEnable
     CDP_.RuntimeEnable
+    CDP_.NetworkEnable
+    CDP_.SetLifecycleEventsEnabled True
+
+    basicInfo_.DocumentObjectId = CDP_.GetDocumentObjectID     ' ⑥ さらに 2往復（Runtime.evaluate / DOM.getDocument）
+    basicInfo_.DocumentNodeId = CDP_.GetDocumentNodeID
 ```
 
-タブを1回切り替えるたびに、**HTTP リクエスト1回 + ソケット張り直し + CDP コマンド5往復**が走ります。どの瞬間を切り取っても生きている接続は1本だけで、同時並行の操作はできません。2つのタブを細かく行き来する処理では、このオーバーヘッドが積み上がります。
+タブを1回切り替えるたびに、**HTTP リクエスト1回 + ソケット張り直し + CDP 9往復**（接続の準備に7往復、`document` の ID 取得に2往復）が走ります。どの瞬間を切り取っても生きている接続は1本だけで、同時並行の操作はできません。2つのタブを細かく行き来する処理では、このオーバーヘッドが積み上がります。
 
 多重化への未練は残っています。`Target.attachToTarget` の応答から `sessionId` を取り出して保持する処理はあるのですが。
 
@@ -215,7 +220,7 @@ CDP 直叩き勢がマルチタブで苦労したのは、実装が拙かった�
 | --- | --- | --- | --- |
 | **StarterWebScrapingKit** | `sessionId` 多重化（再接続なし） | タブオブジェクトごとに独立、切替不要 | `ExecuteCDPAsync` + `TakeResultCDP` |
 | **VBAChromeDevProtocol** | `sessionId` 多重化（再接続なし） | グローバル「現在地」を都度切替 | `nowait` は Private、実質使えない |
-| **vba-cdp-webdriver** | ソケット都度張り直し + CDP 5往復 | 排他的、1タブずつ | なし |
+| **vba-cdp-webdriver** | ソケット都度張り直し + CDP 9往復 | 排他的、1タブずつ | なし |
 
 「何十個もタブを同時に触りたい」なら StarterWebScrapingKit が頭一つ抜けています。「ポップアップの親子関係を正確に追跡したい」というピンポイントな用途なら VBAChromeDevProtocol の `openerId` ベースの追跡に分があります。
 

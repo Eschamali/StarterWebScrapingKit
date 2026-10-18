@@ -131,7 +131,7 @@ Public Sub GetInfo(EventInfo As String)
         Case "Target.targetCreated"
         Case "Network.requestWillBeSent"
         Case "Page.downloadProgress"
-        ' ... 全22ケース
+        ' ... 全21ケース
     End Select
 End Sub
 ```
@@ -141,7 +141,7 @@ End Sub
 新しい `method` を拾いたければ、この `Select Case` 自体にコードを追記する ―― つまり**ライブラリのコア本体を改造する**しかありません。しかも上位の `IWebDriver` / `ChromeDriver` が生の CDP メッセージを隠蔽する設計なので、自分のコードから `{"method":...}` の生データを覗く手段もありません。
 
 ::: info 「閉じている」ことが常に悪いわけではない
-この設計は拡張性を犠牲にする代わりに、**よくある非同期イベント処理が最初から完成品として載っている**という利点を得ています。`ClickAndThenAlertDialogErase`（クリックしたら出るアラートを自動で消す）、`DownloadWatchStart`、`SetInterceptFileChooserDialog`、`EnableNetworkInterception` / `AddBlockedURLPattern` ―― 22ケースぶんのイベント処理が、すでに使える形で API 化されています。自分でイベントハンドラを書く場面自体が最初から少ないなら、この割り切りは合理的です。
+この設計は拡張性を犠牲にする代わりに、**よくある非同期イベント処理が最初から完成品として載っている**という利点を得ています。`ClickAndThenAlertDialogErase`（クリックしたら出るアラートを自動で消す）、`DownloadWatchStart`、`SetInterceptFileChooserDialog`、`EnableNetworkInterception` / `AddBlockedURLPattern` ―― 21ケースぶんのイベント処理が、すでに使える形で API 化されています。自分でイベントハンドラを書く場面自体が最初から少ないなら、この割り切りは合理的です。
 :::
 
 ## まとめ

@@ -195,7 +195,7 @@ Public Sub Click
 Public Function Click_Download
 ```
 
-StarterWebScrapingKit の `CDPElement.cls` は、`Public` な Sub / Function が 34 個に加えてプロパティが十数個。`onExist(timeout)` のようなタイムアウト付き待機、`getElementByXPath`、Shadow Root 対応、`getParent` / `getChildren` といった DOM 走査が揃っています。
+StarterWebScrapingKit の `CDPElement.cls` は、`Public` な Sub / Function が 35 個に加えてプロパティが十数個。`onExist(timeout)` のようなタイムアウト付き待機、`getElementByXPath`、Shadow Root 対応、`getParent` / `getChildren` といった DOM 走査が揃っています。
 
 ### なぜ上乗せ層が要るのか ―― ドメインは必ず混ざる
 
