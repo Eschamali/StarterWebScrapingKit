@@ -33,8 +33,8 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_BiDiCore  As WebDriverBiDiCore
-Attribute ex_BiDiCore.VB_VarHelpID = -1
+Private WithEvents ex_BiDiMode  As WebDriverBiDiMode
+Attribute ex_BiDiMode.VB_VarHelpID = -1
 Private ex_BiDiContext          As WebDriverBiDiContext
 
 '内部使用用
@@ -77,7 +77,7 @@ Public Property Let EnableEvents(Optional cancel As Boolean, v As Boolean)
     '※`session.subscribe`はセッション単位です。他のタブ/インスタンスと共有点である事に留意してください
     Dim TargetEvents As New Collection
     TargetEvents.Add "input.fileDialogOpened"
-    Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe(v) = TargetEvents
+    Set ex_BiDiContext.ThisWebDriverBiDiMode.SubscribeBiDiEvent(v) = TargetEvents
 
     If Not ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError Is Nothing Then
         printMsg WARN_, "`session.subscribe`に失敗した可能性があります。 > " & ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName
@@ -147,8 +147,8 @@ End Sub
 '***************************************************************************************************
 '                      ■■■ メインとなる機能拡張部分 - イベント編 ■■■
 '***************************************************************************************************
-Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_BiDiCore_detectionBiDiEvent"
+Private Sub ex_BiDiMode_ExEvent(methodName As String, EventRawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_BiDiMode_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -353,7 +353,7 @@ Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary
 End Function
 
 Private Sub TakeEvents(Optional destruction As Boolean)
-    ex_BiDiCore.TakeEvents , destruction
+    ex_BiDiMode.TakeEvents , destruction
 End Sub
 
 Private Function TimerCounter() As Double
@@ -370,7 +370,7 @@ End Function
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '必要なオブジェクトを継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ExEventCore
+    Set ex_BiDiMode = Inheritance.ThisWebDriverBiDiMode
     m_context = Inheritance.context
 
     '既定でイベント監視を有効化（キャンセルモードはOFF）

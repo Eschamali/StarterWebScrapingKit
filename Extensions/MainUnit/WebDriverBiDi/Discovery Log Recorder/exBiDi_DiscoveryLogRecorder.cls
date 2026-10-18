@@ -29,8 +29,8 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_BiDiCore  As WebDriverBiDiCore
-Attribute ex_BiDiCore.VB_VarHelpID = -1
+Private WithEvents ex_BiDiMode  As WebDriverBiDiMode
+Attribute ex_BiDiMode.VB_VarHelpID = -1
 Private ex_BiDiContext          As WebDriverBiDiContext
 
 '内部使用用
@@ -97,7 +97,7 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True, Opt
     targetEvents.Add "browsingContext.domContentLoaded"
     targetEvents.Add "browsingContext.load"
     targetEvents.Add "log.entryAdded"
-    Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe = targetEvents
+    Set ex_BiDiContext.ThisWebDriverBiDiMode.SubscribeBiDiEvent = targetEvents
 
     '3. エラーcheck
     With ex_BiDiContext.ThisWebDriverBiDiMode
@@ -189,7 +189,7 @@ Public Function StopAndSaveDiscoveryLog(Optional FolderPath As String, Optional 
 
     '4. イベント購読の解除
     If Not CurrentLogState.subscribedEvents Is Nothing Then
-        Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe(False) = CurrentLogState.subscribedEvents
+        Set ex_BiDiContext.ThisWebDriverBiDiMode.SubscribeBiDiEvent(False) = CurrentLogState.subscribedEvents
     End If
 
     CurrentLogState.IsRecording = False
@@ -231,7 +231,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：WebDriverBiDiからの非同期イベントのうち、記録対象のみを`FormatAndStoreLog`へ委託します
 '***************************************************************************************************
-Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As String)
+Private Sub ex_BiDiMode_ExEvent(methodName As String, RawJson As String)
     '1. 記録モードでなければ、即抜け
     If Not CurrentLogState.IsRecording Then Exit Sub
 
@@ -607,7 +607,7 @@ End Sub
 
 '非同期イベント発火(RaiseEvent)に必要です
 Private Sub TakeEvents(Optional destruction As Boolean)
-    ex_BiDiCore.TakeEvents , destruction
+    ex_BiDiMode.TakeEvents , destruction
 End Sub
 
 
@@ -620,7 +620,7 @@ End Sub
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '必要なオブジェクトを継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ExEventCore
+    Set ex_BiDiMode = Inheritance.ThisWebDriverBiDiMode
 
     'コンテキスト情報
     m_context = Inheritance.context

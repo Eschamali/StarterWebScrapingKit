@@ -27,8 +27,8 @@ Private Const BiDiPlusSign      As String = "goog:cdp."                 'BiDi+の
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_BiDiCore  As WebDriverBiDiCore
-Attribute ex_BiDiCore.VB_VarHelpID = -1
+Private WithEvents ex_BiDiMode  As WebDriverBiDiMode
+Attribute ex_BiDiMode.VB_VarHelpID = -1
 Private ex_BiDiContext          As WebDriverBiDiContext
 
 '操作中のタブ情報一式
@@ -75,7 +75,7 @@ Public Sub UpgradeBiDiPlus(TargetContext As WebDriverBiDiContext)
 
     '1. オブジェクトを継承
     Set ex_BiDiContext = TargetContext
-    Set ex_BiDiCore = TargetContext.ExEventCore
+    Set ex_BiDiMode = TargetContext.ThisWebDriverBiDiMode
 
     '2. BiDi+用の`SessionID`を取得
     BiDiPlusTab.sessionID = ExecuteBiDiPlusGetSession()
@@ -121,7 +121,7 @@ Property Let SubscribeCdpEvent(Optional subscribe As Boolean = True, events)
     End If
 
     '実際の購読へ
-    ex_BiDiContext.sessionSubscribe(subscribe) = events
+    ex_BiDiContext.SubscribeBiDiEvent(subscribe) = events
 End Property
 
 Public Sub getSessionInfo()
@@ -233,8 +233,8 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ CDPイベント捌き用 ■■■
 '***************************************************************************************************
-Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_BiDiCore_detectionBiDiEvent"
+Private Sub ex_BiDiMode_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_BiDiMode_ExEvent"
 
 
     '1. CDPイベント以外は即抜け
