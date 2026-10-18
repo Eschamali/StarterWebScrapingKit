@@ -245,18 +245,35 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 
 /* ===== zero ===== */
 #zJson{left:120px;top:250px;width:1680px;padding:30px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);font:30px var(--mono);white-space:nowrap;overflow:hidden;opacity:0}
-#zJson span{transition:none}
 #zJson .hit{background:rgba(61,220,132,.3);outline:2px solid var(--ok);border-radius:4px}
 #zArr{left:120px;top:370px;width:1680px;height:70px;border:3px dashed #9cdcfe;border-radius:10px;opacity:0;font:700 24px var(--mono);color:#9cdcfe;display:flex;align-items:center;justify-content:center}
-#zLbl{top:470px;font-size:40px;opacity:0}
-#zAdo{left:140px;top:600px;width:520px;padding:28px;text-align:center;border-radius:20px;background:#2b2f3a;border:3px solid #9aa;font:700 40px var(--mono);opacity:0}
-#zAdo small{display:block;font:22px var(--jp);color:#bbb;margin-top:6px}
-#zStamp{left:420px;top:500px}
-#zBuf{position:absolute;left:760px;top:640px;width:1060px;height:120px}
-#zBuf .b{position:absolute;left:0;top:0;height:120px;border-radius:14px;background:linear-gradient(90deg,#3fb6d3,#a259e6);display:flex;align-items:center;justify-content:center;font:900 46px var(--mono);overflow:hidden}
-#zBoing{left:1300px;top:540px;font:900 64px var(--jp);color:#ffcf6b;opacity:0}
-#zDo{left:760px;top:800px;font:700 28px var(--mono);color:#ccc;opacity:0}
-
+#zLbl{top:480px;font-size:44px;opacity:0}
+#zLbl small{display:block;font:700 26px var(--mono);color:#aab;margin-top:12px}
+#zSplit{left:0;right:0;top:210px;text-align:center;font:700 44px var(--mono);opacity:0}
+#zVars{position:absolute;left:140px;top:310px;width:1000px;height:470px}
+#zVars i{position:absolute;width:88px;height:38px;border-radius:8px;background:rgba(91,141,239,.25);border:2px solid #5b8def;font:700 16px/34px var(--mono);font-style:normal;text-align:center;color:#cfe0ff;opacity:0}
+#zSteps{position:absolute;left:1200px;top:330px;width:620px}
+#zSteps div{font:700 36px/1.4 var(--jp);margin-bottom:26px;opacity:0}
+#zSteps b{font-family:var(--mono);color:#ffcf6b}
+#zHmm{left:0;right:0;top:820px;font-size:42px;opacity:0;color:#ffcf6b}
+.zcode{position:absolute;top:210px;width:820px;padding:24px 30px;border-radius:18px;background:rgba(14,19,32,.92);border:2px solid rgba(255,255,255,.18);opacity:0}
+.zcode .h{font:700 26px var(--jp);color:#aab;margin-bottom:10px}
+.zcode .c{font:700 36px var(--mono)}
+#zOrig{left:120px}#zNew{left:980px;border-color:#3ddc84}
+#zBoard{position:absolute;left:160px;top:520px;height:130px;border-radius:14px;background:#f4f6f8;border:4px solid #c9d1d9;overflow:hidden;opacity:0}
+#zBoard .m{position:absolute;top:22px;height:86px;border-radius:8px;display:flex;align-items:center;justify-content:center;font:700 18px var(--mono);color:#fff;overflow:hidden}
+#zBoard .z{position:absolute;top:14px;width:4px;height:102px;background:#ff4d5e}
+#zCur{position:absolute;top:500px;width:4px;height:170px;background:#0b57d0;box-shadow:0 0 14px #3b8cff;opacity:0}
+#zCap{position:absolute;top:670px;font:900 40px var(--mono);opacity:0}
+#zBoing{left:0;top:430px;font:900 64px var(--jp);color:#ffcf6b;opacity:0}
+#zBoardL{left:0;right:0;top:760px;font-size:38px;opacity:0}
+#zFlow{position:absolute;left:0;right:0;top:420px;height:200px}
+.zf{position:absolute;top:0;width:380px;height:170px;border-radius:20px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font:700 32px var(--mono);opacity:0}
+.zf small{font:700 22px var(--jp);color:#bbb;margin-top:8px}
+.zfa{position:absolute;top:58px;font:900 48px var(--jp);color:#888;opacity:0}
+#zAdo{background:#2b2f3a;border:3px solid #ffcf6b}
+#zStamp{left:620px;top:270px}
+#zDo{left:0;right:0;top:700px;font:700 30px var(--mono);color:#ccc;opacity:0}
 /* ===== sock ===== */
 #kXl{left:200px;top:220px;width:1000px;height:600px;background:#fff;color:#000;border-radius:8px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
 #kXl .t{background:#217346;color:#fff;font:700 24px var(--jp);padding:10px 18px}
@@ -568,16 +585,30 @@ body.rec{cursor:none}
     <div class="lbl" id="gSync">5つのEdgeが、<span class="gradtext">同時に、独立して</span>動く</div>
   </div>
 
-  <!-- v2.2.0 ゼロコピー -->
+  <!-- v2.2.0 受信ロジックの最適化2 -->
   <div class="scene" id="zero">
     <div class="abs" id="zJson"></div>
     <div class="abs" id="zArr">SAFEARRAY を文字列のメモリにかぶせて、コピーせずに読む</div>
-    <div class="lbl" id="zLbl">JSON は、<span class="gradtext">ゼロコピー</span>で読む時代へ</div>
-    <div class="abs" id="zAdo">ADODB.Stream<small>インメモリのバイナリバッファとして</small></div>
-    <div class="stamp grad" id="zStamp">伏線回収</div>
-    <div id="zBuf"><div class="b" id="zBufB">1MB</div></div>
+    <div class="lbl" id="zLbl">JSON は、<span class="gradtext">ゼロコピー</span>で読む時代へ<small>vbacollective-json ／ VBA-FastJSON</small></div>
+    <div class="abs" id="zSplit"><span class="fn">Split</span>(CDP, vbNullChar)</div>
+    <div id="zVars"></div>
+    <div id="zSteps"><div>① <b>100</b> 個の変数を生成</div><div>② <b>100</b> 回 RaiseEvent</div><div>③ <b>100</b> 個まとめて破棄</div></div>
+    <div class="lbl" id="zHmm">……待てよ？ 裁く時間より、作って捨てるコストのほうが重い……？😶</div>
+    <div class="zcode" id="zOrig"><div class="h">本家と同じ「1つの変数」（毎回まるごと引っ越し）</div><div class="c">buf = buf <span style="color:#ff4d5e">&amp;</span> res</div></div>
+    <div class="zcode" id="zNew"><div class="h">最適化2：1つの変数 ＋ カーソル管理</div><div class="c"><span class="fn">Mid$</span>(buf, cursor) = res</div></div>
+    <div id="zBoard"></div>
+    <div id="zCur"></div>
+    <div id="zCap"></div>
     <div class="abs" id="zBoing">バインッ！</div>
-    <div class="abs" id="zDo">1,024 件に 1 回だけ DoEvents（実測で決めた数字）</div>
+    <div class="lbl" id="zBoardL">同じボードを使い回す。足りなければ <span class="gradtext">一気に 2 倍</span></div>
+    <div id="zFlow">
+      <div class="zf" style="left:110px">Pipe / Port<small>Byte() のまま受信</small></div><div class="zfa" style="left:505px">→</div>
+      <div class="zf" id="zAdo" style="left:560px">ADODB.Stream<small>バイト列を溜め込む器</small></div><div class="zfa" style="left:955px">→</div>
+      <div class="zf" style="left:1010px">UTF-8 → String<small>落ち着いたら一括変換</small></div><div class="zfa" style="left:1405px">→</div>
+      <div class="zf" style="left:1460px;border-color:#3ddc84">Mid$ カーソル<small>1つのバッファで裁く</small></div>
+    </div>
+    <div class="stamp grad" id="zStamp">伏線回収</div>
+    <div class="lbl" id="zDo">1,024 件に 1 回だけ DoEvents（実測で決めた数字）</div>
   </div>
 
   <!-- v2.3.0 WinSock -->
@@ -792,6 +823,8 @@ const VO = {
   G3: { d: 4.469, t: "RaiseEvent で、ブラウザ・タブ・通信コアの3つに分割。" },
   G4: { d: 2.965, t: "5つのEdgeが、一斉に動いたのだ！" },
   Z1: { d: 2.4, t: "JSONは、ゼロコピーで読む時代へ。" },
+  Z3: { d: 6.848, t: "その「ゼロコピー」に憧れて Split を見直すと……100件届くたびに、100個の変数を作っては捨てていた。" },
+  Z4: { d: 7.147, t: "たどり着いたのは、本家と同じ「1つの変数」。ただし、カーソルで書き進めて、メモリの再確保を減らす。" },
   Z2: { d: 6.475, t: "追放したはずの ADODB.Stream が、最強のバッファとして帰ってきたのだ！" },
   K1: { d: 5.291, t: "WinHTTP の WebSocket は、Excelごと落ちる「死のルート」だった。" },
   K2: { d: 5.365, t: "なら、生のWinSockで、RFC 6455 を手書きするのだ。" },
@@ -829,12 +862,12 @@ const SC = [
   { id: 'base', lead: .3, seq: [['S3', .4], ['S4', 1.0]], fn: sBase, bg: [210, .9], marks: [['S3', '2025-12-08', '2025.12', '', '土台選び']] },
   { id: 'v1', lead: .3, seq: [['A1', .4], ['A2', .7]], fn: sV1, bg: [150, 1], marks: [['A1', '2025-12-20', '2025.12.20', 'v1.0.0', '初リリース'], ['A2', '2025-12-28', '', 'v1.1.0', 'イベント受信']] },
   { id: 'utf8', lead: .3, seq: [['J1', .4], ['J2', .6]], fn: sUtf8, bg: [350, .9], marks: [['J1', '2026-01-15', '2026.01', 'v1.4.0', '文字コードとの戦い']] },
-  { id: 'recv', lead: .3, seq: [['R1', .4], ['R2', .7]], fn: sRecv, bg: [200, 1], marks: [['R1', '2026-02-10', '2026.02', '', '受信ロジックと非同期']] },
+  { id: 'recv', lead: .3, seq: [['R1', .4], ['R2', .7]], fn: sRecv, bg: [200, 1], marks: [['R1', '2026-02-10', '2026.02', '', '受信ロジックの最適化1'], ['R2', '2026-02-20', '2026.02', '', '非同期処理']] },
   { id: 'bidi', lead: .3, seq: [['B1', .3], ['B2', .4], ['B3', .4], ['B4', 1.0]], fn: sBidi, bg: [20, 1.1], marks: [['B1', '2026-03-05', '2026.03', 'v1.6.0', 'WebDriver BiDi 対応']] },
   { id: 'seed', lead: .3, seq: [['X1', .4], ['X2', .9]], fn: sSeed, bg: [195, .9], marks: [['X1', '2026-03-15', '2026.03.15', '', 'WebView2 の種'], ['X2', '2026-04-04', '2026.04.04', '', 'ブランチ凍結']] },
   { id: 'objid', lead: .3, seq: [['O1', .8]], fn: sObj, bg: [160, .9], marks: [['O1', '2026-04-25', '2026 春', '', 'objectId 方式へ']] },
   { id: 'god', lead: .3, seq: [['G1', .4], ['G2', .4], ['G3', .5], ['G4', 1.4]], fn: sGod, bg: [265, 1.1], marks: [['G1', '2026-05-24', '2026.05', '', '5アカウント同時処理'], ['G2', '2026-05-30', '2026.05.30', '', '解体開始'], ['G4', '2026-06-06', '2026.06', 'v2.0.0', 'God クラス解体']] },
-  { id: 'zero', lead: .3, seq: [['Z1', .4], ['Z2', .9]], fn: sZero, bg: [180, 1], marks: [['Z1', '2026-07-02', '2026.07', 'v2.2.0', 'JSON ゼロコピー化']] },
+  { id: 'zero', lead: .3, seq: [['Z1', .4], ['Z3', .4], ['Z4', .4], ['Z2', .9]], fn: sZero, bg: [180, 1], marks: [['Z1', '2026-07-02', '2026.07', 'v2.2.0', '受信ロジックの最適化2']] },
   { id: 'sock', lead: .3, seq: [['K1', .4], ['K2', .4], ['K3', 1.0]], fn: sSock, bg: [300, 1.1], marks: [['K1', '2026-07-12', '2026.07', 'v2.3.0', '生ソケットへの逆襲']] },
   { id: 'v24', lead: .3, seq: [['M1', .6]], fn: sV24, bg: [220, .9], marks: [['M1', '2026-08-15', '2026.08', 'v2.4.x', '分割と卒業']] },
   { id: 'thaw', lead: .3, seq: [['V1', .4], ['V2', .4], ['V3', 1.0]], fn: sThaw, bg: [195, 1.1], marks: [['V1', '2026-08-23', '2026.08.23', '', '141日ぶりの解凍'], ['V2', '2026-08-30', '2026.08.30', 'v3.0.0', 'WebView2 ネイティブ対応'], ['V3', '2026-09-05', '2026.09', 'v3.1.0', '拡張機能']] },
@@ -1218,26 +1251,71 @@ function sGod(t, s) {
   css($('#gSync'), out * p(t, G4 + 1.6, G4 + 2.0));
 }
 
-// ---- v2.2.0 ----
+// ---- v2.2.0 受信ロジックの最適化2 ----
 const ZJ = ['{', '"id"', ':', '12', ',', '"result"', ':', '{', '"result"', ':', '{', '"type"', ':', '"string"', ',', '"value"', ':', '"OK"', '}', '}', '}'];
-(function () { $('#zJson').innerHTML = ZJ.map(s => `<span>${esc(s)}</span>`).join(''); })();
+const ZW = [70, 120, 50, 160, 90, 60, 140, 80, 110, 200, 70, 130];   // ボードに書き込むメッセージの幅
+const ZCOL = ['#f7931e', '#e0479e', '#a259e6', '#3fb6d3', '#3ddc84', '#5b8def'];
+(function () {
+  $('#zJson').innerHTML = ZJ.map(s => `<span>${esc(s)}</span>`).join('');
+  let h = ''; for (let k = 0; k < 100; k++) h += `<i style="left:${(k % 10) * 98}px;top:${Math.floor(k / 10) * 46}px">s(${k})</i>`;
+  $('#zVars').innerHTML = h;
+  let b = '', x = 12;
+  ZW.forEach((w, k) => { b += `<div class="m" style="left:${x}px;width:${w - 6}px;background:${ZCOL[k % 6]}">{…}</div><div class="z" style="left:${x + w - 4}px"></div>`; x += w; });
+  $('#zBoard').innerHTML = b;
+})();
+// ボードへの書き込み時刻と、容量が倍になる時刻(Z4 からの相対秒)
+const ZWT = ZW.map((w, k) => 3.3 + k * .28);
+function zCapAt(lt) { let used = 12, cap = 400; ZW.forEach((w, k) => { if (lt >= ZWT[k]) { used += w; while (used > cap - 8) cap *= 2; } }); return { used, cap }; }
+const ZBOING = (() => { const r = []; let prev = 400; ZWT.forEach(tt => { const { cap } = zCapAt(tt + 1e-6); if (cap !== prev) { r.push(tt); prev = cap; } }); return r; })();
 function sZero(t, s) {
-  const c = s.c, out = 1 - p(t, s.d - .4, s.d);
-  const a = 1 - .92 * p(t, c.Z2, c.Z2 + .4);
-  css($('#zJson'), out * p(t, 0, .3) * a); css($('#zArr'), out * p(t, .5, .8) * a); css($('#zLbl'), out * p(t, .9, 1.3) * a);
+  const c = s.c, out = 1 - p(t, s.d - .4, s.d), Z3 = c.Z3, Z4 = c.Z4, Z2 = c.Z2;
+  // ① ゼロコピーへの憧れ
+  const a = 1 - p(t, Z3 - .2, Z3 + .2);
+  css($('#zJson'), p(t, 0, .3) * a); css($('#zArr'), p(t, .5, .8) * a); css($('#zLbl'), p(t, .9, 1.3) * a);
   const sc = Math.floor(t * 9) % ZJ.length;
   $$('#zJson span').forEach((e, i) => e.className = (i === sc || i === (sc + 1) % ZJ.length) ? 'hit' : '');
-  const Z = c.Z2, ak = eio(p(t, Z + .7, Z + 1.4));
-  css($('#zAdo'), out * ak, `translate(${-900 * (1 - ak)}px,${-200 * (1 - ak)}px) rotate(${-50 * (1 - ak)}deg)`);
-  const sk = p(t, Z + 1.9, Z + 2.1);
+  // ② Split の見直し: 100 個作って、100 回投げて、100 個捨てる
+  const b = 1 - p(t, Z4 - .2, Z4 + .2);
+  css($('#zSplit'), b * p(t, Z3, Z3 + .3));
+  const sweep = p(t, Z3 + 2.9, Z3 + 3.9), kill = p(t, Z3 + 4.3, Z3 + 5.4);
+  $$('#zVars i').forEach((e, k) => {
+    const sp = p(t, Z3 + .9 + hsh(k) * 1.6, Z3 + 1.05 + hsh(k) * 1.6);
+    const hot = sweep > 0 && sweep < 1 && Math.abs(sweep * 10 - (k % 10) - .5) < .8;
+    const fall = cl(kill * 1.6 - hsh(k + 3) * .6);
+    e.style.opacity = b * sp * (1 - fall);
+    e.style.transform = `translateY(${fall * fall * 400}px) rotate(${(hsh(k + 7) - .5) * 120 * fall}deg) scale(${hot ? 1.15 : 1})`;
+    e.style.background = fall > 0 ? 'rgba(255,77,94,.35)' : hot ? 'rgba(255,207,107,.5)' : '';
+    e.style.borderColor = fall > 0 ? '#ff4d5e' : hot ? '#ffcf6b' : '';
+  });
+  [Z3 + 1.0, Z3 + 2.9, Z3 + 4.3].forEach((tt, k) => css($$('#zSteps div')[k], b * p(t, tt, tt + .3), `translateX(${40 * (1 - eo(p(t, tt, tt + .3)))}px)`));
+  css($('#zHmm'), b * p(t, Z3 + 5.3, Z3 + 5.7));
+  // ③ 本家と同じ 1 つの変数 ＋ Mid$ カーソル(足りなければ 2 倍)
+  const cC = 1 - p(t, Z2 - .2, Z2 + .2);
+  css($('#zOrig'), cC * p(t, Z4 + .2, Z4 + .5) * (1 - .45 * p(t, Z4 + 3.0, Z4 + 3.3)));
+  css($('#zNew'), cC * p(t, Z4 + 3.0, Z4 + 3.3), `scale(${1 + .04 * Math.sin(p(t, Z4 + 3.0, Z4 + 3.6) * Math.PI)})`);
+  const lt = t - Z4, bk = p(t, Z4 + 1.0, Z4 + 1.4);
+  const { used, cap } = zCapAt(lt);
+  let bt = -9; for (const tt of ZBOING) if (lt >= tt) bt = tt;
+  const bb = p(lt, bt, bt + .35);
+  const w = bt > -9 ? lerp(cap / 2, cap, eb(bb)) : cap;
+  const bd = $('#zBoard'); bd.style.width = w + 'px';
+  css(bd, cC * bk);
+  $$('#zBoard .m, #zBoard .z').forEach((e, k) => { e.style.display = lt >= ZWT[Math.floor(k / 2)] ? 'flex' : 'none'; });
+  const cur = $('#zCur'); cur.style.left = (160 + used) + 'px'; css(cur, cC * bk * (Math.floor(t * 4) % 2 ? 1 : .55));
+  txt($('#zCap'), (cap / 400) + 'MB'); $('#zCap').style.left = (160 + w - 120) + 'px'; css($('#zCap'), cC * bk);
+  $('#zBoing').style.left = (160 + w - 300) + 'px';
+  css($('#zBoing'), cC * (bt > -9 ? 1 - p(lt, bt + .35, bt + .6) : 0), `scale(${1 + .3 * eb(bb)}) rotate(-6deg)`);
+  css($('#zBoardL'), cC * p(t, Z4 + 4.2, Z4 + 4.6));
+  // ④ ADODB.Stream の帰還
+  const fl = p(t, Z2 + .1, Z2 + .3);
+  const ats = [Z2 + .2, Z2 + 1.6, Z2 + 2.6, Z2 + 2.9, Z2 + 3.2, Z2 + 3.5];
+  let n = 0;
+  $$('#zFlow .zf, #zFlow .zfa').forEach(e => { if (e.id === 'zAdo') return; const a0 = ats[n++]; css(e, out * p(t, a0, a0 + .3)); });
+  const ak = eio(p(t, Z2 + .7, Z2 + 1.4));
+  css($('#zAdo'), out * ak * fl, `translate(${-900 * (1 - ak)}px,${-200 * (1 - ak)}px) rotate(${-50 * (1 - ak)}deg)`);
+  const sk = p(t, Z2 + 1.9, Z2 + 2.1);
   css($('#zStamp'), out * sk, `rotate(-12deg) scale(${2 - eb(sk)})`);
-  const steps = [[Z + 2.9, 1], [Z + 3.5, 2], [Z + 4.1, 4]];
-  let mb = 0, bt = -9; for (const [tt, v] of steps) if (t >= tt) { mb = v; bt = tt; }
-  const bk = p(t, bt, bt + .35);
-  $('#zBufB').style.width = (mb ? lerp(mb === 1 ? 0 : (mb / 2) * 260, mb * 260, eb(bk)) : 0) + 'px';
-  txt($('#zBufB'), mb ? mb + 'MB' : '');
-  css($('#zBoing'), out * (mb > 1 ? 1 - p(t, bt + .3, bt + .55) : 0), `scale(${1 + .3 * eb(bk)}) rotate(-6deg)`);
-  css($('#zDo'), out * p(t, Z + 4.8, Z + 5.2));
+  css($('#zDo'), out * p(t, Z2 + 4.4, Z2 + 4.8));
 }
 
 // ---- v2.3.0 ----
@@ -1654,9 +1732,18 @@ function buildSound() {
   C('god', 'G4', .6, (c, o, w) => SE.whoosh(c, o, w, .8, .15));
   C('god', 'G4', 1.4, (c, o, w) => { [0, 1, 2, 3, 4].forEach(i => SE.ping(c, o, w + i * .02, 84 + i * 2)); });
   for (let k = 0; k < 6; k++) A('zero', .1 + k * .3, (c, o, w) => SE.click(c, o, w, .06));
+  C('zero', 'Z3', 0, (c, o, w) => SE.thock(c, o, w));
+  for (let k = 0; k < 20; k++) C('zero', 'Z3', .9 + k * .08, (c, o, w) => SE.pop8(c, o, w, 72 + (k % 5) * 2));
+  C('zero', 'Z3', 2.9, (c, o, w) => SE.whoosh(c, o, w, 1.0, .2));
+  C('zero', 'Z3', 4.3, (c, o, w) => { SE.whooshDown(c, o, w, .9, .3); SE.thud(c, o, w + .6, .5); });
+  C('zero', 'Z3', 5.3, (c, o, w) => SE.ding(c, o, w, -3));
+  C('zero', 'Z4', .2, (c, o, w) => SE.thock(c, o, w));
+  C('zero', 'Z4', 3.0, (c, o, w) => SE.ping(c, o, w, 84));
+  ZWT.forEach(d => C('zero', 'Z4', d, (c, o, w) => SE.click(c, o, w, .12)));
+  ZBOING.forEach((d, i) => C('zero', 'Z4', d, (c, o, w) => SE.boing(c, o, w, 48 + i * 6)));
+  [.2, 1.6, 2.6, 3.2].forEach((d, k) => C('zero', 'Z2', d, (c, o, w) => SE.pop8(c, o, w, 76 + k * 3)));
   C('zero', 'Z2', .7, (c, o, w) => SE.whoosh(c, o, w, .7, .3));
   C('zero', 'Z2', 1.9, (c, o, w) => { SE.stamp(c, o, w); SE.chime(c, o, w + .1, 84, .08); });
-  [2.9, 3.5, 4.1].forEach((d, i) => C('zero', 'Z2', d, (c, o, w) => SE.boing(c, o, w, 48 + i * 5)));
   C('sock', 'K1', 1.6, (c, o, w) => tone(c, o, w, { f: 500, f2: 40, d: 1.2, g: .15 }));
   C('sock', 'K1', 2.9, (c, o, w) => { SE.slam(c, o, w); SE.fail(c, o, w + .1); });
   for (let i = 0; i < 7; i++) C('sock', 'K2', .45 + i * .3, (c, o, w) => SE.pop8(c, o, w, 67 + i * 2));
