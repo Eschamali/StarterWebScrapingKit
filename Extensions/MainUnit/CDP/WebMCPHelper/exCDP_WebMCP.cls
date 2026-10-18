@@ -21,14 +21,12 @@ Option Explicit
 '                                 ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 '各種クラスオブジェクト
-Private m_CDPContext As CDPContext      'コンテキスト(タブ)制御クラスオブジェクト
-Private WithEvents m_CDPCore As CDPCore 'イベント受け取り用
-Attribute m_CDPCore.VB_VarHelpID = -1
+Private WithEvents m_CDPContext As CDPContext      'コンテキスト(タブ)制御クラスオブジェクト
+Attribute m_CDPContext.VB_VarHelpID = -1
 
 'ステート管理
 Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
-Private CurrentSessionID    As String       '`CDPContext.cls`継承時のSesssionID
 Private toolsMap            As Dictionary   'コマンド名と`Object-WebMCP.Tool`との紐づけ。`toolName`が`Key`です
 Private toolRespondedMap    As Dictionary   'WebMCP実行結果の格納。`invocationId`が`Key`です
 
@@ -42,8 +40,8 @@ Private Const ThisClassName As String = "exCDP_WebMCP"
 '***************************************************************************************************
 '* 機能　　：WebMCP.Tool名とのマッピング処理を行います
 '***************************************************************************************************
-Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".m_CDPCore_CDPContextEvent"
+Private Sub m_CDPContext_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".m_CDPContext_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -54,75 +52,72 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         Exit Sub
     End If
 
-    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionID <> sessionID Then Exit Sub
-
-    '3. WebMCPに関する各イベント処理を行う
+    '2. WebMCPに関する各イベント処理を行う
     Dim tmp As BiDiCDPJson
     Select Case methodName
         '`WebMCP`が実行されたログを記録します
         Case "WebMCP.toolInvoked"
-            '3-1. Json文字化が入るため、非表示の場合は即抜けして、パフォーマンスを維持
+            '2-1. Json文字化が入るため、非表示の場合は即抜けして、パフォーマンスを維持
             If Not CDPHelpers.currentLog.seeRawSendMsgDbg Then Exit Sub
 
-            '3-2. 実行ログを表示させる準備
+            '2-2. 実行ログを表示させる準備
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
-            '3-3. 表示
+            '2-3. 表示
             printMsg Debug_, "WebMCP:`" & tmp.StringKey("toolName") & "` has been executed. Input: " & tmp.StringKey("input"), FromProcedureName
 
         '`WebMCP`の実行結果を確保します
         Case "WebMCP.toolResponded"
-            '3-1. WebMCPの実行結果を格納する準備
+            '2-1. WebMCPの実行結果を格納する準備
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
-            '3-2. `invocationId`を`Key`に格納
+            '2-2. `invocationId`を`Key`に格納
             toolRespondedMap.Add tmp.StringKey("invocationId"), RawJson
             printMsg Debug_, "Command results have arrived from WebMCP:`" & tmp.StringKey("invocationId") & "`", FromProcedureName
 
         '`WebMCP`が使えるツール名を記録します
         Case "WebMCP.toolsAdded"
-            '3-1. Dictionaryにコマンド名と詳細をマッピングしていく準備
+            '2-1. Dictionaryにコマンド名と詳細をマッピングしていく準備
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("tools")
 
-            '3-2. ループで必要な情報のみ取り出していく
+            '2-2. ループで必要な情報のみ取り出していく
             Dim NodeToken As Long, ToolParams As New Dictionary
             NodeToken = tmp.FirstChildToken
             Do While NodeToken > 0
-                '3-2-1. ツール説明
+                '2-2-1. ツール説明
                 ToolParams.Add "description", tmp.TokenString(NodeToken, "description")
 
-                '3-2-2. frameId       ※実行場所
+                '2-2-2. frameId       ※実行場所
                 ToolParams.Add "frameId", tmp.TokenString(NodeToken, "frameId")
 
-                '3-2-3. inputSchema   ※受付できる引数情報
+                '2-2-3. inputSchema   ※受付できる引数情報
                 'ない場合は、`Nothing`になります
                 ToolParams.Add "inputSchema", tmp.TokenNode(NodeToken, "inputSchema")
 
-                '3-2-4. name をKeyに適用
+                '2-2-4. name をKeyに適用
                 toolsMap.Add tmp.TokenString(NodeToken, "name"), ToolParams
                 printMsg Debug_, "WebMCP: Added `" & tmp.TokenString(NodeToken, "name") & "`", FromProcedureName
 
-                '3-2-5. リセット
+                '2-2-5. リセット
                 Set ToolParams = New Dictionary
 
-                '3-2-6. 次の`Object-WebMCP.Tool`へ
+                '2-2-6. 次の`Object-WebMCP.Tool`へ
                 NodeToken = tmp.NextToken(NodeToken)
             Loop
 
         '`WebMCP`が消えたツール名を監視し、マッピングから削除します
         Case "WebMCP.toolsRemoved"
-            '3-1. Dictionaryにコマンド名と詳細をマッピングしていく準備
+            '2-1. Dictionaryにコマンド名と詳細をマッピングしていく準備
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("tools")
 
-            '3-2. ループでマッピングを削除していく
+            '2-2. ループでマッピングを削除していく
             NodeToken = tmp.FirstChildToken
             Do While NodeToken > 0
-                '3-2-1.　削除
+                '2-2-1.　削除
                 toolsMap.Remove tmp.TokenString(NodeToken, "name")
                 printMsg Debug_, "WebMCP: Removed `" & tmp.TokenString(NodeToken, "name") & "`", FromProcedureName
 
-                '3-2-2. 次の`Target.TargetInfo`へ
+                '2-2-2. 次の`Target.TargetInfo`へ
                 NodeToken = tmp.NextToken(NodeToken)
             Loop
 
@@ -148,12 +143,6 @@ End Sub
 Public Sub Init(ThisCDPContext As CDPContext)
     'コンテキスト(タブ)情報を継承
     Set m_CDPContext = ThisCDPContext
-
-    'イベント受け取り用オブジェクトも継承
-    Set m_CDPCore = ThisCDPContext.ExEventCore
-
-    'セッションIDを取得
-    CurrentSessionID = m_CDPContext.CurrentSessionID
 
     '「WebMCPの監視をONにして！」と命令する
     ExecuteCDP "WebMCP.enable"
@@ -394,7 +383,7 @@ Private Function ExecuteCDP(methodName As String, Optional params As Dictionary,
 End Function
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    m_CDPCore.TakeEvents StopPipeError, destruction
+    m_CDPContext.ThisCDPBrowser.TakeEvents StopPipeError, destruction
 End Sub
 
 Private Function TimerCounter() As Double

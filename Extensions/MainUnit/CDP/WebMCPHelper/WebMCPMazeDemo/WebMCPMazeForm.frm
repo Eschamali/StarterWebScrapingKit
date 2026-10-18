@@ -108,11 +108,13 @@ Private Function ConnectToMaze() As Boolean
     '   ここで実URLを渡すと`Target.getTargets`に一致するタブが無く`Nothing`が返ってしまう。
     '   一旦"about:blank"で取得し、遷移は後段の`navigate`で別途行う★)
     ReattachOptions.Set_WebView2Mode(fWebView2) = UserName
+
+    '   ※WebView2は少し特殊なポジションなので、`Core`側のイベントとして受け取る(`WebView2Form`と同じ)。
+    '     `ReattachOptions`は`reattach`後に破棄されるため、その前に取り出しておく
+    Set fCDPEvent = ReattachOptions.ClsGet_CDPCore
+
     Dim t As New CDPBrowser: t.reattach ReattachOptions
     Set fCDPContext = t.getTab(setMain:=True, Url:="about:blank")
-
-    '5. 非同期イベント処理に備える(CDPCoreの参照保持も兼ねる)
-    Set fCDPEvent = t.ExEventCore
 
     '6. WebView2は「ドメインをenableすれば以後全イベントが自動で流れる」CDP-over-WebSocketとは違い、
     '   イベント名ごとに個別の購読(`SubscribeCdpEvent`)が必要(`CDPCoreViaWebView2.cls`の仕様)。

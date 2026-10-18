@@ -41,10 +41,10 @@ Sub PromptAPIの準備()
 
     '1. API が有効かどうかを確認
     If PromptAPI.IsPromptApiAvailable Then
-        ReadyAI.printMsg info_, "お使いの環境では、Prompt APIが利用可能です！", FromProcedureName
+        Debug.Print "お使いの環境では、Prompt APIが利用可能です！"
     Else
         '「https://learn.microsoft.com/ja-jp/microsoft-edge/web-platform/prompt-api」を参考に、有効化してください
-        ReadyAI.printMsg WARN_, "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", FromProcedureName
+        Debug.Print "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません"
         MsgBox "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", vbCritical
         ReadyAI.ThisCDPBrowser.CloseBrowser
         Exit Sub

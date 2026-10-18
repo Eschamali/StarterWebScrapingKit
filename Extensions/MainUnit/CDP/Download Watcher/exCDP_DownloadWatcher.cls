@@ -21,9 +21,8 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 'ブラウザ制御オブジェクト
-Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
-Attribute ex_CDPCore.VB_VarHelpID = -1
-Private ex_CDPBrowser               As CDPBrowser   '継承元のブラウザクラス
+Private WithEvents ex_CDPBrowser    As CDPBrowser   '継承元のブラウザクラス
+Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
@@ -302,17 +301,18 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能   ：ダウンロード系のイベントのみ、パース処理したのをただただ、Dictionaryに蓄積していきます
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPBrowserEvent"
+Private Sub ex_CDPBrowser_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_ExEvent"
 
 
     'この拡張Class上で、1度も設定されてない場合は即抜け
     If DownloadPathList.Count = 0 Then Exit Sub
 
+    Dim downloadInfos   As BiDiCDPJson
+    Dim DownloadGUID    As String
+
     '1. 対象のダウンロードイベントを処理
     Select Case methodName
-        Dim downloadInfos   As BiDiCDPJson
-        Dim DownloadGUID    As String
 
         'ダウンロード開始情報
         Case "Browser.downloadWillBegin"
@@ -423,7 +423,7 @@ Public Function AutoWaitSingleCompleted(Optional guid As String, Optional TimeOu
         Loop
 
         '3-3. 末尾のKeyとして取り出す
-        guid = DownloadWillBegin.keys(DownloadWillBegin.Count - 1)
+        guid = DownloadWillBegin.KeyAtIndex(DownloadWillBegin.Count - 1)
     End If
 
     '4. メッセージを取り出しながら、進捗をチェックする
@@ -760,7 +760,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPBrowser/CDPCore`直通メソッド ■■■
+'                           ■■■ `CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：いちいち、`○○.ExecuteCDP`といった記述を防ぐ措置となります。
 '            メインの`CDPBrowser`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
@@ -777,7 +777,7 @@ Private Function ExecuteCDP(methodName As String, Optional params As Dictionary,
 End Function
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    ex_CDPCore.TakeEvents StopPipeError, destruction
+    ex_CDPBrowser.TakeEvents StopPipeError, destruction
 End Sub
 
 Private Function TimerCounter() As Double
@@ -796,7 +796,6 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ExEventCore
 
     '渡した際のデフォルトのブラウザコンテキストをセット
     defaultBrowserContextId = Inheritance.CurrentBrowserContextId
