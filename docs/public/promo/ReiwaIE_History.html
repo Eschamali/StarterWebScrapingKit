@@ -1775,12 +1775,18 @@ function sFin(t, s) {
   $('#fGlow').style.transform = `scale(${.9 + .15 * Math.sin(t * 5)})`;
   // 3つの経路
   const F3 = c.F3;
-  let h = '';
+  // Excel から 1 本の管で出て、3 本に分かれ、また 1 本にまとまって Edge / Chrome へ
+  const MY = 530, SX = 560, MX = 1360;   // 管の高さ(両ノードの中心) / 分岐点 / 集約点
+  const sm = u => { u = cl(u); return u * u * (3 - 2 * u); };
+  const laneY = (x, y) => x < SX ? MY : x < 700 ? lerp(MY, y, sm((x - SX) / 140)) : x < 1220 ? y : x < MX ? lerp(y, MY, sm((x - 1220) / 140)) : MY;
+  const k0 = p(t, F3 + .2, F3 + .6);
+  let h = `<path d="M460 ${MY} L${SX} ${MY} M${MX} ${MY} L1460 ${MY}" stroke="rgba(255,255,255,.45)" stroke-width="10" stroke-linecap="round" fill="none" opacity="${k0}"/>`;
   [400, 530, 660].forEach((y, i) => {
     const k = p(t, F3 + .2 + i * .3, F3 + .6 + i * .3);
-    h += `<path d="M460 ${y + 70} C 560 ${y + 70} 600 ${y} 700 ${y}" stroke="rgba(255,255,255,.35)" stroke-width="4" fill="none" opacity="${k}"/><path d="M1220 ${y} C 1320 ${y} 1360 ${y + 70} 1460 ${y + 70}" stroke="rgba(255,255,255,.35)" stroke-width="4" fill="none" opacity="${k}"/>`;
-    for (let j = 0; j < 4; j++) { const ph = ((t - F3) * .7 + j / 4) % 1; const x = 460 + ph * 1000; if (k > .9) h += `<circle cx="${x}" cy="${ph < .24 ? lerp(y + 70, y, ph / .24) : ph > .76 ? lerp(y, y + 70, (ph - .76) / .24) : y}" r="9" fill="${gCol[i + 1]}" style="filter:drop-shadow(0 0 8px ${gCol[i + 1]})"/>`; }
+    h += `<path d="M${SX} ${MY} C ${SX + 70} ${MY} ${SX + 70} ${y} 700 ${y} M1220 ${y} C ${MX - 70} ${y} ${MX - 70} ${MY} ${MX} ${MY}" stroke="rgba(255,255,255,.35)" stroke-width="5" fill="none" opacity="${k}"/>`;
+    for (let j = 0; j < 4; j++) { const ph = ((t - F3) * .7 + j / 4 + i / 12) % 1; const x = 460 + ph * 1000; if (k > .9) h += `<circle cx="${x}" cy="${laneY(x, y)}" r="9" fill="${gCol[i + 1]}" style="filter:drop-shadow(0 0 8px ${gCol[i + 1]})"/>`; }
   });
+  h += [SX, MX].map(x => `<circle cx="${x}" cy="${MY}" r="12" fill="#fff" opacity="${k0}" style="filter:drop-shadow(0 0 10px #e0479e)"/>`).join('');
   $('#fLanes').innerHTML = h;
   $$('#f3 .froute').forEach((e, i) => { const k = p(t, F3 + .2 + i * .3, F3 + .5 + i * .3); css(e, k, `translateX(${-80 * (1 - eo(k))}px)`); });
   css($('#fApi'), p(t, F3 + 1.9, F3 + 2.3));
