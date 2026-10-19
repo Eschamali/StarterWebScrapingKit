@@ -122,6 +122,29 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #ieNote .f{font:700 22px var(--jp);color:#555;margin-top:12px}
 #ieNoteSt{right:120px;top:420px}
 
+/* ===== 3つの当たり前(冒頭とエンディングで共用するカード) ===== */
+.c3{position:absolute;top:300px;width:540px;height:340px;perspective:1800px;opacity:0}
+.c3 .in{position:absolute;inset:0;transform-style:preserve-3d}
+.c3 .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:10px;overflow:hidden}
+.c3 .old{background:#ece9d8;border:3px solid #0a3fbd;color:#000;box-shadow:6px 8px 30px rgba(0,0,0,.45)}
+.c3 .old .xt{height:46px;background:linear-gradient(#3b8af7,#0a51d8 45%,#0646c8);color:#fff;font:700 25px var(--jp);display:flex;align-items:center;padding:0 16px;text-shadow:1px 1px #0a2a7a}
+.c3 .xb,.c3 .nb{padding:22px 24px}
+.c3 code{display:block;font:700 19px/1.5 var(--mono);background:#fff;border:1px solid #999;padding:12px 14px;word-break:break-all}
+.c3 .old p{font:700 28px/1.45 var(--jp);margin-top:18px}
+.c3 .new{transform:rotateY(180deg);background:linear-gradient(160deg,#1d2440,#0d1020);border:3px solid #e0479e;color:#fff;box-shadow:0 0 50px rgba(224,71,158,.45)}
+.c3 .new .nt{height:46px;background:var(--grad);font:900 25px var(--jp);display:flex;align-items:center;padding:0 16px}
+.c3 .new code{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.25);color:#9cdcfe}
+.c3 .new p{font:700 24px/1.5 var(--jp);margin-top:16px}
+#ie3T{left:0;right:0;top:170px;font-size:56px;opacity:0;color:#fff;padding:14px 0;background:linear-gradient(90deg,transparent,rgba(0,20,80,.85) 20%,rgba(0,20,80,.85) 80%,transparent)}
+
+/* ===== 前説①: モダンサイトが読めない ===== */
+#modern{background:radial-gradient(ellipse at center,#1a1a1a 0%,#050505 75%)}
+.mw{position:absolute;width:500px;height:250px;background:#ece9d8;border:3px solid #6b7b99;border-radius:8px 8px 2px 2px;overflow:hidden;color:#000;filter:grayscale(1);opacity:0;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+.mw .xt{height:36px;background:linear-gradient(#8a9ab8,#5a6a88);color:#fff;font:700 18px var(--jp);display:flex;align-items:center;gap:8px;padding:0 10px}
+.mw .pg{position:absolute;left:8px;right:8px;top:44px;bottom:8px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font:700 24px/1.4 var(--jp);padding:0 14px}
+.mw .pg .w{font-size:48px;line-height:1}
+#mdCnt{left:0;right:0;top:820px;font-size:40px;opacity:0;color:#ff8a8a}
+
 /* ===== 前説: 迷走 ===== */
 #lost{background:radial-gradient(ellipse at center,#141a33 0%,#05060d 75%)}
 #lQ{position:absolute;left:0;right:0;top:300px;text-align:center;font:900 300px/1 var(--jp);color:rgba(255,255,255,.12)}
@@ -142,7 +165,8 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #tcL{left:110px}#tcR{left:1070px;border-color:#3ddc84}
 #tcArr{position:absolute;left:880px;top:390px;font:900 90px var(--jp);color:#888;opacity:0}
 #tcSt{left:1460px;top:200px}
-#tcNote{left:0;right:0;top:760px;font-size:36px;color:#ffcf6b;opacity:0}
+#tcNote{left:0;right:0;top:820px;font-size:36px;color:#ffcf6b;opacity:0}
+#tcLove{left:1070px;top:660px;width:740px;padding:18px 26px;border-radius:18px;background:rgba(224,71,158,.18);border:2px solid #e0479e;font:700 30px/1.5 var(--jp);opacity:0}
 
 /* ===== 前説: セキュリティ事情 ===== */
 #sec{background:radial-gradient(ellipse at center,#2a0909 0%,#0b0000 75%)}
@@ -150,6 +174,8 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #secT small{display:block;font:700 26px var(--jp);color:#bbb;margin-top:8px}
 .sb{position:absolute;left:180px;width:1040px;padding:22px 30px;border-radius:22px 22px 22px 6px;background:#313338;color:#eee;font:700 34px var(--jp);opacity:0;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 #secNo{left:1290px;top:420px;font-size:84px}
+#secUs{left:0;right:0;top:380px;font-size:60px;opacity:0}
+#secLesson{left:0;right:0;top:540px;font-size:70px;opacity:0}
 
 /* ===== 前説: 純VBA×CDP ===== */
 #kRing{position:absolute;left:960px;top:440px;width:300px;height:300px;margin:-150px;border-radius:50%;border:6px solid #3ddc84;opacity:0}
@@ -191,6 +217,8 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #stTwo{position:absolute;left:0;right:0;top:700px;display:flex;justify-content:center;align-items:center;gap:30px;opacity:0}
 #stTwo .chip{position:static;font:700 36px var(--jp)}
 #stTwo b{font:900 64px var(--jp)}
+#stDecide{left:0;right:0;top:560px;font:900 88px var(--jp);opacity:0}
+#stDecide small{display:block;font:700 34px var(--jp);color:#bbb;margin-bottom:10px}
 #stCal{position:absolute;left:0;right:0;top:300px;text-align:center;opacity:0}
 #stCal .y{font:700 70px var(--mono);color:#aaa;letter-spacing:.2em}
 #stCal .m{font:900 260px/1 var(--mono)}
@@ -471,6 +499,66 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #fAiR .code{font-size:22px;line-height:1.55}
 #fInf{position:absolute;left:290px;top:600px;font:900 240px/1 var(--jp)}
 
+/* ===== 復活 ===== */
+#b3T{left:0;right:0;top:170px;font-size:62px;opacity:0}
+#b3St{left:1480px;top:220px;font-size:72px}
+#b3More{position:absolute;left:0;right:0;top:700px;display:flex;justify-content:center;gap:30px}
+#b3More .chip{position:static;font:700 30px var(--jp);opacity:0}
+#b3Kim{left:0;right:0;top:810px;font-size:46px;opacity:0}
+
+/* ===== ……と言っておいてなんだけど ===== */
+#turn{background:#07070b}
+#tnDots{left:0;right:0;top:430px;font:900 120px var(--jp);color:#555;opacity:0}
+.tnc{position:absolute;top:300px;width:420px;height:220px;border-radius:24px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0}
+.tnc .cr{font-size:56px;line-height:1}
+.tnc .n{font:900 50px var(--mono);margin-top:10px}
+#tnWise{left:0;right:0;top:600px;font-size:46px;opacity:0}
+#tnBack{left:0;right:0;top:480px;font:900 80px var(--jp);opacity:0}
+
+/* ===== IKEA効果 ===== */
+#ikT{left:0;right:0;top:140px;font-size:72px;opacity:0}
+#ikT small{display:block;font:700 28px var(--jp);color:#bbb;margin-top:6px;letter-spacing:.1em}
+.ikc{position:absolute;top:330px;width:620px;height:390px;border-radius:26px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0}
+.ikc .e{font-size:130px;line-height:1.1}
+.ikc .n{font:900 36px var(--jp);margin-top:10px}
+.ikc .h{font:900 44px var(--jp);color:#ff5e8e;margin-top:14px;letter-spacing:.1em;min-height:60px}
+#ikA{left:240px}#ikB{left:1060px;border-color:#e0479e}
+.ik4{position:absolute;width:700px;height:200px;border-radius:24px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;gap:26px;padding:0 34px;font:900 36px/1.4 var(--jp);opacity:0}
+.ik4 .e{font-size:84px}
+#ikWheel{left:0;right:0;top:150px;font-size:40px;color:#aaa;opacity:0}
+#ikTabs{position:absolute;left:150px;top:240px;width:1000px;height:560px}
+#ikTabs i{position:absolute;width:150px;height:96px;border-radius:8px;background:#f2f4f7;overflow:hidden;opacity:0}
+#ikTabs i b{position:absolute;left:0;top:0;height:5px;background:var(--grad)}
+#ikTabs i em{position:absolute;inset:14px 0 0 0;display:flex;align-items:center;justify-content:center;font:900 42px var(--jp);font-style:normal;color:#1a9b4e}
+#ikXl{position:absolute;left:1240px;top:240px;width:540px;height:560px;background:#fff;border-radius:8px;overflow:hidden;color:#111;opacity:0}
+#ikXl .bar{background:#217346;color:#fff;font:700 22px var(--jp);padding:10px 16px}
+#ikXl .r{display:flex;border-bottom:1px solid #ddd;font:20px/38px var(--mono)}
+#ikXl .r span{width:60px;text-align:center;background:#f3f3f3;color:#888;border-right:1px solid #ddd}
+#ikXl .r b{flex:1;padding:0 14px;font-weight:400}
+#ikLove{position:absolute;inset:0;pointer-events:none}
+#ikDx{left:560px;top:200px;width:800px;padding:40px 54px;border-radius:12px;background:#fdfcf7;color:#111;box-shadow:0 30px 90px rgba(0,0,0,.6);opacity:0}
+#ikDx .h{font:900 64px var(--jp);text-align:center;letter-spacing:.6em;border-bottom:3px double #333;padding-bottom:14px}
+#ikDx .r{font:700 34px/1.9 var(--jp);margin-top:18px}
+#ikDx .r b{color:#c42b1c}
+#ikDxSt{left:1100px;top:560px;font-size:70px}
+
+/* ===== 扉 ===== */
+#door{background:radial-gradient(ellipse at center,#141022 0%,#05040a 75%)}
+#drTx{left:0;right:0;top:150px;font-size:48px;opacity:0}
+#drLight{position:absolute;left:760px;top:250px;width:400px;height:580px;background:radial-gradient(ellipse at center,#fff 0%,#ffe9b0 40%,#f7931e 100%);opacity:0;box-shadow:0 0 120px 40px rgba(255,220,150,.6)}
+#drEdge{position:absolute;left:790px;top:420px;width:340px;height:220px;border-radius:10px;background:#f5f6f8;color:#111;overflow:hidden;opacity:0}
+#drEdge .tb{height:34px;background:#dfe3ea;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:16px}
+#drEdge .tb i{width:14px;height:14px;border-radius:50%;background:conic-gradient(#0c59a4,#1fb3e0,#45d483,#0c59a4);display:block}
+#drEdge .ld{height:5px;background:var(--grad)}
+#drEdge .pg{padding:30px 14px;text-align:center;font:900 30px var(--jp)}
+#drWrap{position:absolute;left:760px;top:250px;width:400px;height:580px;perspective:1600px;opacity:0}
+#drDoor{position:absolute;inset:0;transform-origin:0 50%;border-radius:8px 8px 0 0;background:linear-gradient(90deg,#5b3a1e,#7a5030 50%,#5b3a1e);border:6px solid #3a2410;box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
+#drDoor .pl{position:absolute;left:40px;right:40px;top:150px;padding:16px 0;border-radius:10px;background:rgba(0,0,0,.35);text-align:center;font:900 30px/1.4 var(--mono);color:#ffe2a8}
+#drDoor .kn{position:absolute;right:36px;top:300px;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe9a0,#b8860b)}
+#drFrame{position:absolute;left:740px;top:236px;width:440px;height:600px;border:14px solid #2a1a0a;border-bottom:none;border-radius:12px 12px 0 0;opacity:0}
+#drEnd{left:0;right:0;top:150px;font-size:52px;opacity:0}
+#drWhite{position:absolute;inset:0;background:#fbfaf7;opacity:0}
+
 /* ===== end ===== */
 #end{background:#fbfaf7;color:#1a1a1a}
 #end .glow{position:absolute;left:50%;top:44%;width:1500px;height:1500px;margin:-750px 0 0 -750px;border-radius:50%;background:conic-gradient(from 0deg,rgba(247,147,30,.18),rgba(224,71,158,.18),rgba(162,89,230,.18),rgba(63,182,211,.18),rgba(247,147,30,.18));filter:blur(60px)}
@@ -521,6 +609,8 @@ body.rec{cursor:none}
         <div class="status"><span id="ieSt">ページを開いています...</span><div class="prog"><i id="ieProg"></i></div></div>
       </div>
     </div>
+    <div class="lbl" id="ie3T">IE 全盛期の VBA には、<span style="color:#ffe14d">3 つの「当たり前」</span>があった</div>
+    <div id="ie3"></div>
     <svg id="ieCrack" width="1920" height="1080"></svg>
     <div id="ieNote"><div class="h"><b><i></i><i></i><i></i><i></i></b>Microsoft 公式ブログより（2021.05.19 発表）</div><div class="m">Internet Explorer 11 デスクトップ アプリは<br><em>2022年6月15日</em> にサポート終了。</div><div class="f">後継は Microsoft Edge の IE モード（少なくとも 2029 年まで）</div></div>
     <div class="stamp" id="ieNoteSt">告知</div>
@@ -538,6 +628,17 @@ body.rec{cursor:none}
     <div class="wblk" id="wb2">セキュリティ<br>ポリシー</div>
     <img class="shot" id="wAsr" src="../img/story/human/6.png" alt="">
     <div class="stamp" id="wStamp">BLOCKED</div>
+  </div>
+
+  <!-- 前説①: IE は呼べても、モダンサイトが読めない -->
+  <div class="scene" id="modern">
+    <div class="mw" style="left:130px;top:190px"><div class="xt"><span class="elogo">e</span>Internet Explorer</div><div class="pg"><span class="w">⚠️</span>このブラウザーは<br>サポートされていません</div></div>
+    <div class="mw" style="left:710px;top:160px"><div class="xt"><span class="elogo">e</span>Internet Explorer</div><div class="pg"><span class="w">🚫</span>Please use a<br>modern browser.</div></div>
+    <div class="mw" style="left:1290px;top:200px"><div class="xt"><span class="elogo">e</span>Internet Explorer</div><div class="pg"><span class="w">❌</span>スクリプト エラー<br>このページで問題が発生しました</div></div>
+    <div class="mw" style="left:160px;top:500px"><div class="xt"><span class="elogo">e</span>Internet Explorer</div><div class="pg"><span class="w">🧩</span>表示が崩れています</div></div>
+    <div class="mw" style="left:730px;top:480px"><div class="xt"><span class="elogo">e</span>Internet Explorer</div><div class="pg"><span class="w">⏳</span>お使いのブラウザは<br>古すぎます</div></div>
+    <div class="mw" style="left:1300px;top:510px"><div class="xt"><span class="elogo">e</span>Internet Explorer</div><div class="pg"><span class="w">➡️</span>Microsoft Edge で<br>開いてください</div></div>
+    <div class="lbl" id="mdCnt">IE で読めないモダンサイトは、増える一方🥲 📈</div>
   </div>
 
   <!-- 前説②: 移行先の迷走 -->
@@ -559,6 +660,7 @@ body.rec{cursor:none}
     <div id="tcArr">→</div>
     <div class="tc" id="tcR"><div class="d">2022.03 〜</div><div class="n">SeleniumVBA</div><div class="a">GCuser99 氏</div><div class="f">・WebDriver の自動更新<br>・.NET Framework 3.5 に依存しない</div></div>
     <div class="stamp grad" id="tcSt">本命</div>
+    <div class="abs" id="tcLove">💖 ぼくも最初は、これを愛用していた<br>👍 完成度は、本当に高い</div>
     <div class="lbl" id="tcNote">※ どちらも、WebDriver.exe が必要</div>
   </div>
 
@@ -570,6 +672,8 @@ body.rec{cursor:none}
     <div class="sb" style="top:550px">🧱 exe の通信は、ファイアウォールで遮断</div>
     <div class="sb" style="top:680px">📋「保守サービスのないツールは使えない」</div>
     <div class="stamp" id="secNo">情シス：NO</div>
+    <div class="lbl" id="secUs">🏢 うちの会社も、巻き込まれた</div>
+    <div class="lbl" id="secLesson"><span class="gradtext">外部依存は、いつ規制されるか分からない</span>😇</div>
   </div>
 
   <!-- 前説⑤: 純VBA × CDP の登場 -->
@@ -605,6 +709,7 @@ body.rec{cursor:none}
     <div class="lbl" id="stWhy">目的がなければ、AI を使うきっかけも生まれない。</div>
     <div class="lbl" id="stGo">ならば！ <span class="gradtext">AI の練習も兼ねて Discussion だ</span>🤠</div>
     <div id="stTwo"><div class="chip">🐦 AI の練習</div><b>＋</b><div class="chip">🐦 IE の復活</div><b>＝</b><div class="chip" style="background:var(--grad)">一石二鳥🥹</div></div>
+    <div class="lbl" id="stDecide"><small>そして、決断した</small><span class="gradtext">AI と一緒に、あの頃の IE を取り戻す</span>🤠</div>
     <div id="stCal"><div class="y">2025</div><div class="m gradtext">12</div><div class="l">開発スタート</div></div>
   </div>
 
@@ -824,6 +929,15 @@ body.rec{cursor:none}
     <div class="abs" id="pLine"></div>
   </div>
 
+  <!-- 3つの当たり前、復活 -->
+  <div class="scene" id="back3">
+    <div class="lbl" id="b3T">3 つの「当たり前」、<span class="gradtext">すべて復活</span></div>
+    <div id="b3"></div>
+    <div class="stamp grad" id="b3St">復活！</div>
+    <div id="b3More"><div class="chip">🧬 WebDriver BiDi ― chromium-bidi を読み解き、VBA で再現</div><div class="chip">🦊 Firefox ― コアに数十行の追記で</div></div>
+    <div class="lbl" id="b3Kim">CDP × WebDriver BiDi の、<span class="gradtext">キメラツール</span>😳</div>
+  </div>
+
   <!-- フィナーレ: 本ツールの強み -->
   <div class="scene" id="fin">
     <div class="fpg" id="f1">
@@ -873,6 +987,44 @@ body.rec{cursor:none}
       <div class="panel abs" id="fAiR"><div class="hd">Extensions/MyFeature.cls</div><div class="code" id="fAiC"></div></div>
       <div id="fInf" class="gradtext">∞</div>
     </div>
+  </div>
+
+  <!-- ……と言っておいてなんだけど -->
+  <div class="scene" id="turn">
+    <div class="lbl" id="tnDots">……</div>
+    <div class="tnc" style="left:240px"><div class="cr">👑</div><div class="n">Playwright</div></div>
+    <div class="tnc" style="left:750px"><div class="cr">👑</div><div class="n">Puppeteer</div></div>
+    <div class="tnc" style="left:1260px"><div class="cr">👑</div><div class="n">Selenium</div></div>
+    <div class="lbl" id="tnWise">世界最高峰の既製品。<span style="color:#3ddc84">普通の環境なら、こちらが賢い ✓</span></div>
+    <div class="lbl" id="tnBack">でも、ぼくはもう<span class="gradtext">戻れない。</span></div>
+  </div>
+
+  <!-- IKEA効果 -->
+  <div class="scene" id="ikea">
+    <div class="lbl" id="ikT">IKEA 効果<small>The IKEA effect ― 行動経済学</small></div>
+    <div class="ikc" id="ikA"><div class="e">🛋️</div><div class="n">プロが作った、完璧な完成品</div><div class="h" id="ikAh"></div></div>
+    <div class="ikc" id="ikB"><div class="e">🪑🔩</div><div class="n">自分で組み立てた、歪な家具</div><div class="h" id="ikBh"></div></div>
+    <div class="ik4" style="left:220px;top:250px"><span class="e">🥹</span><div>外部依存なしで動く<br>Edge に感動</div></div>
+    <div class="ik4" style="left:1000px;top:250px"><span class="e">🔌</span><div>WebSocket を攻略し<br>目の前のブラウザも</div></div>
+    <div class="ik4" style="left:220px;top:500px"><span class="e">🧬</span><div>WebView2 の vtable を<br>AI と相談</div></div>
+    <div class="ik4" style="left:1000px;top:500px"><span class="e">🦊</span><div>WebDriver BiDi まで<br>喋れるように</div></div>
+    <div class="lbl" id="ikWheel">車輪の再発明？　巨大な属人化の塊？　……それでも。</div>
+    <div id="ikTabs"></div>
+    <div id="ikXl"><div class="bar">取得結果 - StarterWebScrapingKit.xlsm</div><div id="ikXlR"></div></div>
+    <svg id="ikLove" width="1920" height="1080"></svg>
+    <div class="abs" id="ikDx"><div class="h">診断書</div><div class="r">病名：<b>重度の IKEA 効果</b></div><div class="r">症状：自作ツールが、愛おしくてたまらない</div><div class="r">経過：<b>不治</b></div></div>
+    <div class="stamp" id="ikDxSt">不治🙃</div>
+  </div>
+
+  <!-- 扉 -->
+  <div class="scene" id="door">
+    <div class="lbl" id="drTx">会社のセキュリティで、既製ツールを締め出されたら……</div>
+    <div id="drLight"></div>
+    <div id="drEdge"><div class="tb"><i></i>自作ツールで動く Edge</div><div class="ld"></div><div class="pg">🤠 案外、<br>悪くない</div></div>
+    <div id="drFrame"></div>
+    <div id="drWrap"><div id="drDoor"><div class="pl">CDP<br>／<br>WebDriver BiDi</div><div class="kn"></div></div></div>
+    <div class="lbl" id="drEnd">自分で作ったツールで走る Edge の景色は、<span class="gradtext">案外、悪くない</span>🤠</div>
+    <div id="drWhite"></div>
   </div>
 
   <!-- エンド -->
@@ -941,15 +1093,20 @@ const tlen = tk => tk.reduce((a, [s]) => a + [...s].length, 0);
 // <VO>
 const VO = {
   P1: { d: 4.693, t: "かつて、たった数行で、ブラウザが立ち上がる時代があったのだ。" },
+  Y1: { d: 4.395, t: "IE全盛期のVBAには、3つの「当たり前」があった。" },
+  Y2: { d: 6.763, t: "インストールなしの数行。開いているIEの引き継ぎ。そして、UserFormへの埋め込み。" },
   L1: { d: 8.896, t: "2021年5月、Microsoftが告知。IE11は、2022年6月15日でサポート終了。" },
   P2: { d: 5.525, t: "でも、IEのサポート終了とともに、その魔法は消えたのだ。" },
+  Y3: { d: 8.149, t: "今でもIEは一応呼べる。でも、IEで読めないモダンサイトは、増える一方。" },
   L2: { d: 5.963, t: "どこへ移ればいい？ IEモード？ SeleniumBasic？ それとも RPA？" },
   L3: { d: 6.944, t: "IEモードの操作は最終手段。SeleniumBasicは2016年で止まったまま。" },
   L4: { d: 6.635, t: "やがて答えが見えてきた。SeleniumBasicを入れなくていい、TinySeleniumVBA。" },
   L5: { d: 6.528, t: "そこから生まれた SeleniumVBA は、ドライバの自動更新まで。これが本命になった。" },
+  Y4: { d: 5.941, t: "ぼくも最初は、SeleniumVBAを使っていた。完成度は、本当に高いのだ。" },
   W1: { d: 4.469, t: "SeleniumVBAでも、行数はほとんど変わらない。" },
   W2: { d: 7.157, t: "でも裏には、WebDriverの管理、社内ネットワーク、セキュリティポリシーの壁が待っていたのだ。" },
   L6: { d: 8.149, t: "ドライバはセキュリティソフトに消され、自作のexeは禁止。情シスの答えは、ノー。" },
+  Y5: { d: 9.941, t: "無害なWebDriver.exeでさえブロックされ、うちの会社も巻き込まれた。外部依存は、いつ規制されるか分からない。" },
   L7: { d: 6.389, t: "そんな中、ついに現れた。インストール不要、純VBAでCDPを叩く答えが！" },
   L8: { d: 10.144, t: "でも、作者の返信は2024年7月を最後に途絶え、進化は止まった。派生版も、大きくは変わらなかった。" },
   L9: { d: 8.011, t: "脱WebDriver.exeをうたう試みも出てきた。でも中身は、ps1やxllへの、依存先のすり替えだった。" },
@@ -958,6 +1115,7 @@ const VO = {
   S1: { d: 5.536, t: "AIと一緒なら、きっと取り戻せる。あの1行と、外部依存なしを。" },
   L13: { d: 7.627, t: "でも、目的がなければ、AIを使うきっかけも生まれない。ならば、AIの練習も兼ねてDiscussionだ！" },
   L14: { d: 3.851, t: "うまくいけば、IEも復活して一石二鳥！" },
+  Y6: { d: 5.323, t: "そして決断した。AIと一緒に、あの頃のIEを取り戻す！" },
   S2: { d: 3.872, t: "2025年の年末、開発が始まったのだ。" },
   T0: { d: 4.597, t: "令和のIE 開発秘話 ― 301日の記録" },
   S3: { d: 3.392, t: "土台に選んだのは、ファイルがたった5つのライブラリ。" },
@@ -996,13 +1154,23 @@ const VO = {
   Q2: { d: 2.272, t: "……やっぱり分けたのだ。" },
   E1: { d: 2.709, t: "73個のタグ。301日。" },
   E2: { d: 4.715, t: "気づけば、あのIEの1行を、丸ごと作っていたのだ。" },
+  C1: { d: 4.16, t: "そして、あの3つの「当たり前」は、すべて戻ってきた。" },
+  C2: { d: 7.957, t: "Edgeをパイプとポートで直接起動。開いているEdgeにも、あとから接続。そして、UserFormのWebView2。" },
+  C3: { d: 7.253, t: "さらにWebDriver BiDiにも対応。コアに数十行足すだけで、Firefoxまで動いたのだ！" },
   F1: { d: 4.715, t: "インストールは、ゼロ。WebDriverも、管理者権限も、要らない。" },
   F2: { d: 3.029, t: "必要なのは、Excelファイル1枚だけ。" },
   F3: { d: 5.152, t: "Pipe・Port・WebView2。3つの経路を、まったく同じAPIで。" },
-  F4: { d: 3.349, t: "いま開いているブラウザにも、ログイン済みのまま、つながる。" },
-  F5: { d: 3.616, t: "WebDriver BiDi にも、VBA初の対応。" },
   F6: { d: 4.032, t: "Playwright / Puppeteer と同じ低レイヤーで、静かに、クリーンに。" },
   F7: { d: 3.296, t: "AIに頼めば、機能は無限に拡張できるのだ。" },
+  C4: { d: 3.392, t: "……と言っておいて、なんだけど。" },
+  C5: { d: 9.483, t: "世の中には、Playwright、Puppeteer、Seleniumという世界最高峰の既製品がある。普通の環境なら、そっちを選ぶのが賢い。" },
+  C6: { d: 5.184, t: "……でも、ぼくはもう、そっちには戻れない。" },
+  C7: { d: 7.264, t: "行動経済学の「IKEA効果」。苦労して自分で組み立てた家具には、完成品より愛着がわいてしまう。" },
+  C8: { d: 7.744, t: "外部依存なしで動くEdgeに感動し、WebSocketを攻略し、vtableをAIと相談し、BiDiまで喋れるようにした。" },
+  C9: { d: 9.643, t: "車輪の再発明かもしれない。それでも、30個のタブを従えて爆速で動く姿を見るたび、愛おしさが込み上げる。" },
+  C10: { d: 7.285, t: "どうやらぼくは、「IKEA効果」という不治の病に、かかってしまったようなのだ。" },
+  C11: { d: 6.368, t: "もし会社のセキュリティで、既製ツールを締め出されたなら……この扉を、叩いてみてほしい。" },
+  C12: { d: 6.443, t: "自分で作ったツールで走るEdgeの景色は、案外、悪くないのだ。" },
   H1: { d: 3.488, t: "IEの頃の失われた1行を、この手に。" },
   H2: { d: 2.048, t: "令和のIE" },
 };
@@ -1012,15 +1180,16 @@ const VO = {
    lead: 最初のセリフまでの間 / seq: [セリフID, 次までの間] / tail: 最後のセリフ後の余韻
    marks: 時系列レールの目盛り [セリフID or 秒, 日付(位置), 表示する日付, バージョン, 見出し] */
 const SC = [
-  { id: 'ie', lead: .6, seq: [['P1', .5], ['L1', .5], ['P2', 1.3]], fn: sIE, bg: null, ch: [['L1', '前説①', 'IE 終了の告知']] },
+  { id: 'ie', lead: .6, seq: [['P1', .4], ['Y1', .2], ['Y2', .6], ['L1', .5], ['P2', 1.3]], fn: sIE, bg: null, ch: [['L1', '前説①', 'IE 終了の告知']] },
+  { id: 'modern', lead: .3, seq: [['Y3', 1.0]], fn: sModern, bg: null, ch: [['Y3', '前説①', 'IE は呼べても……']] },
   { id: 'lost', lead: .3, seq: [['L2', .3], ['L3', 1.6]], fn: sLost, bg: null, ch: [['L2', '前説②', '移行先の迷走']] },
-  { id: 'tiny', lead: .3, seq: [['L4', .3], ['L5', 1.2]], fn: sTiny, bg: [210, .8], ch: [['L4', '前説③', '移行先が定まる']] },
+  { id: 'tiny', lead: .3, seq: [['L4', .3], ['L5', .3], ['Y4', 1.2]], fn: sTiny, bg: [210, .8], ch: [['L4', '前説③', '移行先が定まる']] },
   { id: 'wall', lead: .3, seq: [['W1', .4], ['W2', .9]], fn: sWall, bg: null, ch: [['W2', '前説④', '昨今のセキュリティ事情']] },
-  { id: 'sec', lead: .3, seq: [['L6', 1.2]], fn: sSec, bg: null },
+  { id: 'sec', lead: .3, seq: [['L6', .4], ['Y5', 1.2]], fn: sSec, bg: null },
   { id: 'kab', lead: .3, seq: [['L7', .3], ['L8', 1.0]], fn: sKab, bg: [140, .8], ch: [['L7', '前説⑤', '純VBA × CDP の登場']] },
   { id: 'swap', lead: .3, seq: [['L9', 1.0]], fn: sSwap, bg: [280, .75], ch: [['L9', '前説⑥', '脱 WebDriver.exe の実態']] },
   { id: 'alone', lead: .4, seq: [['L10', .5], ['L11', 1.4]], fn: sAlone, bg: null, ch: [['L10', '前説⑦', 'それでも、AI と']] },
-  { id: 'start0', lead: .4, seq: [['S1', .4], ['L13', .4], ['L14', .5], ['S2', .6]], fn: sStart, bg: null, marks: [['S2', '2025-12-01', '2025.12', '', '開発スタート']] },
+  { id: 'start0', lead: .4, seq: [['S1', .4], ['L13', .4], ['L14', .4], ['Y6', .5], ['S2', .6]], fn: sStart, bg: null, marks: [['S2', '2025-12-01', '2025.12', '', '開発スタート']] },
   { id: 'title0', lead: .4, seq: [['T0', 1.4]], fn: sTitle, bg: null, nosub: true },
   { id: 'base', lead: .3, seq: [['S3', .4], ['S4', 1.0]], fn: sBase, bg: [210, .9], marks: [['S3', '2025-12-08', '2025.12', '', '土台選び']] },
   { id: 'v1', lead: .3, seq: [['A1', .4], ['A2', .7]], fn: sV1, bg: [150, 1], marks: [['A1', '2025-12-20', '2025.12.20', 'v1.0.0', '初リリース'], ['A2', '2025-12-28', '', 'v1.1.0', 'イベント受信']] },
@@ -1037,7 +1206,11 @@ const SC = [
   { id: 'opt', lead: .3, seq: [['N1', .4], ['N2', 1.0]], fn: sOpt, bg: [30, 1], marks: [['N1', '2026-10-08', '2026.10.08', 'v4.0.0', '入口を作り直す']] },
   { id: 'elem', lead: .3, seq: [['Q1', .3], ['Q2', 1.6]], fn: sElem, bg: [320, 1], marks: [['Q1', '2026-10-15', '2026.10.15', 'v4.1.0', 'BiDi 要素ヘルパー'], ['Q2', '2026-10-17', '2026.10.17', 'v4.1.0', '…やっぱり分けます']] },
   { id: 'epi', lead: 3.0, seq: [['E1', .6], ['E2', 2.6]], fn: sEpi, bg: [260, .7], marks: [['E1', '2026-10-17', '301日', '', '2025.12.20 → 2026.10.17']] },
-  { id: 'fin', lead: .5, seq: [['F1', .35], ['F2', .45], ['F3', .35], ['F4', .35], ['F5', .35], ['F6', .35], ['F7', .9]], fn: sFin, bg: null },
+  { id: 'back3', lead: .6, seq: [['C1', .3], ['C2', .6], ['C3', 1.0]], fn: sBack3, bg: [300, .9] },
+  { id: 'fin', lead: .5, seq: [['F1', .35], ['F2', .45], ['F3', .35], ['F6', .35], ['F7', .9]], fn: sFin, bg: null },
+  { id: 'turn', lead: 1.2, seq: [['C4', .6], ['C5', .5], ['C6', 1.0]], fn: sTurn, bg: null },
+  { id: 'ikea', lead: .4, seq: [['C7', .4], ['C8', .4], ['C9', .4], ['C10', 1.0]], fn: sIkea, bg: [30, .6] },
+  { id: 'door', lead: .4, seq: [['C11', .4], ['C12', 1.6]], fn: sDoor, bg: null },
   { id: 'end', lead: .9, seq: [['H1', .4], ['H2', 3.6]], fn: sEnd, bg: null, nosub: true },
 ];
 const S = {}, VAT = {};
@@ -1167,8 +1340,17 @@ function sIE(t, s) {
   css($('#ieNote'), nk * no, `translateX(${300 * (1 - eo(nk))}px)`);
   const nsk = p(t, c.L1 + 1.0, c.L1 + 1.2);
   css($('#ieNoteSt'), nsk * no, `rotate(-12deg) scale(${2 - eb(nsk)})`);
+  // IE 全盛期の 3 つの「当たり前」
+  const dm = p(t, c.Y1 - .2, c.Y1 + .3) * (1 - p(t, c.L1 - .4, c.L1 + .1));
+  css($('#ie3T'), dm);
+  const hl = [c.Y2 + .2, c.Y2 + 2.2, c.Y2 + 4.4];
+  $$('#ie3 .c3').forEach((e, i) => {
+    const k = p(t, c.Y1 + .4 + i * .3, c.Y1 + .7 + i * .3), h = p(t, hl[i], hl[i] + .3) * (1 - p(t, hl[i] + 1.6, hl[i] + 2.0));
+    css(e, k * (1 - p(t, c.L1 - .4, c.L1 + .1)), `translateY(${40 * (1 - eo(k))}px) scale(${1 + .06 * h})`);
+    e.querySelector('.old').style.boxShadow = h > 0 ? `0 0 ${40 * h}px rgba(255,225,77,.9)` : '';
+  });
   const g = p(t, c.P2 + .1, c.P2 + 1.2);
-  $('#ieIn').style.filter = `grayscale(${g}) brightness(${1 - g * .35})`;
+  $('#ieIn').style.filter = `grayscale(${g}) brightness(${(1 - g * .35) * (1 - .55 * dm)})`;
   $$('#ieCrack path').forEach((e, i) => e.style.strokeDashoffset = 1 - eo(p(t, c.P2 + 1.4 + i * .02, c.P2 + 1.8 + i * .02)));
   $('#ieCrack').style.opacity = 1 - p(t, c.P2 + 2.4, c.P2 + 2.6);
   const sk = t > c.P2 + 1.4 && t < c.P2 + 1.9 ? Math.sin(t * 90) * 10 : 0;
@@ -1179,6 +1361,31 @@ function sIE(t, s) {
   $('#ieDate').style.transform = gl ? `translateX(${(hsh(Math.floor(t * 30)) - .5) * 40}px) skewX(${(hsh(Math.floor(t * 30) + 1) - .5) * 30}deg)` : 'none';
   $('#ieDate').style.textShadow = gl ? '-6px 0 #f0f, 6px 0 #0ff' : 'none';
   $('#ie').style.opacity = 1 - p(t, s.d - .5, s.d);
+}
+
+// ---- 3つの当たり前(冒頭: IE 版 ／ エンディング: Edge 版に裏返る) ----
+const C3D = [
+  { t: '① 数行で、すぐ', oc: 'Set ie = CreateObject("InternetExplorer.Application")', op: '追加のインストールも DL もなし',
+    nc: '--remote-debugging-pipe / --remote-debugging-port', np: 'プリインストールの Edge を直接起動<br>DL・ps1・xll・exe の配置なし' },
+  { t: '② あとから引き継ぎ', oc: 'For Each w In CreateObject("Shell.Application").Windows', op: 'いま開いている IE を、VBA が掴む',
+    nc: 'WebSocketCDP.AutoConnectDevToolsActivePort', np: 'リモートデバッグを許可して接続<br>いま開いている Edge にバトンタッチ' },
+  { t: '③ UserForm に埋め込み', oc: 'WebBrowser コントロール', op: 'フォームの中で、IE を操作',
+    nc: 'CallDevToolsProtocolMethodForSession', np: 'UserForm の中の Edge（WebView2）<br>たーぼーさんのライブラリを活用' },
+];
+function c3html(withNew) {
+  return C3D.map((d, i) => `<div class="c3" style="left:${110 + i * 580}px"><div class="in"><div class="face old"><div class="xt">${d.t}</div><div class="xb"><code>${esc(d.oc)}</code><p>${d.op}</p></div></div>` +
+    (withNew ? `<div class="face new"><div class="nt">${d.t}</div><div class="nb"><code>${esc(d.nc)}</code><p>${d.np}</p></div></div>` : '') + '</div></div>').join('');
+}
+$('#ie3').innerHTML = c3html(false);
+
+// ---- 前説①: IE は呼べても、モダンサイトが読めない ----
+function sModern(t, s) {
+  const c = s.c, out = 1 - p(t, s.d - .4, s.d), Y3 = c.Y3;
+  $$('#modern .mw').forEach((e, i) => {
+    const k = p(t, Y3 + 1.4 + i * .55, Y3 + 1.65 + i * .55);
+    css(e, out * k, `scale(${.7 + .3 * eb(k)}) rotate(${(hsh(i) - .5) * 6}deg)`);
+  });
+  css($('#mdCnt'), out * p(t, Y3 + 4.6, Y3 + 5.0));
 }
 
 // ---- 前説②: 移行先の迷走 ----
@@ -1211,7 +1418,8 @@ function sTiny(t, s) {
   $('#tcR').style.boxShadow = t > L5 + 3.8 ? `0 0 ${50 + 20 * Math.sin(t * 6)}px rgba(61,220,132,.55)` : 'none';
   const sk = p(t, L5 + 3.9, L5 + 4.1);
   css($('#tcSt'), out * sk, `rotate(-12deg) scale(${2 - eb(sk)})`);
-  css($('#tcNote'), out * p(t, L5 + 4.9, L5 + 5.3));
+  css($('#tcLove'), out * p(t, c.Y4 + .4, c.Y4 + .8), `translateY(${30 * (1 - eo(p(t, c.Y4 + .4, c.Y4 + .9)))}px)`);
+  css($('#tcNote'), out * p(t, c.Y4 + 4.4, c.Y4 + 4.8));
 }
 
 // ---- 壁 ----
@@ -1243,11 +1451,16 @@ function sWall(t, s) {
 
 // ---- 前説④: 昨今のセキュリティ事情 ----
 function sSec(t, s) {
-  const c = s.c, out = 1 - p(t, s.d - .4, s.d), L6 = c.L6;
-  css($('#secT'), out * p(t, 0, .4));
-  [L6 + .2, L6 + 2.5, L6 + 3.5, L6 + 4.5].forEach((a, i) => { const k = p(t, a, a + .25); css($$('#sec .sb')[i], out * k, `translateX(${-120 * (1 - eo(k))}px)`); });
+  const c = s.c, out = 1 - p(t, s.d - .4, s.d), L6 = c.L6, Y5 = c.Y5;
+  const dim = 1 - .94 * p(t, Y5 + .2, Y5 + .6);
+  css($('#secT'), out * p(t, 0, .4) * dim);
+  [L6 + .2, L6 + 2.5, L6 + 3.5, L6 + 4.5].forEach((a, i) => { const k = p(t, a, a + .25); css($$('#sec .sb')[i], out * k * dim, `translateX(${-120 * (1 - eo(k))}px)`); });
   const nk = p(t, L6 + 5.9, L6 + 6.1);
-  css($('#secNo'), out * nk, `rotate(-12deg) scale(${2.2 - 1.2 * eb(nk)})`);
+  css($('#secNo'), out * nk * dim, `rotate(-12deg) scale(${2.2 - 1.2 * eb(nk)})`);
+  const uk = p(t, Y5 + 2.6, Y5 + 2.9);
+  css($('#secUs'), out * uk, `scale(${1.3 - .3 * eb(uk)})`);
+  const lk = p(t, Y5 + 5.6, Y5 + 6.0);
+  css($('#secLesson'), out * lk, `translateY(${30 * (1 - eo(lk))}px)`);
 }
 
 // ---- 前説⑤: 純VBA × CDP の登場 ----
@@ -1307,11 +1520,13 @@ function sStart(t, s) {
   html($('#stTx'), esc(chars(stLine, Math.floor(p(t, .5, c.S1 + 3.6) * [...stLine].length))) + (t < c.S2 ? '<span class="caret"></span>' : ''));
   const lift = eio(p(t, L13 - .1, L13 + .5)), up = eio(p(t, c.S2 - .1, c.S2 + .6));
   css($('#stPrompt'), (1 - .65 * lift) * (1 - up), `translateY(${-230 * lift - 260 * up}px) scale(${1 - .2 * lift})`);
-  const go = 1 - p(t, c.S2 - .2, c.S2 + .2);
-  css($('#stWhy'), go * p(t, L13 + .2, L13 + .6));
+  const go = 1 - p(t, c.S2 - .2, c.S2 + .2), gy = 1 - p(t, c.Y6 - .2, c.Y6 + .3);
+  css($('#stWhy'), go * gy * p(t, L13 + .2, L13 + .6));
   const gk = p(t, L13 + 3.9, L13 + 4.2);
-  css($('#stGo'), go * gk, `scale(${1.3 - .3 * eb(gk)})`);
-  css($('#stTwo'), go * p(t, L14 + .3, L14 + .7), `translateY(${30 * (1 - eo(p(t, L14 + .3, L14 + .8)))}px)`);
+  css($('#stGo'), go * gy * gk, `scale(${1.3 - .3 * eb(gk)})`);
+  css($('#stTwo'), go * gy * p(t, L14 + .3, L14 + .7), `translateY(${30 * (1 - eo(p(t, L14 + .3, L14 + .8)))}px)`);
+  const dk = p(t, c.Y6 + 1.1, c.Y6 + 1.4);
+  css($('#stDecide'), go * dk, `scale(${1.3 - .3 * eb(dk)})`);
   const k = p(t, c.S2 + .2, c.S2 + .8);
   css($('#stCal'), k * (1 - p(t, s.d - .4, s.d)), `scale(${.6 + .4 * eb(k)})`);
 }
@@ -1754,13 +1969,31 @@ function sEpi(t, s) {
   txt($('#pLbl'), m > .6 ? '令和の 1 行' : 'あの 1 行');
 }
 
+// ---- 3つの当たり前、復活 ----
+$('#b3').innerHTML = c3html(true);
+function sBack3(t, s) {
+  const c = s.c, out = 1 - p(t, s.d - .4, s.d), C1 = c.C1, C2 = c.C2, C3 = c.C3;
+  css($('#b3T'), out * p(t, C1, C1 + .4));
+  const fl = [C2 + .3, C2 + 2.8, C2 + 5.4], sh = eio(p(t, C3, C3 + .6));
+  $$('#b3 .c3').forEach((e, i) => {
+    const k = p(t, C1 + .5 + i * .25, C1 + .8 + i * .25);
+    css(e, out * k, `translateY(${40 * (1 - eo(k)) - 70 * sh}px) scale(${1 - .18 * sh})`);
+    e.querySelector('.in').style.transform = `rotateY(${180 * eio(p(t, fl[i], fl[i] + .6))}deg)`;
+  });
+  const sk = p(t, C2 + 7.0, C2 + 7.2);
+  css($('#b3St'), out * sk * (1 - p(t, C3, C3 + .3)), `rotate(-12deg) scale(${2 - eb(sk)})`);
+  $$('#b3More .chip').forEach((e, i) => { const k = p(t, C3 + .9 + i * 1.9, C3 + 1.2 + i * 1.9); css(e, out * k, `translateY(${30 * (1 - eo(k))}px)`); });
+  const kk = p(t, C3 + 4.6, C3 + 4.9);
+  css($('#b3Kim'), out * kk, `scale(${1.2 - .2 * eb(kk)})`);
+}
+
 // ---- フィナーレ ----
 function sFin(t, s) {
-  const c = s.c, ids = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7'];
+  const c = s.c, ids = ['F1', 'F2', 'F3', 'F6', 'F7'];   // F4(いま開いているブラウザ)・F5(BiDi)は「復活」シーンへ統合
   ids.forEach((id, i) => {
-    const a = c[id] - .25, b = i < 6 ? c[ids[i + 1]] - .25 : s.d;
+    const a = c[id] - .25, b = i < ids.length - 1 ? c[ids[i + 1]] - .25 : s.d;
     const k = p(t, a, a + .3), o = 1 - p(t, b - .2, b);
-    css($('#f' + (i + 1)), k * o, `scale(${(1.06 - .06 * eo(k)) * (1 + .04 * p(t, b - .2, b))})`);
+    css($('#f' + id.slice(1)), k * o, `scale(${(1.06 - .06 * eo(k)) * (1 + .04 * p(t, b - .2, b))})`);
   });
   const F1 = c.F1;
   $$('#f1 .need').forEach((e, i) => {
@@ -1790,14 +2023,6 @@ function sFin(t, s) {
   $('#fLanes').innerHTML = h;
   $$('#f3 .froute').forEach((e, i) => { const k = p(t, F3 + .2 + i * .3, F3 + .5 + i * .3); css(e, k, `translateX(${-80 * (1 - eo(k))}px)`); });
   css($('#fApi'), p(t, F3 + 1.9, F3 + 2.3));
-  // いま開いているブラウザ
-  const F4 = c.F4, ck = eo(p(t, F4 + .2, F4 + 1.0));
-  $('#fCable').style.width = (310 * ck) + 'px';
-  $('#fBr').style.boxShadow = ck >= 1 ? `0 0 ${60 + 20 * Math.sin(t * 8)}px rgba(224,71,158,.7)` : '0 30px 80px rgba(0,0,0,.6)';
-  // BiDi
-  const F5 = c.F5, bk = p(t, F5 + 1.4, F5 + 1.6);
-  css($('#fBidiSt'), bk, `rotate(-12deg) scale(${2 - eb(bk)})`);
-  $('#fBidi').style.transform = `scale(${.9 + .1 * eo(p(t, F5 - .2, F5 + .6))})`;
   // 低レイヤー
   const F6 = c.F6, xx = eo(p(t, F6 + .9, F6 + 1.3));
   $('#fX').style.transform = `scaleX(${xx}) rotate(-1deg)`;
@@ -1810,6 +2035,81 @@ function sFin(t, s) {
   const ik = p(t, F7 + 2.2, F7 + 2.6);
   css($('#fInf'), ik, `scale(${.5 + .5 * eb(ik)}) rotate(${(1 - ik) * -90}deg)`);
   $('#fin').style.opacity = 1 - p(t, s.d - .3, s.d);
+}
+
+// ---- ……と言っておいてなんだけど ----
+function sTurn(t, s) {
+  const c = s.c, out = 1 - p(t, s.d - .4, s.d), C4 = c.C4, C5 = c.C5, C6 = c.C6;
+  css($('#tnDots'), p(t, C4, C4 + .6) * (1 - p(t, C5 - .3, C5)));
+  const back = p(t, C6, C6 + .5);
+  $$('#turn .tnc').forEach((e, i) => {
+    const k = p(t, C5 + 1.2 + i * 1.0, C5 + 1.5 + i * 1.0);
+    css(e, out * k * (1 - .8 * back), `translateY(${40 * (1 - eo(k)) - 120 * back}px) scale(${1 - .25 * back})`);
+  });
+  css($('#tnWise'), out * p(t, C5 + 5.6, C5 + 6.0) * (1 - back));
+  css($('#tnBack'), out * p(t, C6 + .4, C6 + 1.0));
+}
+
+// ---- IKEA効果 ----
+(function () {
+  let h = ''; for (let k = 0; k < 30; k++) h += `<i style="left:${(k % 6) * 168}px;top:${Math.floor(k / 6) * 112}px"><b></b><em>✓</em></i>`;
+  $('#ikTabs').innerHTML = h;
+  let r = ''; for (let k = 1; k <= 13; k++) r += `<div class="r"><span>${k}</span><b></b></div>`;
+  $('#ikXlR').innerHTML = r;
+})();
+function sIkea(t, s) {
+  const c = s.c, out = 1 - p(t, s.d - .4, s.d), C7 = c.C7, C8 = c.C8, C9 = c.C9, C10 = c.C10;
+  const a = 1 - p(t, C8 - .2, C8 + .2);
+  css($('#ikT'), out * p(t, C7, C7 + .4) * a);
+  css($('#ikA'), out * a * p(t, C7 + 2.2, C7 + 2.6));
+  const bk = p(t, C7 + 3.4, C7 + 3.8);
+  css($('#ikB'), out * a * bk, `rotate(${Math.sin(t * 3) * 2}deg)`);
+  txt($('#ikAh'), t > C7 + 4.6 ? '♥♥' : '');
+  txt($('#ikBh'), '♥'.repeat(Math.round(5 * p(t, C7 + 4.8, C7 + 6.2))));
+  // 苦労の 4 コマ
+  const b = 1 - p(t, C9 - .2, C9 + .2);
+  $$('#ikea .ik4').forEach((e, i) => { const k = p(t, C8 + .2 + i * 1.8, C8 + .5 + i * 1.8); css(e, out * k * b, `scale(${.8 + .2 * eb(k)})`); });
+  // 30 タブが爆速で動き、セルにデータが流れ込む
+  const d = 1 - p(t, C10 - .2, C10 + .2);
+  css($('#ikWheel'), out * d * p(t, C9 + .2, C9 + .6));
+  $$('#ikTabs i').forEach((e, k) => {
+    const st = C9 + 1.6 + hsh(k) * 1.2, ld = p(t, st, st + .9 + hsh(k + 9) * .8);
+    css(e, out * d * p(t, C9 + 1.0 + k * .03, C9 + 1.2 + k * .03));
+    e.querySelector('b').style.width = (ld * 100) + '%';
+    e.querySelector('em').style.opacity = ld >= 1 ? 1 : 0;
+  });
+  css($('#ikXl'), out * d * p(t, C9 + 1.2, C9 + 1.5));
+  $$('#ikXlR b').forEach((e, k) => txt(e, t > C9 + 2.0 + k * .3 ? `取得データ ${String(k + 1).padStart(2, '0')} ✓` : ''));
+  let hh = '';
+  if (t > C9 + 5.5 && t < C10) for (let k = 0; k < 14; k++) {
+    const ph = ((t - C9 - 5.5) * .35 + hsh(k)) % 1;
+    hh += `<text x="${150 + hsh(k + 3) * 1600}" y="${980 - ph * 820}" font-size="${40 + hsh(k + 5) * 40}" fill="#ff5e8e" opacity="${(1 - ph) * .8 * d}">♥</text>`;
+  }
+  html($('#ikLove'), hh);
+  // 診断書
+  const xk = p(t, C10 + .2, C10 + .6);
+  css($('#ikDx'), out * xk, `translateY(${60 * (1 - eo(xk))}px) rotate(-1.5deg)`);
+  const sk = p(t, C10 + 4.3, C10 + 4.5);
+  css($('#ikDxSt'), out * sk, `rotate(-14deg) scale(${2 - eb(sk)})`);
+}
+
+// ---- 扉 ----
+function sDoor(t, s) {
+  const c = s.c, C11 = c.C11, C12 = c.C12;
+  css($('#drTx'), p(t, C11 + .2, C11 + .6) * (1 - p(t, C12, C12 + .3)));
+  const fk = p(t, C11, C11 + .5);
+  css($('#drWrap'), fk); css($('#drFrame'), fk);
+  const knock = [C11 + 3.6, C11 + 3.9, C11 + 4.2].some(a => t > a && t < a + .12) ? 6 : 0;
+  const op = eio(p(t, C12 + .3, C12 + 1.8));
+  $('#drDoor').style.transform = `translateX(${knock}px) rotateY(${-105 * op}deg)`;
+  const back = 1 - cl((op - .35) / .15);   // 扉の裏側に回ったら、札とノブを隠す(文字が鏡写しにならないように)
+  $('#drDoor .pl').style.opacity = back; $('#drDoor .kn').style.opacity = back;
+  css($('#drLight'), op);
+  css($('#drEdge'), p(t, C12 + 1.4, C12 + 1.9), `scale(${.8 + .2 * eo(p(t, C12 + 1.4, C12 + 2.0))})`);
+  $('#drEdge .ld').style.width = (p(t, C12 + 1.9, C12 + 3.2) * 100) + '%';
+  css($('#drEnd'), p(t, C12 + 1.2, C12 + 1.6));
+  $('#drLight').style.transform = `scale(${1 + 3.5 * eio(p(t, s.d - 1.4, s.d))})`;
+  css($('#drWhite'), p(t, s.d - .7, s.d));
 }
 
 // ---- エンド ----
@@ -1951,6 +2251,13 @@ function buildSound() {
     C('ie', 'P2', 2.3, (c, o, w) => SE.impact(c, o, w, .9));
     for (let t = s.c.P2 + 2.7; t < s.c.P2 + 4.5; t += .005) if (Math.sin(t * 37) > .6 && Math.sin((t - .005) * 37) <= .6) A('ie', t, (c, o, w) => SE.glitch(c, o, w));
   }
+  // IE 全盛期の 3 つの「当たり前」
+  [0, 1, 2].forEach(i => C('ie', 'Y1', .4 + i * .3, (c, o, w) => SE.pop8(c, o, w, 76 + i * 4)));
+  [.2, 2.2, 4.4].forEach((d, i) => C('ie', 'Y2', d, (c, o, w) => SE.ping(c, o, w, 79 + i * 3)));
+  // モダンサイトが読めない
+  A('modern', 0, (c, o, w) => [45, 52].forEach((m, i) => tone(c, o, w, { type: 'sawtooth', f: mf(m), det: i * 6, d: S.modern.d, g: .04, a: 1, hold: true, r: .4, lp: 300, lp2: 700 })));
+  for (let i = 0; i < 6; i++) C('modern', 'Y3', 1.4 + i * .55, (c, o, w) => SE.ding(c, o, w, -5 + i % 3));
+  for (let k = 0; k < 14; k++) C('modern', 'Y3', 4.6 + k * .2, (c, o, w) => SE.click(c, o, w, .05));
   // 2021.05.19 の告知
   C('ie', 'L1', .1, (c, o, w) => SE.notif(c, o, w));
   C('ie', 'L1', 1.0, (c, o, w) => SE.stamp(c, o, w));
@@ -1964,7 +2271,8 @@ function buildSound() {
   C('tiny', 'L4', 1.8, (c, o, w) => { SE.whoosh(c, o, w, .4, .2); SE.ping(c, o, w + .3, 79); });
   C('tiny', 'L5', .3, (c, o, w) => { SE.whoosh(c, o, w, .4, .2); SE.ping(c, o, w + .3, 84); });
   C('tiny', 'L5', 3.9, (c, o, w) => { SE.stamp(c, o, w); SE.chime(c, o, w + .1, 84, .08); });
-  C('tiny', 'L5', 4.9, (c, o, w) => SE.ding(c, o, w, -3));
+  C('tiny', 'Y4', .4, (c, o, w) => SE.chime(c, o, w, 79, .07));
+  C('tiny', 'Y4', 4.4, (c, o, w) => SE.ding(c, o, w, -3));
   // --- 壁 ---
   {
     const s = S.wall;
@@ -1977,6 +2285,8 @@ function buildSound() {
   A('sec', 0, (c, o, w) => [55, 58.27, 82.4].forEach((f, i) => tone(c, o, w, { type: 'sawtooth', f, det: i * 7, d: S.sec.d, g: .05, a: .8, hold: true, r: .4, lp: 200, lp2: 1000, q: 4 })));
   [.2, 2.5, 3.5, 4.5].forEach(d => C('sec', 'L6', d, (c, o, w) => SE.ding(c, o, w, -5)));
   C('sec', 'L6', 5.9, (c, o, w) => { SE.slam(c, o, w); SE.fail(c, o, w + .15); }); shake(S.sec.a + S.sec.c.L6 + 5.9, .4, 14);
+  C('sec', 'Y5', 2.6, (c, o, w) => SE.thud(c, o, w, .8)); shake(S.sec.a + S.sec.c.Y5 + 2.6, .3, 10);
+  C('sec', 'Y5', 5.6, (c, o, w) => SE.ding(c, o, w, -6));
   // --- 前説⑤: 純VBA × CDP ---
   ambient(S.kab.a + S.kab.c.L7 + 1.6, S.kab.a + S.kab.c.L8 + .3, { bpm: 104, g: .9 });
   ambient(S.kab.a + S.kab.c.L8 + .3, S.swap.a, { bpm: 84, g: .6, lp: 700, arp: false, prog: [[57, 60, 64], [53, 57, 60]] });
@@ -2002,6 +2312,7 @@ function buildSound() {
     C('start0', 'L13', 0, (c, o, w) => SE.whoosh(c, o, w, .4, .15));
     C('start0', 'L13', 3.9, (c, o, w) => { SE.slam(c, o, w); SE.ping(c, o, w + .1, 88); });
     C('start0', 'L14', .3, (c, o, w) => SE.chime(c, o, w, 84, .08));
+    C('start0', 'Y6', 1.1, (c, o, w) => { SE.impact(c, o, w, .8); SE.chime(c, o, w + .1, 84, .1); }); flash(S.start0.a + S.start0.c.Y6 + 1.1, .35, .5); shake(S.start0.a + S.start0.c.Y6 + 1.1, .35, 10);
     C('start0', 'S2', 0, (c, o, w) => { SE.whoosh(c, o, w, .4, .2); SE.ping(c, o, w + .3, 84); });
     C('start0', 'S2', .2, (c, o, w) => [48, 55, 60, 64, 67].forEach((m, i) => tone(c, o, w, { type: 'sawtooth', f: mf(m), det: i % 2 ? 6 : -6, d: s.d - s.c.S2 + 1, g: .022, a: 1.5, hold: true, r: .3, lp: 800, lp2: 2400 })));
   }
@@ -2099,10 +2410,19 @@ function buildSound() {
   for (let k = 0; k < 20; k++) C('epi', 'E2', 1.6 + k * .09, (c, o, w) => SE.glitch(c, o, w, .03));
   C('epi', 'E2', 3.4, (c, o, w) => SE.chime(c, o, w, 84, .1));
   A('epi', S.epi.d - 1.6, (c, o, w) => SE.riser(c, o, w, 1.6, .3));
-  flash(S.fin.a, .6, 1);
-  // --- フィナーレのメインテーマ ---
+  flash(S.back3.a, .6, 1);
+  // --- 復活 ---
   {
-    const T0 = S.fin.a, T1 = S.end.a, bpm = 128, beat = 60 / bpm, bar = beat * 4;
+    const b = S.back3.c;
+    [0, 1, 2].forEach(i => C('back3', 'C1', .5 + i * .25, (c, o, w) => SE.pop8(c, o, w, 72 + i * 4)));
+    [.3, 2.8, 5.4].forEach((d, i) => C('back3', 'C2', d, (c, o, w) => { SE.whoosh(c, o, w, .5, .2); SE.ping(c, o, w + .45, 84 + i * 3); }));
+    C('back3', 'C2', 7.0, (c, o, w) => { SE.stamp(c, o, w); SE.impact(c, o, w, .7); }); flash(S.back3.a + b.C2 + 7.0, .3, .5);
+    [.9, 2.8].forEach(d => C('back3', 'C3', d, (c, o, w) => SE.slam(c, o, w)));
+    C('back3', 'C3', 4.6, (c, o, w) => SE.chime(c, o, w, 88, .08));
+  }
+  // --- メインテーマ(復活〜強み) ---
+  {
+    const T0 = S.back3.a, T1 = S.turn.a, bpm = 128, beat = 60 / bpm, bar = beat * 4;
     const CHD = { F: { n: [53, 57, 60, 65], r: 41 }, G: { n: [55, 59, 62, 67], r: 43 }, Em: { n: [52, 55, 59, 64], r: 40 }, Am: { n: [57, 60, 64, 69], r: 45 } };
     const prog = ['F', 'G', 'Em', 'Am'];
     at(T0, (c, o, w) => SE.impact(c, o, w, 1.1));
@@ -2117,19 +2437,34 @@ function buildSound() {
         for (let s16 = 0; s16 < 4; s16++) { const ts = tb + s16 * beat / 4; at(ts, (c, o, w) => SE.hat(c, o, w, s16 === 2 ? .07 : .025)); const m = ch.n[(q * 4 + s16) % 4] + 12; at(ts, (c, o, w) => tone(c, o, w, { type: 'square', f: mf(m), d: beat / 4 * .9, g: .018, lp: 3000 })); }
       }
     }
-    const fc = S.fin.c;
-    for (let i = 0; i < 6; i++) { at(T0 + fc.F1 + .2 + i * .12, (c, o, w) => SE.pop8(c, o, w, 72 + i * 2)); at(T0 + fc.F1 + 1.4 + i * .3, (c, o, w) => SE.stamp(c, o, w)); }
-    at(T0 + fc.F1 + 3.6, (c, o, w) => SE.whooshDown(c, o, w, .7, .3));
-    at(T0 + fc.F2 - .1, (c, o, w) => { SE.chime(c, o, w, 84, .1); SE.impact(c, o, w, .6); });
-    for (let i = 0; i < 3; i++) at(T0 + fc.F3 + .2 + i * .3, (c, o, w) => SE.ping(c, o, w, [79, 83, 86][i]));
-    at(T0 + fc.F4 + .2, (c, o, w) => SE.whoosh(c, o, w, .8, .2));
-    at(T0 + fc.F4 + 1.0, (c, o, w) => SE.slam(c, o, w));
-    at(T0 + fc.F5 + 1.4, (c, o, w) => SE.stamp(c, o, w));
-    at(T0 + fc.F6 + .9, (c, o, w) => SE.slam(c, o, w));
-    for (let k = 0; k < 18; k++) at(T0 + fc.F7 + .2 + k * .13, (c, o, w) => SE.click(c, o, w, .06));
-    at(T0 + fc.F7 + 2.2, (c, o, w) => SE.chime(c, o, w, 88, .08));
-    at(T1 - 1.4, (c, o, w) => SE.riser(c, o, w, 1.4, .3));
+    const fc = S.fin.c, F0 = S.fin.a;
+    for (let i = 0; i < 6; i++) { at(F0 + fc.F1 + .2 + i * .12, (c, o, w) => SE.pop8(c, o, w, 72 + i * 2)); at(F0 + fc.F1 + 1.4 + i * .3, (c, o, w) => SE.stamp(c, o, w)); }
+    at(F0 + fc.F1 + 3.6, (c, o, w) => SE.whooshDown(c, o, w, .7, .3));
+    at(F0 + fc.F2 - .1, (c, o, w) => { SE.chime(c, o, w, 84, .1); SE.impact(c, o, w, .6); });
+    for (let i = 0; i < 3; i++) at(F0 + fc.F3 + .2 + i * .3, (c, o, w) => SE.ping(c, o, w, [79, 83, 86][i]));
+    at(F0 + fc.F6 + .9, (c, o, w) => SE.slam(c, o, w));
+    for (let k = 0; k < 18; k++) at(F0 + fc.F7 + .2 + k * .13, (c, o, w) => SE.click(c, o, w, .06));
+    at(F0 + fc.F7 + 2.2, (c, o, w) => SE.chime(c, o, w, 88, .08));
   }
+  // --- ……と言っておいてなんだけど(音楽が止まる) ---
+  at(S.turn.a, (c, o, w) => { tone(c, o, w, { type: 'sawtooth', f: 330, f2: 28, d: .9, g: .12, lp: 1500, lp2: 200 }); noise(c, o, w, { type: 'lowpass', f: 2000, f2: 100, d: .6, g: .15 }); });
+  ambient(S.turn.a + S.turn.c.C5, S.ikea.a, { bpm: 66, g: .55, lp: 900, arp: false, prog: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]] });
+  [0, 1, 2].forEach(i => C('turn', 'C5', 1.2 + i * 1.0, (c, o, w) => SE.ping(c, o, w, 79 + i * 2)));
+  C('turn', 'C6', .4, (c, o, w) => tone(c, o, w, { f: mf(45), d: 2.4, g: .18, a: .05 }));
+  // --- IKEA効果 ---
+  ambient(S.ikea.a, S.door.a, { bpm: 84, g: .7, lp: 1600, prog: [[53, 57, 60], [55, 59, 62], [52, 55, 59], [57, 60, 64]] });
+  C('ikea', 'C7', 2.2, (c, o, w) => SE.ping(c, o, w, 84));
+  C('ikea', 'C7', 3.4, (c, o, w) => { SE.boing(c, o, w, 50); for (let k = 0; k < 5; k++) SE.click(c, o, w + .1 + k * .09, .1); });
+  for (let k = 0; k < 5; k++) C('ikea', 'C7', 4.8 + k * .28, (c, o, w) => SE.pop8(c, o, w, 84 + k * 2));
+  [0, 1, 2, 3].forEach(i => C('ikea', 'C8', .2 + i * 1.8, (c, o, w) => SE.slam(c, o, w)));
+  for (let k = 0; k < 30; k++) C('ikea', 'C9', 1.6 + hsh(k) * 1.2 + .9 + hsh(k + 9) * .8, (c, o, w) => SE.click(c, o, w, .06));
+  C('ikea', 'C10', .2, (c, o, w) => SE.whoosh(c, o, w, .4, .15));
+  C('ikea', 'C10', 4.3, (c, o, w) => { SE.stamp(c, o, w); SE.fail(c, o, w + .15); });
+  // --- 扉 ---
+  ambient(S.door.a, S.end.a, { bpm: 76, g: .8, lp: 2000, prog: [[53, 57, 60, 64], [55, 59, 62, 67]] });
+  [3.6, 3.9, 4.2].forEach(d => C('door', 'C11', d, (c, o, w) => SE.thud(c, o, w, .9)));
+  C('door', 'C12', .3, (c, o, w) => { SE.whoosh(c, o, w, 1.4, .25); SE.chime(c, o, w + .8, 84, .1); });
+  A('door', S.door.d - 1.6, (c, o, w) => SE.riser(c, o, w, 1.6, .3));
   // --- エンド ---
   {
     const T = S.end.a;
