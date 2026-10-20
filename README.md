@@ -1,439 +1,369 @@
-﻿# Excel VBA Web Automation Starter Kit
+# WebDriverEmulation-VBA
+
+**～ 令和のIE ～**
 
 ![Logo](doc/Logo.png)
 
-> [!IMPORTANT]
-> This text was translated into English by AI based on "README-jp.md".
+> [!CAUTION]
+> **一般の方向けのツールではありません。**  
+> 「なぜ動かないのか」ではなく、「**どうやって動いているのか**」を低レイヤーから理解したい方のための研究リポジトリ（POC）兼、備忘録です。  
+> 実務で安定したスクレイピングを行いたい方は、[下記の定番ツール](#-実務で使うなら)をご利用ください。
 
-[🇯🇵日本語のREADMEはこちら](README-jp.md)
+---
 
-![Intro Image](doc/Top.png)
+## これはなに？
 
-## Reclaim the Lost Line from the IE Days
+WebDriver（`msedgedriver.exe` / `chromedriver.exe` など）が担っている役割を、**VBAだけ**でどこまで再現できるかを検証するPOCです。
 
-Once, we controlled the world with just three lines of code.
+外部ドライバ、SeleniumBasic、COM DLLの登録、管理者権限は**一切使いません**。  
+Excel VBA（標準モジュール／クラスモジュール）と Windows 標準API だけで、Chromium系ブラウザ（Edge / Chrome）や WebView2 と直接会話します。（実は [Firefox](#-実はfirefox-も動きます) も少しだけ）
 
-```bas
-Set ie = CreateObject("InternetExplorer.Application")   ' <- this one line launched the browser
+---
+
+## 立ち上げたきっかけ
+
+### 1. IEの時代 ― 橋渡しは0枚
+
+VBAでブラウザを自動操作していたIEの時代は、何の準備もなく、たったこれだけで自動化を始められました。
+
+```vb
+Dim ie As Object
+Set ie = CreateObject("InternetExplorer.Application")   '← この1行でブラウザが立ち上がる
 ie.Visible = True
-ie.Navigate "URL"
+ie.Navigate "https://www.example.com/"
 ```
 
-To all VBAers who are being crushed by the weight of driver version management and environment setup after the disappearance of IE.  
-This tool does not give up on the romance of a **"single Excel file"** and brings back the omnipotence of those days to the modern era by **driving CDP (Chrome DevTools Protocol) directly**.
+技術的なフローは、これだけです。
 
-```bas
-Dim t As CDPContext
-Set t = ShSetting01_StartBrowser.StartCDPModeContext   ' <- the lost line, right here. The browser launches with the settings sheet's configuration
-t.navigate "URL"
+```mermaid
+flowchart LR
+    VBA["🟩 Excel VBA"] -- "COM" --> IE["🌐 Internet Explorer"]
 ```
 
-No more tedious environment setup. From the moment you open this workbook, your journey toward business efficiency and automated internet operations begins.
+### 2. SeleniumBasic の時代 ― 橋渡しは2枚
+
+IEのサポートが終了し、まず選択肢に入ったのが **SeleniumBasic** でした。
+
+```mermaid
+flowchart LR
+    VBA["🟩 Excel VBA"] -- "COM" --> SB["📦 SeleniumBasic<br/>（要インストール）"]
+    SB -- "HTTP<br/>(W3C WebDriver)" --> WD["⚙️ WebDriver.exe"]
+    WD -- "CDP" --> CR["🌐 Chromium"]
+
+    style SB stroke-dasharray: 5 5
+    style WD stroke-dasharray: 5 5
+```
+
+IEの頃と比べると、橋渡し役が **2つ** も増えてしまいました🫠
+
+### 3. TinySeleniumVBA / SeleniumVBA の時代 ― 橋渡しは1枚
+
+その後、[uezo氏（TinySeleniumVBA）](https://github.com/uezo/TinySeleniumVBA) や [GCuser99氏（SeleniumVBA）](https://github.com/GCuser99/SeleniumVBA) により、VBAから直接 WebDriver へHTTPを投げる方式が登場。橋渡しが1枚削られ、現在に至ります。
+
+```mermaid
+flowchart LR
+    VBA["🟩 Excel VBA"] -- "HTTP<br/>(W3C WebDriver)" --> WD["⚙️ WebDriver.exe"]
+    WD -- "CDP" --> CR["🌐 Chromium"]
+
+    style WD stroke-dasharray: 5 5
+```
+
+SeleniumBasic はインストールが必要だったため、当初は確かに導入のハードルがありました。  
+しかし `WebDriver.exe` だけになった今は、ポータブルなexeを適切に配置し、決められたコマンドを打つだけで自動操作の準備が整います。
+
+ある意味、**ゼロインストール**で自動操作できる時代になったと言えます。
+
+### 4. でも、もう一度よく見てください
+
+そうです。IEの頃と比べると、まだ **1枚** 橋渡し役が残っています。
+
+このプロジェクトは、その **最後の橋渡し役を外す** ためのPOCです。
+
+```mermaid
+flowchart LR
+    VBA["🟩 Excel VBA"] -- "❓❓❓" --> CR["🌐 Chromium"]
+```
+
+### 振り返り
+
+```mermaid
+flowchart TB
+    subgraph E1["① IE時代（橋渡し 0枚）"]
+        direction LR
+        A1["VBA"] -->|COM| B1["IE"]
+    end
+    subgraph E2["② SeleniumBasic（橋渡し 2枚）"]
+        direction LR
+        A2["VBA"] -->|COM| S2["SeleniumBasic"] -->|HTTP| W2["WebDriver.exe"] -->|CDP| C2["Chromium"]
+    end
+    subgraph E3["③ TinySeleniumVBA / SeleniumVBA（橋渡し 1枚）"]
+        direction LR
+        A3["VBA"] -->|HTTP| W3["WebDriver.exe"] -->|CDP| C3["Chromium"]
+    end
+    subgraph E4["④ このPOC（橋渡し 0枚を目指す）"]
+        direction LR
+        A4["VBA"] -->|"???"| C4["Chromium"]
+    end
+    E1 --> E2 --> E3 --> E4
+```
 
 ---
 
-## 🌈 Three CDP Control Routes (The "Three Sacred Treasures" of CDP)
+## 「???」の正体
 
-The core of this tool is **CDP control**. Without any external driver (exe, ps1), it accesses the heart of Chromium-based browsers (Edge/Chrome) directly, using nothing but VBA.  
-There are three control routes. Pick the one that fits your situation.
+WebDriver.exe が最終的にブラウザと交わしているのは **CDP（Chrome DevTools Protocol）** という JSON-RPC 形式のメッセージです。  
+であれば、VBAが直接 CDP を話せば WebDriver.exe はいらない――というのが本POCの出発点です。
 
-| Route | In a word | When to use it |
-| --- | --- | --- |
-| 🥇 **Pipe** | **When in doubt, use this** | Pipe communication via `--remote-debugging-pipe`. The most proven, stable, and easy-to-debug method. |
-| 🥈 **Port** (WebSocket) | Android, or the browser right in front of you | Communication via `--remote-debugging-port`. Supports attaching to an already-running browser. You can reuse existing browser profiles (favorites, login state, etc.) as-is!<br>*Depending on your network setup, you can even control a browser on a different PC.* It can also **launch a local browser and connect to it** through this route. |
-| 🥉 **WebView2** | For environments where neither a port nor a pipe is allowed | Opens no debug port and no named pipe at all — it talks CDP directly through the WebView2 SDK. The beauty of **"fully self-contained inside a UserForm"**: complete browser control from nothing but Excel's own memory space. |
+その「話し方（通信路）」として、現在は次の3つの経路を実装しています。
 
-Whichever route you pick, you use **exactly the same API** — `CDPContext.navigate`, `CDPElement.getElementByQuery`, and so on. See the demo code below, or the [official documentation](https://eschamali.github.io/StarterWebScrapingKit/concepts/architecture) for details on choosing between them.
+```mermaid
+flowchart LR
+    VBA["🟩 Excel VBA<br/>（UTF-16LE）"]
 
----
+    subgraph Conv["文字コード変換"]
+        U8["UTF-16LE ⇄ UTF-8"]
+    end
 
-## 🔥【Strengths of This Tool】🔥
+    VBA --> U8
 
-* **Zero installs. No WebDriver. One xlsm file, and both Edge/Chrome and WebView2 are yours to command**
-  * You will never encounter the "Browser and WebDriver version mismatch error" that plagues Selenium users!
-  * **Control the browser that's open right now, as is!** Just [allow one switch](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session#step_1_set_up_remote_debugging_in_chrome) and VBA connects to your everyday, already-logged-in browser
-  * With the WebView2 route, there's no external browser exe to launch at all. **A single xlsm file** lets you drive everything from external browsers to a WebView2 embedded right inside Excel itself, all with the same feel
-
-* **Infinite Extensibility: Your Own Custom Tool!**
-  * Simply tell an AI about the "[Template](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev-xlflow/ForDevelopers/TemplateExtensions)" and the "function you want," and complex automation code will be completed in seconds!
-  * No need to memorize tedious CDP specifications. Anyone can easily extend functionality as long as they have an idea.
-  * Depending on how you craft your prompts, you can even generate "demo code" with detailed explanations fully automatically!
-
-* **🚀 A "New Standard" Architecture for VBA, on par with Playwright / Puppeteer**
-  * Directly access the heart of the browser without leaving the "footprints" of WebDriver. This tool occupies a **low-layer position equivalent to Playwright / Puppeteer**, even though it's VBA.
-  * Its greatest strength lies in its "cleanliness." By using a "pure" operation style that doesn't inject any unique JS variables or patches (which often trigger detection), it has achieved **stealthiness that makes it somewhat easier to get past bot detection like Cloudflare's** as if you had a VIP pass.  
-  * *Note: While bypass is not guaranteed, we have confirmed cases where it is easier to bypass than SeleniumVBA.*
-
----
-
-## 🚀 Basic Template
-
-The basic startup template is as follows.  
-The browser will start with the settings defined in the **Worksheet: Browser Startup Settings**, so we recommend this template code unless you have specific requirements.  
-In that case, your automation journey begins with just one or two lines.
-
-### In Case of CDP Control
-
-```bas
-Sub BeginningOfAdventureByCDP()
-    ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As CDPContext
-    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
-
-    ' ↓ From here, turn your image into code ↓
-
-
-
-
-    ' Close the browser normally
-    HelloWorldAutomationBrowser.ThisCDPBrowser.CloseBrowser
-End Sub
+    U8 -- "🥇 匿名パイプ<br/>--remote-debugging-pipe<br/>(CreatePipe + CreateProcess)" --> CR1["🌐 Edge / Chrome"]
+    U8 -- "🥈 WebSocket（WinSock）<br/>--remote-debugging-port" --> CR2["🌐 Edge / Chrome<br/>（起動済み・別端末も可）"]
+    VBA -- "🥉 COM（vtable直呼び）<br/>CallDevToolsProtocolMethod(ForSession)" --> WV["🪟 WebView2<br/>（UserForm内）"]
 ```
 
-### In Case of BiDi Control
+| 経路 | 通信方式 | 主な実装 | ひとこと |
+| --- | --- | --- | --- |
+| 🥇 **Pipe** | `--remote-debugging-pipe` による匿名パイプ | `CDPCore.cls` | 本POCの主軸。ポートを開かず、親子プロセス間だけで完結する |
+| 🥈 **Port** | `--remote-debugging-port` + WinSock による WebSocket | `CDPCoreViaWebSocket.cls` | 起動済みブラウザへの後付け接続や、別端末・Android実機への接続も可能 |
+| 🥉 **WebView2** | `ICoreWebView2::CallDevToolsProtocolMethod(ForSession)` | `CDPCoreViaWebView2.cls` / `WebView2Host.cls` | ポートもパイプも開かず、Excelのプロセス内でCDPをやり取りする |
 
-```bas
-Sub BeginningOfAdventureByBiDi()
-    ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
-    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
+どの経路でも、上位の `CDPContext` / `CDPElement` からは**同じAPI**で操作できるよう抽象化しています。
 
-    ' ↓ From here, turn your image into code ↓
+### 🥇 Pipe 経路の流れ
 
+WebDriver.exe が裏でやっていることを、VBAが肩代わりしている様子です。
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as Excel VBA
+    participant K as Windows API<br/>(kernel32)
+    participant B as Edge / Chrome
 
-
-    ' Close the browser normally
-    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.CloseBrowser
-End Sub
+    V->>K: CreatePipe（CDP送信用・受信用のパイプなどを用意）
+    V->>K: CreateProcess<br/>--remote-debugging-pipe<br/>（STARTUPINFO.lpReserved2 でハンドルを fd3 / fd4 として継承）
+    K-->>B: ブラウザ起動
+    Note over V: VBA文字列(UTF-16LE) → UTF-8 変換
+    V->>B: WriteFile: {"id":1,"method":"Target.createTarget",...}\0
+    loop 応答待ち
+        V->>K: PeekNamedPipe（ブロックせずに覗き見）
+    end
+    B-->>V: ReadFile: {"id":1,"result":{...}}\0
+    Note over V: UTF-8 → UTF-16LE 変換 → JSONパース
+    V->>B: Target.attachToTarget / Page.navigate / Runtime.evaluate ...
+    B-->>V: 結果 & イベント（Page.loadEventFired など）
 ```
 
-### Launching Directly Without the Helper
+ポイントは次の3点です。
 
-You can also skip the `ShSetting01_StartBrowser` helper and launch directly by passing `BrowserCapabilities`, a class dedicated to holding the launch options. The default values are loaded from the worksheet, so you only need to override the items you want to change.
+* メッセージの区切りは **NUL文字（`\0`）**。HTTPヘッダもWebSocketフレームもありません
+* パイプのハンドルは、CRTのファイルディスクリプタ継承の仕組み（`lpReserved2`）を使って子プロセスへ渡します
+* VBA内部は UTF-16LE、CDP は UTF-8 なので、**送受信のたびに相互変換**が必要です
 
-```bas
-Sub LaunchDirectly()
-    ' Override only the items you want to change (optional). If you specify nothing, it launches with the settings sheet as-is
-    BrowserCapabilities.Set_StartURL = "https://example.com"
+### 🔀 WebDriver BiDi はどうしているの？
 
-    Dim t As CDPContext
-    Set t = New CDPContext
-    t.OpenBrowserAndConnectTab BrowserCapabilities
+W3C で標準化が進む次世代プロトコル **WebDriver BiDi** にも対応しています。  
+本来は WebDriver.exe 側が BiDi ⇔ CDP の翻訳を担いますが、本POCでは Google 公式の [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi) の Mapper（`assset/mapperTab.js`）をブラウザ内の専用タブに注入し、**ブラウザ自身に翻訳させて**います。
 
-    t.ThisCDPBrowser.CloseBrowser
-End Sub
+```mermaid
+flowchart LR
+    VBA["🟩 Excel VBA<br/>WebDriverBiDiCore"] -- "BiDiコマンド<br/>（CDP経由で onBidiMessage を呼ぶ）" --> MT
+
+    subgraph Browser["🌐 Edge / Chrome"]
+        MT["📄 Mapperタブ<br/>mapperTab.js<br/>(chromium-bidi)"] -- "CDP" --> PG["📄 操作対象のタブ"]
+    end
+
+    MT -- "sendBidiResponse<br/>（CDPイベントとして返却）" --> VBA
 ```
 
-For details, see [`BrowserCapabilities`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/BrowserCapabilities).
+* Mapperタブには `Target.exposeDevToolsProtocol` で CDP の操作権を渡しています
+* BiDi で足りない部分は、`WebDriverBiDiContext.UpgradeBiDiPlus` により同じタブを CDP 制御へ切り替えられます（BiDi+）
 
----
+### 🦊 実は、Firefox も動きます
 
-## 🛤️ Demos by Route
+Chromium 向けに作ったこの仕組みですが、実は **Firefox も同じコードで動かせます**。
 
-### 🥇 Pipe
+![Excel VBAからFirefoxを制御している様子](doc/firefoxIntro.gif)
 
-The basic template above uses the Pipe route by default. If you change nothing, this is what runs.
+Chromium は BiDi を話せないので Mapper に翻訳させていました。一方 Firefox は、**WebDriver BiDi をネイティブで話せます**。  
+そこで翻訳機を外し、BiDi の JSON を WebSocket でそのまま Firefox に送っています。
 
-### 🥈 Port (WebSocket)
+```mermaid
+flowchart LR
+    subgraph CR["Chromium（通常ルート）"]
+        direction LR
+        A1["🟩 WebDriverBiDiMode<br/>/ Context"] -->|"BiDi-Json"| A2["📄 BiDi-CDP Mapper<br/>（mapperTab.js）"]
+        A2 -->|"CDP-Json"| A3["🌐 Edge / Chrome"]
+    end
 
-#### Switch with a worksheet cell (launching a local browser and connecting to it)
-
-![WebSocket mode switch](doc/WebSocketMode.png)
-
-Just **turn ON "WebSocketモード" (WebSocket mode)** on the Worksheet: Browser Startup Settings, and the basic template above (`StartCDPModeContext`, etc.) launches and connects to the browser via the Port route instead of the Pipe. You don't have to change a single character of your code.
-
-```vb
-Sub LaunchNewBrowserInWebSocketMode()
-    ' 1. With "WebSocketモード" turned ON in the settings sheet, launch as usual
-    Dim t As CDPContext
-    Set t = ShSetting01_StartBrowser.StartCDPModeContext
-
-    ' 2. Proceed as usual
-    t.navigate "https://www.youtube.com/@islandfox6864"
-
-    ' 3. Done
-    t.ThisCDPBrowser.CloseBrowser
-End Sub
+    subgraph FF["Firefox（BiDi直結）"]
+        direction LR
+        B1["🟩 WebDriverBiDiMode<br/>/ Context"] -->|"BiDi-Json<br/>（WebSocket直）"| B2["🦊 Firefox"]
+    end
 ```
 
-Internally, this automatically handles checking for policies that block remote debugging, cleaning up leftover sessions, and disabling the crash-recovery prompt.
+* 上側の `WebDriverBiDiMode` / `WebDriverBiDiContext` は、**Chromium のときと同じ使い方**です（`navigate` / `getTab` / `SubscribeBiDiEvent` など）
+* 切り替えは、`ReattachOptions.Set_DirectWebDriverBiDi = True` の **1プロパティ**だけです
+* `src/` への追加は **3ファイルで81行追加・6行削除**にとどまり、Firefox 専用のクラスは作っていません。Chromium 向けに積み上げてきた設計（責務分離と `RaiseEvent`、「BiDi で会話する側」としての `WebDriverBiDiMode`、`ReattachOptions`）が、そのまま下地になりました
 
-#### Attach to an already-running browser
-
-You can also have Excel attach to (take control of) an existing browser session — such as Edge or Chrome — that is already running. A simple demo code for this feature is bundled in the standard module `Demo_CDP`, in the section titled `起動済みWebSocketブラウザ経由版Demo` ("demos via an already-running WebSocket browser").
-
-Before running it, start the target browser with the **remote debugging port enabled**:
-
-```bash
-# Launch the browser with the default port 9222 open
-msedge.exe --remote-debugging-port=9222
-```
-
-```vb
-Sub AutoConnectTab()
-    ' 1. Get the username from the setting cell
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    ' 2. Connect to the specified WebSocketForCDP-page
-    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
-
-    ' 3. Set the connected WebSocket object as the WebSocket mode
-    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
-
-    ' 4. Pass the reattach information to the `reattach` method
-    Dim t As New CDPContext
-    If Not t.reattach(ReattachOptions) Then MsgBox "Could not connect to '" & UserName & "'. The WebSocket information is no longer valid.", vbCritical, "Chrome DevTools Protocol": Exit Sub
-
-    ' 5. Navigate
-    ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
-    t.navigate "https://www.youtube.com/@islandfox6864"
-
-    ' 6. Disconnect from the WebSocket
-    t.ThisCDPBrowser.DisconnectCDP
-End Sub
-```
-
-* **Changing the port number**:
-  By passing any port number as the fourth argument of `WebSocketCDP.AutoConnectPageCDP` (e.g., a port other than `9222`), you can flexibly connect to a browser waiting on a specific port, or to a browser inside an actual device such as an Android phone.
-* **Building on this code**:
-  You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.
-* **About the connection types**:
-  Three types are provided: a specific page (`AutoConnectPageCDP`), the browser itself (`AutoConnectBrowserCDP`), and the browser right in front of you (`AutoConnectDevToolsActivePort`). See the `Demo_CDP` demos for usage examples of each.
-* **About reattaching**:
-  The choice of control route (Pipe / Port / WebView2) is consolidated into `ReattachOptions`, a class dedicated to holding reattach options. For details, see [`ReattachOptions`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/ReattachOptions) and the [reattach guide](https://eschamali.github.io/StarterWebScrapingKit/guides/reattach).
-
-### 🥉 WebView2
-
-You can **launch and control WebView2 directly from within Excel VBA's own memory space, with no external process (such as PowerShell) required.** This is the ace up the sleeve for the toughest environments yet — those where **neither a port nor a pipe** is permitted.
-
-![WebView2 running in Excel](doc/WebView2.png)
-
-```vb
-' Note: Some `ICoreWebView2Settings` properties only take effect before navigation.
-'       `ICoreWebView2EnvironmentOptions` settings only take effect before the WebView2 process starts.
-Sub WebView2OnExcelUserForm()
-    With WebView2Form
-        ' 1. Apply pre-launch settings (optional)
-        .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  ' Toggle single sign-on
-
-        ' 2. Launch the WebView2 process
-        .StartCDPModeWebView2
-
-        ' 3. Apply pre-navigation settings (optional)
-        .ThisWebView2.DevToolsEnabled = False       ' Disallow opening DevTools
-        .ThisWebView2.ContextMenuEnabled = False    ' Disallow right-click menu
-        .ThisWebView2.StatusBarEnabled = False      ' Hide the status text shown at the bottom left
-
-        ' 4. Navigate, as CDP
-        ' SSO disabled: shows the Microsoft account introduction page
-        ' SSO enabled : auto-navigates to the settings page for the account currently signed in on this PC
-        .ThisCDPContext.navigate "https://account.microsoft.com/"
-
-        ' 5. Show the form (blocks until the UserForm is closed)
-        .show
-    End With
-End Sub
-```
-
-There are two moments when settings can be applied: **before launch** (via `EnvironmentOptions` — only read when the Environment is created, so changing it afterward has no effect) and **before navigation** (via `ICoreWebView2Settings`-family properties — a per-page setting, so it must be set before the next navigation). In the demo above, you can also see how toggling `Set_AllowSingleSignOnUsingOSPrimaryAccount` changes the outcome of navigating to the very same URL.
-
-Once embedded, the `CDPContext` (`ThisCDPContext`) / `CDPElement` API is **identical** to the Pipe and Port routes. The bundled demo is `Demo_WebView2.WebView2OnExcelUserForm`.
+「Chromium で積み上げた設計が、本物の WebDriver BiDi にもそのまま通用した」という、ちょっとした答え合わせです。
 
 > [!NOTE]
-> The heart of this feature (the machine-code thunks and vtable calls) is ported directly from [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA) (by Tarboh). Our sincere thanks once again 🙏 For the full story behind this integration, see the [official documentation's development story](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story).
+> コア（`src/`）への追記が必要なため、メインの配布物には含めていません。  
+> 使い方・制約・コア側の追記内容は [`ex-Firefox` ブランチの ReadMe](https://github.com/Eschamali/StarterWebScrapingKit/blob/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox/ReadMe.md) にまとめています。  
+> 接続は WebSocket ルートのみで、BiDi+ や `CDPContext` / `CDPElement` など Chromium 固有の機能は使えません。
 
 ---
 
-## 🦊 WebDriver BiDi Supported Too! (A VBA First)
+## WebDriver の仕事を分解すると
 
-In addition to CDP (Chrome DevTools Protocol) operations, we have quickly implemented support for **"WebDriver BiDi"** (`WebDriverBiDiCore.cls`), the next-generation protocol currently being established as a global W3C standard.
+「WebDriverがいらない」と言っても、WebDriverがやっていた仕事が消えるわけではありません。VBA側で一つずつ肩代わりしています。
 
-While maintaining the project's philosophy of being **"self-contained in VBA"** without using external `chromedriver.exe` or middleware like Selenium, the following advanced operations are possible:
+| WebDriver.exe の役割 | 本POCでの肩代わり先 |
+| --- | --- |
+| ブラウザプロセスの起動・引数組み立て | `CDPHost.cls` / `CDPCore.cls`（`CreateProcess`） |
+| ブラウザとの通信路の確保 | 匿名パイプ / WinSock / WebView2 COM |
+| メッセージのシリアライズ | 独自の高速JSONパーサー（`BiDiCDPJson.cls` など） |
+| 文字コードの扱い | `CharacterCodeConversion.cls`（UTF-16LE ⇄ UTF-8） |
+| セッション・タブ（Target）の管理 | `CDPBrowser.cls` / `CDPContext.cls` |
+| 要素検索・クリック・入力 | `CDPElement.cls`（`DOM` / `Runtime` / `Input` ドメイン） |
+| イベントの購読 | CDPイベント / BiDiイベントのキューイング |
+| W3C WebDriver BiDi 対応 | chromium-bidi Mapper の注入（`WebDriverBiDiCore.cls`） |
+| ブラウザとドライバのバージョン整合 | **不要**（ブラウザ本体の CDP を直接使うため） |
 
-*   📥 **Perfect Subscription to Asynchronous Events** (Real-time detection of page load completion or console errors)
-*   ⚠️ **Fine-grained Control of JavaScript Alert Dialogs** (Implementation of fallbacks that prevent VBA from freezing)
-*   🔌 **CDP Tunneling via BiDi+** (Flexibility to cover areas where standard features are insufficient. With `UpgradeBiDiPlus`, you can also switch the same tab over to CDP control)
+### VBA内部で付与している主な起動引数
 
-**📖 For detailed technical documentation and usage, please visit the official documentation (GitHub Pages).**
-*   ➡️ **[Official Documentation Top (Usage & Technical Architecture)](https://eschamali.github.io/StarterWebScrapingKit/)**
+| 引数名 | 意味 |
+| --- | --- |
+| `remote-debugging-pipe` / `remote-debugging-port` | 外部プロセス（Excel）からのデバッグ接続を受け付けさせます。`pipe` は同一PCの親子プロセス間でのみ有効です。`port` は `0`（空きポートの自動割り当て）で起動し、接続先は `DevToolsActivePort` ファイルから取得します |
+| `user-data-dir` | プロファイルの保存先。[デバッグ機能を悪用したCookie盗難対策](https://developer.chrome.com/blog/remote-debugging-port?hl=ja)により、既定の `User Data` 以外を指定する必要があります。既定では同階層に `Automation Data` を作成します |
+| `homepage` | 余計な通信を抑えるため `about:blank` を指定します |
+| `app` | 最初のURLを指定した場合に付与。タブ生成やURL変更をある程度防げます（簡易キオスクモード） |
+
+設定シート側で付与している引数（`no-first-run`, `disable-sync`, `enable-automation` など）や、より詳しい仕組みは [公式ドキュメント](https://eschamali.github.io/StarterWebScrapingKit/) にまとめています。
 
 ---
 
-## 🎁 Bonus Features
+## 研究上の縛り（制約）
 
-Besides CDP control, the following bonuses are available.
+POCとしての意味を保つため、次のルールを自らに課しています。
 
-* **🚀 REST WebAPI (WinHTTP 5.1)**
-  * The standard for high-speed, lightweight data collection. A robust implementation that works solely with reference settings. The standard module `Template_WebAPI` is provided as a template for building the basics.
-* **🦊 Firefox Control (Direct WebDriver BiDi)**
-  * Our ace in the hole: "if it ever comes to that, this tool can control Firefox too." Firefox speaks WebDriver BiDi natively, so with only about 80 lines added to the core, you can send BiDi JSON straight over a WebSocket to control it.
-  * Because it requires additions to the core, it is not included in the main distribution. The demo and its explanation are published on the [ex-Firefox branch](https://github.com/Eschamali/StarterWebScrapingKit/tree/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox).
-
-![Controlling Firefox from Excel VBA](doc/firefoxIntro.gif)
+1. SeleniumBasic や外部COM DLLの登録を前提としない
+2. `msedgedriver.exe` / `chromedriver.exe` などの外部バイナリを配置・要求しない
+3. 管理者権限が必要なレジストリ操作やインストーラーを実行しない
+4. Python / PowerShell などの別スクリプトを生成・実行しない（**VBA単体で完結**）
 
 ---
 
-### 【Credits & Acknowledgments】
+## 最小コード
 
-This tool is a mashup of many wonderful libraries shared by VBA artisans around the world, integrated into a form that is easy to use in practice.  
-I express my heartfelt respect and gratitude for the wisdom and code of my great predecessors.
+設定シート（ブラウザ起動設定）の内容でブラウザを起動し、ページを開いて閉じるだけの例です。
 
-* **Core Logic for WebSocket Implementation**
+```vb
+Sub CDPによる冒険の始まり()
+    Dim t As CDPContext
+    Set t = ShSetting01_StartBrowser.StartCDPModeContext   '既定は Pipe 経路
+
+    t.navigate "https://www.example.com/"
+
+    t.ThisCDPBrowser.quit
+End Sub
+```
+
+```vb
+Sub BiDiによる冒険の始まり()
+    Dim t As WebDriverBiDiContext
+    Set t = ShSetting01_StartBrowser.StartBiDiModeContext
+
+    '↓ここに処理を書く↓
+
+    t.ThisWebDriverBiDiMode.quit
+End Sub
+```
+
+* Port経路は、設定シートの「WebSocketモード」をONにするだけで切り替わります（コードの変更は不要）
+* 起動済みブラウザへのアタッチは `Demo_CDP`、WebView2 は `Demo_WebView2` に同梱デモがあります
+
+> [!NOTE]
+> ダウンロードしたブックを開くと「保護ビュー」が表示され、マクロが動かないことがあります。  
+> Excelを閉じてからファイルを右クリック →「プロパティ」→「**許可する**」にチェックを入れて OK を押してください。（Mark of the Web の解除）
+
+---
+
+## 📚 ドキュメント
+
+API リファレンス、アーキテクチャ、開発秘話などは GitHub Pages にまとめています。
+
+➡️ **[公式ドキュメント](https://eschamali.github.io/StarterWebScrapingKit/)**
+
+---
+
+## 🛠️ 実務で使うなら
+
+一般的なWebスクレイピングやブラウザ自動化が目的であれば、成熟した次のツールを強くおすすめします。
+
+| ツール | 言語 | ひとこと |
+| --- | --- | --- |
+| [Playwright](https://playwright.dev/) | Node.js / Python / .NET / Java | 現代の定番。複数ブラウザ対応、待機処理も賢い |
+| [Puppeteer](https://pptr.dev/) | Node.js | CDP 直結の元祖的存在。本POCの発想の源のひとつ |
+| [Selenium](https://www.selenium.dev/) | 各種 | W3C WebDriver の本家 |
+| [TinySeleniumVBA](https://github.com/uezo/TinySeleniumVBA) | VBA | 軽量。VBAから WebDriver を直接叩く方式の先駆け |
+| [SeleniumVBA](https://github.com/GCuser99/SeleniumVBA) | VBA | 高機能。VBAでの実務利用ならまずこちら |
+
+本リポジトリは、あくまで「最後の橋渡しを外したらどうなるか」を確かめるための**研究リポジトリ**という立ち位置です。
+
+---
+
+## 【Credits & Acknowledgments】
+
+このPOCは、世界中のVBA職人や開発チームが公開してくれた素晴らしいライブラリの数々の上に成り立っています。  
+偉大な先人たちの知恵とコードに、心からの敬意と感謝を表します。
+
+* **WebSocket実装のコアロジック**
   * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
-    * Author: [@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)
-* **Foundation for CDP Control and Pipe Communication**
+    * 製作者：[@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)氏
+* **CDP制御・パイプ通信の基盤**
   * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
-    * Author: longvh211
-* **WinHTTP 5.1 Wrapper**
+    * 製作者：longvh211氏
+* **WinHTTP 5.1 ラッパー**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
-    * Original Author: Tim Hall
-* **Ultra-high-performance JSON parser specialized for CDP/WebDriverBiDi responses**
+    * オリジナル製作者：Tim Hall氏
+* **CDP/WebDriverBiDiレスポンス専用の超高速JSONパーサー**
   * [vbacollective-json](https://github.com/vbacollective/json)
-    * Original Author: Ueslei Paim
-    * Modified version: Optimized for reliability by removing `CopyMemory` dependency
-* **High-performance JSON parser (Upward compatible with `VBA-JSON`)**
+    * 製作者：Ueslei Paim
+    * `CopyMemory`不使用版に改良
+* **`VBA-JSON`の上位互換の高速JSONパーサー**
   * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
-    * Author: Cristian Buse
-* **A high-speed Dictionary that is a superset-compatible replacement for Microsoft's `Scripting.Dictionary`.**
+    * 製作者：Cristian Buse
+* **Microsoft製 `Scripting.Dictionary`の上位互換の高速Dictionary**
   * [VBA-FastDictionary](https://github.com/cristianbuse/VBA-FastDictionary)
-    * Author: Cristian Buse
-* **Fast Character Code Conversion Wrapper**
+    * 製作者：Cristian Buse
+* **高速な文字コード変換ラッパー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
-    * David Ireland, DI Management Services Pty
+    * David Ireland DI Management Services Pty
   * [VBAで Windows APIを使った UTF-8 ←→ Unicode相互変換](https://qiita.com/yamashiroakihito/items/9b609653fef6fa8a5ab2)
-    * Author: @yamashiroakihito
-* **Log Level Basics**
+    * 製作者：@yamashiroakihito
+* **ログレベルの基礎部分**
   * [VBA-Log](https://github.com/VBA-tools/VBA-Log)
-    * Author: timhall
-* **Core Logic for BiDi in Chromium Browsers**
+    * 製作者：timhall氏
+* **ChromiumブラウザをBiDi化するためのコアロジック**
   * [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)
-    * Author: GoogleChromeLabs Team
-* **The Amazing Person Who Embedded WebView2 in UserForm Without Extra Downloads**
+    * 製作者：GoogleChromeLabsチーム
+* **UserFormにWebView2を追加DLなしで埋め込んだすごい方**
   * [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)
-    * Author: [Tarboh](https://x.com/fenblen_puyo)
-
-*Note: For detailed usage and methods of each function, please refer to the documentation of the original libraries above.*
-
-## 💡 Introduction: About the "Protected View" Displayed When Opening Downloaded Files
-
-![Excel Protected View](doc/FirstStep1.png)
-
-When you open a downloaded macro workbook, a yellow bar saying **"Protected View"** may appear at the top of Excel, and you might need to click the "Enable Editing" button.  
-Furthermore, a security warning might appear when you try to run the macro.  
-![Security Risk](doc/FirstStep2.png)
-
-This is a normal and very smart behavior where **your PC is trying to protect you from "unknown" files coming from the internet.**
-
-### How to Unblock
-
-1. Close all Excel instances.
-2. Right-click the downloaded Excel file and select **Properties**.  
-![Right-click Menu](doc/FirstStep4.png)
-3. Check the **Unblock** checkbox and click the **OK** button.  
-![Properties Window](doc/FirstStep5.png)
-4. Open the tool again and click the "Enable Editing" button.
-
-To help you use this macro workbook safely and to its full potential, let me briefly explain **"why this extra step is necessary."**
-
-### Why is This "Extra Step" Necessary? 【A Story】
-
-Once upon a time, the internet was a much more peaceful place.  
-However, at some point, malicious **"viruses" pretending to be Excel macros** began to spread worldwide.  
-People suffered tragedies where their PCs were taken over just by opening an ordinary Excel file attached to an email.
-
-So, Microsoft made a **big decision**.
-
-**"Let's treat all files coming from the internet as 'suspicious characters of unknown origin'!"**
-
-#### The "Mark of the Web (MOTW)" Stamp
-
-The moment you download a file from the internet (web browser, email client, etc.), Windows places a special **"stamp"** called **`Mark of the Web` (MOTW)** on the **"invisible" part** of the file, marking it as **"this person is a person of interest from the lawless land called the internet."**
-
-When Excel opens a file, it first checks if this "stamp" exists.  
-If it finds the stamp, it judges:
-
-**"Wait! This guy is of unknown character!**  
-**It's too dangerous to let them move around freely right away.**  
-**First, let's put them in an 'isolation room' called 'Protected View.' And never run their macros!"**
-
-### What It Means for You to Check the "Unblock" Box
-
-![Bottom of Properties Window](doc/FirstStep3.png)  
-The only **official "guarantee of identity" procedure** to safely lift this strict security system.  
-That is the act of opening the file properties and checking the **"Unblock"** box.
-
-This is the same as you **declaring** to Windows:
-**"I know, I know. I know this guy came from the internet.**
-**But I (you) personally take responsibility and guarantee this person's 'identity'!**
-**So, stop treating them as suspicious and welcome them as a formal 'citizen' of this PC."**
-
-Once this "guarantee of identity" is provided, Windows **permanently removes the `MOTW` "stamp"** from the file.  
-As a result, Excel recognizes the file as a "trusted and safe file" and allows the macros to run normally without displaying "Protected View."
-
----
-**This macro workbook is safe.**  
-**Please, with your power as a "guarantor," give this file the "permission" to be active on your PC.**
-
----
-
-##  Advanced Features and Technical Details (Migrated to GitHub Pages)
-
-Extensive documentation such as "Unique Improvements (Japanese UTF-8 support, BrowserEvents property, etc.)," "API Specification Reference," and "Deep Mechanisms and Design Philosophy" has been moved and organized into a **beautiful static site (GitHub Pages)**.
-
-Please visit the **[Official Documentation Site (Features / API Reference)](https://Eschamali.github.io/StarterWebScrapingKit/)** and touch the abyss of browser control that exceeds the limits of VBA!
-
-## Worksheet: Browser Startup Settings
-
-![Worksheet: Browser Startup Settings](doc/説明1.png)
-
-Basic explanations are provided on the worksheet. Here, we explain the startup arguments.
-
-### Meaning of Initial Additional Startup Arguments
-
-To eliminate troublesome elements during automation, we provide several initial arguments along with W3C-compliant arguments.
-
-| Argument Name | Meaning | 
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | 
-| no-first-run | Starts Chromium-based browsers without the first-run setup screens.<br>Skips the "Welcome" screen or prompts to log in to Google/Microsoft accounts. | 
-| disable-fre | Same as `no-first-run`. Used together because `no-first-run` alone may not fully suppress it depending on the version or environment. | 
-| disable-popup-blocking | Disables popup blocking. | 
-| disable-sync | Disables automatic login and synchronization with accounts. | 
-| disable-background-networking | Disables several subsystems that perform network requests in the background.<br>Eliminates communications other than the intended one as much as possible. | 
-| disable-default-apps | Disables the installation of default apps on first run. | 
-| no-service-autorun | Suppresses the startup of extra background services. | 
-| enable-automation | Enables the display indicating that the browser is controlled by automation.<br>Serves as a marker to prevent mixing with normal browsers. | 
-| test-type=ExcelVBA | Specifies the type of test harness. In short, it's just for decoration. | 
-
-### About Bot Detection Bypass Mode
-
-Adds `disable-blink-features=AutomationControlled` to the startup arguments. This overrides `navigator.webdriver` to `false`, enabling bot detection bypass.  
-Some sites check this flag to block access, so turn it ON as needed.
-
-However, keep in mind that this argument is not officially supported and may stop working someday.  
-As of the time of writing, a warning message appears, but it still works.  
-![Message at the top of browser startup](doc/説明3.png)
-
-### Startup Arguments Within VBA
-
-Contains minimum mandatory arguments for browser automation. You can find these arguments in the `GenerateArg○○`-family procedures of the `CDPHost` class module.
-
-| Argument Name | Meaning | 
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | 
-| remote-debugging-pipe / remote-debugging-port | Makes the browser allow debugging from a "different process (Excel)" than the "main process."<br>`pipe` is pipe communication (the Pipe route); `port` is WebSocket communication (the Port route. The port number is `0`, i.e. automatically assigned to a free port, and the connection info is read from the `DevToolsActivePort` file).<br>Although it says "remote," `pipe` is specified to be accessible only from within the same PC. | 
-| user-data-dir | Specifies the full path to the browser's data directory (Cookies, extensions, password vault, etc.).<br>Normally it is `C:\Users\%USERNAME%\AppData\Local\Microsoft\Edge\User Data`, but due to [measures against Cookie theft using debugging features](https://developer.chrome.com/blog/remote-debugging-port?hl=ja) it is now mandatory to specify a folder path other than `User Data`.<br>By default, this tool creates a path in the same hierarchy as `User Data` as `Automation Data`.<br>If you write a full path with a drive letter, such as `C:\Data\MyProfile`, in the "User data folder name" on the settings sheet, that path is used as-is as the storage location. | 
-| homepage | Specifies the initial URL when the browser starts, but it is set to `about:blank` to suppress extra communication.<br>However, if an arbitrary URL is passed to the `app` in the next item, this will not be added. | 
-| app | Corresponds to the 2nd argument of the `start` method. If you want to specify the initial URL when starting the browser, you specify it here.<br>Starting with a URL here allows you to prevent user actions that interfere with automation to some extent, such as:<br>・Changing to an arbitrary URL not allowed<br>・Creating tabs not allowed<br><br>It's like a simple kiosk mode. | 
-
----
-
-## 🎓 Making Copilot Smarter with Excel's "`.Rules`"
-
-![.Rules sheet](https://github.com/user-attachments/assets/1fabf4a1-2898-4452-963c-3addea412e43)
-
-We've added a `.Rules` sheet, written in the [official format](https://support.microsoft.com/ja-jp/excel/copilot/copilot-in-excel-rules) for Excel's built-in AI feature, "Copilot in Excel." Now, when you ask Copilot a web-scraping question about this workbook, it's steered toward answers based on **this workbook's own CDP/BiDi control features**, instead of the generic `SeleniumVBA`-flavored suggestions Copilot would otherwise default to.
-
-> [!IMPORTANT]
-> Since Copilot in Excel itself is an Excel-only feature, **Access is not supported**.
+    * 製作者：[たーぼー氏](https://x.com/fenblen_puyo)
+* **「VBAから直接WebDriverへ」の道を切り拓いた方々**
+  * [TinySeleniumVBA](https://github.com/uezo/TinySeleniumVBA)
+    * 製作者：uezo氏
+  * [SeleniumVBA](https://github.com/GCuser99/SeleniumVBA)
+    * 製作者：GCuser99氏
