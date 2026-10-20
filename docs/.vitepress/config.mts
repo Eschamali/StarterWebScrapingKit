@@ -170,10 +170,15 @@ export default withMermaid(
           items: [
             { text: 'このツールの誕生秘話', link: '/stories/birth-story' },
             { text: 'BiDi 登場秘話', link: '/stories/bidi-story' },
-            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' },
-            { text: '技術資料: Pipe 経路', link: '/stories/pipe-tech' },
-            { text: '技術資料: WebSocket 経路', link: '/stories/websocket-tech' },
-            { text: '技術資料: WebView2 経路', link: '/stories/webview2-tech' }
+            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' }
+          ]
+        },
+        {
+          text: '技術資料',
+          items: [
+            { text: 'Pipe 経路', link: '/stories/pipe-tech' },
+            { text: 'WebSocket 経路', link: '/stories/websocket-tech' },
+            { text: 'WebView2 経路', link: '/stories/webview2-tech' }
           ]
         },
         {
