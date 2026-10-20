@@ -1,5 +1,5 @@
 ---
-description: Excel VBA だけで WebView2 から CDP を受け取るまでの流れを、実装と WebView2 の公式リファレンスで確かめながら解説する技術資料です。vtable の番号計算、自作のコールバックオブジェクト、ID やイベント名をハンドラに持たせる方法を扱います。
+description: Excel VBA だけで WebView2 から CDP を受け取るまでの流れを、実装と WebView2 の公式リファレンスで確かめながら解説する技術資料です。vtable の番号計算、自作のコールバックオブジェクト、ID やイベント名をハンドラに持たせる方法と、拡張機能を使うために WebView2 専用の API を足した経緯を扱います。
 ---
 
 # 技術秘話: WebView2 経路
@@ -214,6 +214,87 @@ flowchart LR
 
 まぁ、結局は使う人次第ですね。
 
+## WebView2 にもあった拡張機能の制限
+
+[WebSocket 経路](/stories/websocket-tech)にもあった拡張機能の制限は、WebView2 でも起こりました。
+単純に `Extensions.loadUnpacked` を送っても、`Method not available.` エラーになり、機能しません。
+
+### 拡張機能を有効にするオプション
+
+しかたなく、`WebView2EnvOptions.cls` という COM のエミュレートを作ることになりました。
+というのも WebView2 では、環境を作るときのオプション（`AreBrowserExtensionsEnabled`）を ON にしないと、拡張機能が使えない仕様なのです。[公式リファレンス](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions6)でも、このオプションの既定値は `FALSE` で、そのままでは新しい拡張機能をインストールできないと書かれています。
+
+もっと言えば、初代 WebView2 には、拡張機能という概念がありませんでした。Win32 版の WebView2 が正式リリース（GA）になったのは、2020年10月の [SDK 1.0.622.22](https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/sdk/1-0-622-22) です。拡張機能への対応が正式に入ったのは、2023年12月の [SDK 1.0.2210.55](https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/sdk/1-0-2210-55) からでした。[拡張機能を求める Issue](https://github.com/MicrosoftEdge/WebView2Feedback/issues/98) は、GA より前の2020年1月から立っています。そういったこともあって、オプション経由で切り替える形になったんだろうな～と思っています。
+
+しかもこれがやっかいで、ただ単に拡張機能を ON にするフラグを1つ設定すれば済む、というわけではありません。
+
+- オプション専用のクラスオブジェクト（COM）を作る儀式
+- その中の「拡張機能」を有効にする設定
+- それを WebView2 に拾わせるサンク
+
+という、（人間にとっては）だるい仕様です。
+
+`ICoreWebView2EnvironmentOptions` は、アプリ側が実装して WebView2 に渡すインターフェースです。C++ なら、SDK の `WebView2EnvironmentOptions.h` に既定の実装が用意されています。VBA にはそれがないので、前述の「2. コールバックオブジェクトを自作する」と同じように、vtable からメモリ上に組み立てることになります。もうこの辺は AI に任せました。
+
+### 理由を教えてくれないエラー
+
+ところが、作ったところでアクシデントです。問答無用でエラー終了、理由は詳しく教えてくれない、という理不尽なことに出くわしました。`CreateCoreWebView2EnvironmentWithOptions` が `hr=&H80070057`（`E_INVALIDARG`）を返して、即座に失敗するのです。
+しかも、AI に訊いてもあまりいい回答を得られない時期がありました。
+
+もう無理かとあきらめかけたその時、ヒントがあったのが Rust で開発中の WebView2 でした。[webview2-rs の Issue](https://github.com/wravery/webview2-rs/issues/10) に載っていたコードは、オプションを `CoreWebView2EnvironmentOptions::default()` で作っていました。この `default()` を[ソース](https://github.com/wravery/webview2-rs/blob/main/crates/webview2-com/src/options.rs)でたどると、`TargetCompatibleBrowserVersion` に SDK のバージョン（`CORE_WEBVIEW_TARGET_PRODUCT_VERSION`）を入れていたのです。
+
+Issue 自体は、言語の設定が反映されないという別の相談で、このエラーの答えが直接書いてあったわけではありません。間接的に、結果的に分かった形です。
+
+VBA にも同じ戦法を適用したら、ついに通ってくれました。
+
+[公式リファレンス](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions)でも、この値の既定は「アプリが使っている SDK に対応する WebView2 Runtime のバージョン」です。このツールでは、空のまま渡すのをやめ、SDK に合わせた `152.0.4181.0` を既定にしています（`WebView2EnvOptions.cls` の `Class_Initialize`）。
+
+まさか、[Windows のカーネルにも使われ始めた](https://blogs.windows.com/windows-insider/2023/07/12/announcing-windows-11-insider-preview-build-25905/)言語に助けられるとは思いませんでした。
+
+### それでも `Method not available.`
+
+さて、ようやくこれで、拡張機能の `Extensions.loadUnpacked` が使え…ませんでした。また `Method not available.` エラーです。
+
+念のため、`AdditionalBrowserArguments` に例の `--remote-debugging-port=9222` を付けて試すと、こちらから送った `Extensions.loadUnpacked` は通りました。
+
+ただ、CDP に精通しているわいは、なんとな～く理由が分かった気がします。
+`Method not available.` エラーは、実は `/page` 単位で同じコマンドを送っても、同じエラーで返ってくるのです。
+
+つまり、次のような違いではないかと考えています。
+
+- `CallDevToolsProtocolMethod`（`ForSession`）：内部では常にページ単位
+- `--remote-debugging-port=9222`：ブラウザ単位で接続しているので成功
+
+※あくまでも推測です。
+
+WebView2 の中身までは確かめられませんが、この推測と合う材料は見つかりました。
+
+- Chromium の `chrome/browser/devtools/protocol/extensions_handler.cc` は、拡張機能の読み込みが許されていない接続から `loadUnpacked` が来ると、この `Method not available.` を返します。読み込みを許すかどうかは、`chrome_devtools_session.cc` で、接続先がブラウザ全体（`kTypeBrowser`）かどうかで決まります
+- WebView2 の[公式リファレンス](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2_11)では、`CallDevToolsProtocolMethodForSession` の `sessionId` を空にすると、トップページの既定のターゲットとして扱うと書かれています。`SessionID` を空にしても効果がなかったのは、このためだと考えられます
+- `--remote-debugging-port` で通ったのも、[WebSocket 経路](/stories/websocket-tech)で書いた Chromium 149 の変更で、Pipe 経路の要件が外れたことと合います
+
+### WebView2 向けの拡張機能 API
+
+ということで、そうなると手段は1つです。
+WebView2 向けの拡張機能 API（`ICoreWebView2Profile7` の `AddBrowserExtension` / `GetBrowserExtensions` と、`ICoreWebView2BrowserExtension` の `Remove`）を付け足すことです。
+
+コードはかなり増えてしまいましたが、なんとか実現に至りました。
+vtable の構築などはもう完全に AI 任せですが、フローはなんとか自分で整理したつもりです。
+
+いっそのこと、`Extensions.loadUnpacked` が来たら、WebView2 の拡張機能 API にリダイレクトするような仕組みも頭をよぎりました。
+
+> いや、いつか CDP としての `Extensions.loadUnpacked` もできるかもしれない
+
+というわずかな望みも捨てきれず、まだリダイレクトの流れは考えていません。デモ（`Demo_WebView2.bas` の `UseExtensionsViaWebView2API`）にも、CDP で試す分岐を残しています。
+
+まぁでも、言ったところで、
+
+> え、なんでわざわざ面倒な `CallDevToolsProtocolMethod` でやるの？ WebView2 用の API があるじゃん
+
+という返信が来そうで、結局一生来ないオチかもしれませんが。
+
+そんな、WebView2 の拡張機能の愚痴でした。
+
 ## 参考資料
 
 * [lucasplumb/ExcelWebView2](https://github.com/lucasplumb/ExcelWebView2)（参照設定で使う POC。32bit 版 Office 2016 で作成）
@@ -225,3 +306,17 @@ flowchart LR
 * [ICoreWebView2DevToolsProtocolEventReceivedEventArgs](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2devtoolsprotocoleventreceivedeventargs)（`get_ParameterObjectAsJson` のみ）
 
 * [DispCallFunc](https://learn.microsoft.com/ja-jp/windows/win32/api/oleauto/nf-oleauto-dispcallfunc)
+
+* [ICoreWebView2EnvironmentOptions6](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions6)（`AreBrowserExtensionsEnabled`。既定は `FALSE`）
+
+* [ICoreWebView2Profile7](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2profile7)（`AddBrowserExtension` / `GetBrowserExtensions`）
+
+* [ICoreWebView2EnvironmentOptions](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions)（`TargetCompatibleBrowserVersion` の既定値）
+
+* [Release notes for the WebView2 SDK 1.0.2210.55](https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/sdk/1-0-2210-55)（2023年12月、拡張機能への対応が正式リリース）
+
+* [chrome/browser/devtools/protocol/extensions_handler.cc](https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/devtools/protocol/extensions_handler.cc)（`Method not available.` を返す箇所）
+
+* [wravery/webview2-rs#10](https://github.com/wravery/webview2-rs/issues/10)（`CoreWebView2EnvironmentOptions::default()` でオプションを作っているコード）
+
+* [wravery/webview2-rs の options.rs](https://github.com/wravery/webview2-rs/blob/main/crates/webview2-com/src/options.rs)（Rust 向けの `ICoreWebView2EnvironmentOptions` の実装。`default()` で `TargetCompatibleBrowserVersion` に SDK のバージョンを入れる）
