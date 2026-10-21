@@ -18,7 +18,11 @@ VBA 界隈では、ある議論がひそかに続いていました。
 
 ただ悲しいことに、調査した時点では 32bit にしか対応していませんでした。うちは 64bit の Excel を入れているので、わざわざ入れ直すのが面倒で、やる気になりませんでした。32bit で入れ直せば、動くところを見られるのかもしれません。でも、世の中はもう 64bit が主流です。Windows 11 も 64bit が前提になりつつある今、32bit で入れ直す手間すら面倒になりました。
 
-時がたち、[たーぼー氏の投稿](https://x.com/fenblen_puyo/status/1908834844949594422)で、この時点での現実解が見つかりました。見ての通り、どのルートに進んでも外部依存が必須です。この時点では、それが答えでした。
+<blockquote class="twitter-tweet"><p lang="ja" dir="ltr">Excel VBAでWebView2を利用するための手段について現在までのリサーチ状況のまとめ。
+DllExportで作ったdllからWebViewが利用できれば最高でしたが、一長一短ですね。それ以外の一般的なコントロールは問題なく使えるので、WebViewが要らないならExcelを逸脱する一番手軽な手法になると思います。 https://t.co/5m6e6mbain</p>&mdash; たーぼー（インコ） (@fenblen_puyo) <a href="https://x.com/fenblen_puyo/status/1908834844949594422?ref_src=twsrc%5Etfw">April 6, 2025</a></blockquote>
+<script async src="https://platform.x.com/widgets.js" charset="utf-8"></script>
+
+時がたち、たーぼー氏の投稿で、この時点での現実解が見つかりました。見ての通り、どのルートに進んでも外部依存が必須です。この時点では、それが答えでした。
 
 ただし、プリインストールのものだけで済ませる縛りなら、多少の実現性はありました。ps1 と VBA の組み合わせです。
 
@@ -320,3 +324,13 @@ vtable の構築などはもう完全に AI 任せですが、フローはなん
 * [wravery/webview2-rs#10](https://github.com/wravery/webview2-rs/issues/10)（`CoreWebView2EnvironmentOptions::default()` でオプションを作っているコード）
 
 * [wravery/webview2-rs の options.rs](https://github.com/wravery/webview2-rs/blob/main/crates/webview2-com/src/options.rs)（Rust 向けの `ICoreWebView2EnvironmentOptions` の実装。`default()` で `TargetCompatibleBrowserVersion` に SDK のバージョンを入れる）
+
+<script setup>
+import { onContentUpdated } from 'vitepress'
+
+onContentUpdated(() => {
+  if (typeof window !== 'undefined' && window.twttr) {
+    window.twttr.widgets.load()
+  }
+})
+</script>
