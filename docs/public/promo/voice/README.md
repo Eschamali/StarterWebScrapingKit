@@ -10,6 +10,7 @@ promo/
 ├─ ReiwaIE_History.html
 ├─ ReiwaIE_CoreCompare.html
 ├─ ReiwaIE_VbaCompare.html
+├─ ReiwaIE_DebugRoute.html
 └─ voice/
    ├─ README.md            … このファイル
    ├─ ReiwaIE_60s/         … ReiwaIE_60s.html の声
@@ -21,9 +22,13 @@ promo/
    ├─ ReiwaIE_CoreCompare/ … ReiwaIE_CoreCompare.html の声
    │  ├─ narration.json
    │  └─ I1.wav, I2.wav, …
-   └─ ReiwaIE_VbaCompare/  … ReiwaIE_VbaCompare.html の声
+   ├─ ReiwaIE_VbaCompare/  … ReiwaIE_VbaCompare.html の声
+   │  ├─ narration.json
+   │  └─ O1.wav, O2.wav, …
+   └─ ReiwaIE_DebugRoute/  … ReiwaIE_DebugRoute.html の声と BGM
       ├─ narration.json
-      └─ O1.wav, O2.wav, …
+      ├─ o1.wav, p1.wav, …
+      └─ bgm.mp3
 ```
 
 ## ルール
@@ -40,6 +45,7 @@ promo/
   ```
 
 - 声が読み込めなかった場合、ムービーはナレーションなし（BGM・効果音・字幕のみ）で再生されます
+- `ReiwaIE_DebugRoute` だけは作り方が違います。台本・描画コード・BGM の合成はリポジトリ直下の `movie/DebugRouteTech/` にあり、`build_web.py` が HTML と、このフォルダの `narration.json`・`<id>.wav`・`bgm.mp3`（BGM と効果音を事前に合成したもの）を書き出します。手で直さず、`movie/DebugRouteTech/` 側を直して書き出し直してください
 
 ## narration.json の書き方
 
