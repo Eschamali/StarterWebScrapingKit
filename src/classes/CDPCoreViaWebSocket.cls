@@ -559,15 +559,15 @@ End Function
 '* 注意事項：CDPでは、直バイナリとして送ることはないので、`Private`化してます
 '***************************************************************************************************
 Private Sub SendMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean)
-    ' 1. 送信Opcodeの決定 (テキスト=0x01, バイナリ=0x02)
+    '1. 送信Opcodeの決定 (テキスト=0x01, バイナリ=0x02)
     Dim opcode As Byte
     opcode = IIf(TextType, TextFrame, BinaryFrame)
 
-    ' 2. WebSocketの仕様(RFC 6455)に準拠したマスク付きフレームを構築
+    '2. WebSocketの仕様(RFC 6455)に準拠したマスク付きフレームを構築
     Dim wsFrame() As Byte
     wsFrame = BuildFrame(SendData, opcode)
 
-    ' 3. WinSock経由でデータを全て送信
+    '3. WinSock経由でデータを全て送信
     RawSend wsFrame
 End Sub
 
