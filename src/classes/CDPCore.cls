@@ -176,6 +176,7 @@ Private Const CREATE_UNICODE_ENVIRONMENT As Long = &H400&   '`lpEnvironment`がU
 Private Const ThisClassName             As String = "CDPCore"   'ログのトレース用
 Private Const MAX_STR_LEN               As Long = 2 ^ 30 - 1    'VBA文字列の限界
 Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。なお、この補正はあくまでも、Pipe経路に限ります。
+Private Const RunDoEventsCount          As Integer = 2 ^ 10     '長いTake○○ループ中に`DoEvents`を挟む間隔値
 
 
 
