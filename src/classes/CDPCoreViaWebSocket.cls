@@ -692,7 +692,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：必要に応じて、`WithEvents`による受け取りもご利用できます
 '* 注意事項：・エラーコードは別途プロパティメソッドで取得してください
-'            ・このプロシージャは、内部でループ処理は行いません。呼び出し側にて、引数やGETプロパティから状況を判断して、ループ処理を継続するかのロジックで組んでます
+'            ・このプロシージャは、内部でループ処理は行いません。呼び出し側にて、引数やGETプロパティから状況を判断して、ループ処理を継続する前提の、ワンショットロジックで組んでます
 '            ・Pipe版と違って、「[タグ情報][ペイロード][タグ情報][ペイロード]...」というフレーム連鎖になってる都合上、
 '            　`CDPCore.TakeWebSocket`処理の途中でVBE停止させると、ハンドルの使いまわし時に、上手く機能しなくなります。
 '              その場合は、新規WebSocket接続からやり直してください。
@@ -973,7 +973,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             .PayloadLength = CLng(tempLen)
 
         Else
-            '念のため、用意
+            'ルール違反なので切断処理してエラーとして処理
             Call DisconnectCDP
             printMsg ERROR_, "An invalid `Payload len` has been detected: " & lenIndicator, FromProcedureName, doRaiseError:=True
 
