@@ -199,28 +199,28 @@ Private Utf8Converter           As CharacterCodeConversion  'UTF-8バイト配�
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：初回は、`-3`とします。`GetAsyncMessage`を呼ばないと更新されません
 '***************************************************************************************************
-Public Property Get LastBufferType() As WS_BUFFER_TYPE
+Property Get LastBufferType() As WS_BUFFER_TYPE
     LastBufferType = m_LastBufferType
 End Property
 
 '***************************************************************************************************
 '* 機能    ：このClassオブジェクトが既に、WebSocketによる接続中かを確認します
 '***************************************************************************************************
-Public Property Get Connected() As Boolean
+Property Get Connected() As Boolean
     Connected = m_IsConnected
 End Property
 
 '***************************************************************************************************
 '* 機能    ：`GetAsyncMessage`プロシージャ使用時、`ioctlsocket`でエラーが起こった際のエラーコード
 '***************************************************************************************************
-Public Property Get IsErrorStylePeekNamedPipe() As Long
+Property Get IsErrorStylePeekNamedPipe() As Long
     IsErrorStylePeekNamedPipe = LastWinSockError.StyleErrPeekNamedPipe
 End Property
 
 '***************************************************************************************************
 '* 機能    ：`GetAsyncMessage`プロシージャ使用時、`recv`でエラーが起こった際のエラーコード
 '***************************************************************************************************
-Public Property Get IsErrorStyleReadFile() As Long
+Property Get IsErrorStyleReadFile() As Long
     IsErrorStyleReadFile = LastWinSockError.StyleErrReadFile
 End Property
 
