@@ -10,7 +10,7 @@ VBA 界隈では、ある議論がひそかに続いていました。
 
 その議論に、ついに終止符が打たれました。
 
-先行したのは Access で、[Access には公式のコントロールとして登場](/stories/webview2-story)しました。VBA 界隈では、すでにこれを自動化に応用するショート動画もありました。
+先行したのは Access で、[Access には公式のコントロールとして登場](/stories/DevHistory/webview2-story)しました。VBA 界隈では、すでにこれを自動化に応用するショート動画もありました。
 
 では、Excel ならどうなるか…。これまでは、外部依存が必須でした。
 
@@ -145,7 +145,7 @@ C++ なら、この記録はラムダ式のキャプチャで済みます。た�
 
 WebView2 のコールバックは、Excel がメッセージを処理するタイミングで届きます。そのため、`CDPCore` の受信処理（`TakeWebView2`）は、`DoEvents` を呼んでバッファーが増えなくなるまで待ちます。
 
-ここから先は、[Pipe 経路](/stories/pipe-tech)や [WebSocket 経路](/stories/websocket-tech)とまったく同じ処理です。WebView2 からは、UTF-16 の文字列として、欠けのない Json が1件ずつ届きます。そのため、WebSocket のようなフレームの組み立てや、UTF-8 からの変換も要りません。
+ここから先は、[Pipe 経路](/stories/DebugRouteTech/pipe-tech)や [WebSocket 経路](/stories/DebugRouteTech/websocket-tech)とまったく同じ処理です。WebView2 からは、UTF-16 の文字列として、欠けのない Json が1件ずつ届きます。そのため、WebSocket のようなフレームの組み立てや、UTF-8 からの変換も要りません。
 
 ::: warning イベントの購読はイベント名ごと
 Pipe や WebSocket では、ドメインを `enable` すれば、そのドメインのイベントがすべて届きます。WebView2 の `GetDevToolsProtocolEventReceiver` は、イベント名ごとに購読する仕組みです。そのため、このツールでも `SubscribeCdpEvent` で、イベント名を1つずつ指定する必要があります。
@@ -216,7 +216,7 @@ flowchart LR
 
 ## WebView2 にもあった拡張機能の制限
 
-[WebSocket 経路](/stories/websocket-tech)にもあった拡張機能の制限は、WebView2 でも起こりました。
+[WebSocket 経路](/stories/DebugRouteTech/websocket-tech)にもあった拡張機能の制限は、WebView2 でも起こりました。
 単純に `Extensions.loadUnpacked` を送っても、`Method not available.` エラーになり、機能しません。
 
 ### 拡張機能を有効にするオプション
@@ -271,7 +271,7 @@ WebView2 の中身までは確かめられませんが、この推測と合う�
 
 - Chromium の `chrome/browser/devtools/protocol/extensions_handler.cc` は、拡張機能の読み込みが許されていない接続から `loadUnpacked` が来ると、この `Method not available.` を返します。読み込みを許すかどうかは、`chrome_devtools_session.cc` で、接続先がブラウザ全体（`kTypeBrowser`）かどうかで決まります
 - WebView2 の[公式リファレンス](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2_11)では、`CallDevToolsProtocolMethodForSession` の `sessionId` を空にすると、トップページの既定のターゲットとして扱うと書かれています。`SessionID` を空にしても効果がなかったのは、このためだと考えられます
-- `--remote-debugging-port` で通ったのも、[WebSocket 経路](/stories/websocket-tech)で書いた Chromium 149 の変更で、Pipe 経路の要件が外れたことと合います
+- `--remote-debugging-port` で通ったのも、[WebSocket 経路](/stories/DebugRouteTech/websocket-tech)で書いた Chromium 149 の変更で、Pipe 経路の要件が外れたことと合います
 
 ### WebView2 向けの拡張機能 API
 

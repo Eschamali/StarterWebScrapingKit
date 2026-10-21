@@ -8,7 +8,7 @@ description: 純VBAでWebView2を埋め込めると知った衝撃、いちど�
 〜半年前に自分で埋めた種と、たーぼーさんからの一通の報告〜
 :::
 
-[このツールの誕生秘話](/stories/birth-story)の「半年前に埋めた種を掘り起こす」の章でも触れた通り、WebView2対応（v3.0.0）の種は、実は2026年3月頃とほぼ同じ時期――にすでに蒔かれていました。ここでは、その種がなぜ一度は本体と分離し、どうやって半年越しに復活したのかを、もう少し詳しく振り返ります。
+[このツールの誕生秘話](/stories/DevHistory/birth-story)の「半年前に埋めた種を掘り起こす」の章でも触れた通り、WebView2対応（v3.0.0）の種は、実は2026年3月頃とほぼ同じ時期――にすでに蒔かれていました。ここでは、その種がなぜ一度は本体と分離し、どうやって半年越しに復活したのかを、もう少し詳しく振り返ります。
 
 ---
 
@@ -134,7 +134,7 @@ IE時代なら
 数日で、UserFormにWebView2を埋め込んで動かすところまでは辿り着きました。  
 UserFormの真ん中に、最新のChromium（WebView2）がサクッと表示されたときの感動は、今でも忘れられません🥹
 
-ただし、ここで大きな壁にぶつかります。**当時の本体（`main`）には、まだ `RaiseEvent` による非同期イベント配信の仕組みがありませんでした。** それが整うのは、[通信経路の拡張はどうしたの？](/stories/birth-story#通信経路の拡張はどうしたの)セクションで `CDPCore.cls` に `RaiseEvent CDPBrowserEvent` 等が生まれる5月末〜6月のことで、この時点ではまだ2ヶ月以上先の話です。
+ただし、ここで大きな壁にぶつかります。**当時の本体（`main`）には、まだ `RaiseEvent` による非同期イベント配信の仕組みがありませんでした。** それが整うのは、[通信経路の拡張はどうしたの？](/stories/DevHistory/birth-story#通信経路の拡張はどうしたの)セクションで `CDPCore.cls` に `RaiseEvent CDPBrowserEvent` 等が生まれる5月末〜6月のことで、この時点ではまだ2ヶ月以上先の話です。
 
 共有できる土台がない以上、やれることは1つでした🥺
 
@@ -290,7 +290,7 @@ Pipe・WebSocketでは何の問題もなく通る `Extensions.loadUnpacked` が�
 
 この物語の前半で組み上げたvtable偽造の技法を、今度は「コールバックを受け取る側」ではなく「**設定を聞かれたら答える側**」として使う番でした。空文字のままだと`E_INVALIDARG`で即死する`TargetCompatibleBrowserVersion`のような、実機で1つずつ踏んで確かめた落とし穴もありましたが、`WebView2EnvOptions.cls`として無事に形にできました。
 
-![拡張機能がWebView2で動作してる様子](../public/img/拡張機能がWebView2で動作してる様子.png)
+![拡張機能がWebView2で動作してる様子](../../public/img/拡張機能がWebView2で動作してる様子.png)
 
 ### ついでに全部載せてしまう
 
@@ -327,7 +327,7 @@ vtableを1つ組み上げる大変さを味わったあとだと、不思議な�
 
 ## 次に読む
 
-- [このツールの誕生秘話](/stories/birth-story) — 半年前に埋めた種を掘り起こす（v3.0.0）
+- [このツールの誕生秘話](/stories/DevHistory/birth-story) — 半年前に埋めた種を掘り起こす（v3.0.0）
 - [WebView2モードの設計思想について](/webview2/design) — 機械語サンク・vtableの技術詳細
 - [WebView2モードでできること](/webview2/capabilities) — 拡張機能・`EnvironmentOptions`の使い方
 - [Excel単独で「真のWebView2」を完全制御する](/userform/vba-only)

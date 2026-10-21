@@ -113,7 +113,7 @@ W3C BiDi 寄りに寄せたい、将来標準を先取りしたい場合は **Bi
 
 ## 開発秘話
 
-なぜ exe なしで WebDriver BiDi が動くのか——発見の経緯は [BiDi 登場秘話](/stories/bidi-story) にまとめています。
+なぜ exe なしで WebDriver BiDi が動くのか——発見の経緯は [BiDi 登場秘話](/stories/DevHistory/bidi-story) にまとめています。
 
 ## UserForm にモダンブラウザを載せる
 

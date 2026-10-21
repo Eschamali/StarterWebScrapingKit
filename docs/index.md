@@ -42,6 +42,6 @@ features:
     linkText: WebView2 でできること
   - title: 開発秘話
     details: Puppeteer / Playwright 並みのコアエンジンをVBAで実現するまでの道のり
-    link: /stories/birth-story.md
+    link: /stories/DevHistory/birth-story.md
     linkText: 登場秘話を見る
 ---

@@ -38,7 +38,7 @@ flowchart TB
 | `CDPCore` | `--remote-debugging-pipe` ロジックで CDP 送受信 |
 | `CDPCoreViaWebSocket` | WebSocket(`--remote-debugging-port`)ロジックでの CDP 送受信（既存セッション、または `OpenBrowserAndConnectCDP` による起動込み接続） |
 | `CDPCoreViaWebView2` | WebView2（`ICoreWebView2`）を直接叩く3つ目のtransport。COM/vtableと機械語サンク経由でCDPコマンドを送受信。拡張機能インストール等、CDPの外側にあるWebView2固有機能も一部プロパティ/メソッドとして公開（v3.0.0〜、v3.1.0で拡張機能対応） |
-| `CDPHost` | ローカルPC上のブラウザプロセスに関する機能（起動・ポリシーチェック・後始末など）を集約。WebView2は対象外（v3.0.0〜、[`CDPBrowser`/`CDPCore`から分離](/stories/birth-story)。v3.1.0で`CDPCoreHost`から改名） |
+| `CDPHost` | ローカルPC上のブラウザプロセスに関する機能（起動・ポリシーチェック・後始末など）を集約。WebView2は対象外（v3.0.0〜、[`CDPBrowser`/`CDPCore`から分離](/stories/DevHistory/birth-story)。v3.1.0で`CDPCoreHost`から改名） |
 | `BrowserCapabilities` | 起動時のオプションを1つにまとめた設定保持クラス（使い切り）。既定値はワークシートから読み込み、`Set_○○` で上書き（[API](/api/cdp/BrowserCapabilities)） |
 | `ReattachOptions` | 再接続時のオプションを1つにまとめた設定保持クラス（使い切り）。制御経路（Pipe / Port / WebView2）を指定（[API](/api/cdp/ReattachOptions)） |
 | `CDPBrowser` | プロセス起動・タブ一覧・ブラウザ単位の `ExecuteCDP` |

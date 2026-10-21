@@ -96,7 +96,7 @@ wasabi は汎用ライブラリなので、CDP では使わない機能がたく
 > そんなのは嫌だ🥺WebSocket経由でも、Pipe版みたいなロジックに仕上げてやる🔥
 
 こうして、独自でCDP専用として実装しました🤠  
-WinSock で自作するまでの道のりは、[このツールの誕生秘話](/stories/birth-story)で語っています。
+WinSock で自作するまでの道のりは、[このツールの誕生秘話](/stories/DevHistory/birth-story)で語っています。
 
 こういった拡張で実装しているため、Pipe 版での起動とは少し異なります。[次のページ](/websocket/capabilities)にて説明します。
 
@@ -104,5 +104,5 @@ WinSock で自作するまでの道のりは、[このツールの誕生秘話](
 
 - [WebSocket モードでできること](/websocket/capabilities)
 - [アーキテクチャ](/concepts/architecture)
-- [このツールの誕生秘話](/stories/birth-story) — WinHTTP を諦めて WinSock を自作した話
+- [このツールの誕生秘話](/stories/DevHistory/birth-story) — WinHTTP を諦めて WinSock を自作した話
 - [Transport 層とバッファ管理](/core-comparison/transport) — `ws` パッケージに委譲する Node 勢との比較

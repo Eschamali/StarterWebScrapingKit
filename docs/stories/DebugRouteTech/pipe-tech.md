@@ -4,7 +4,7 @@ description: --remote-debugging-pipe の仕組みを、Chromium のソースで�
 
 # 技術秘話: Pipe 経路
 
-[開発秘話](/stories/birth-story)のページにある話のうち、技術的な内容だけを切り出した資料です。
+[開発秘話](/stories/DevHistory/birth-story)のページにある話のうち、技術的な内容だけを切り出した資料です。
 
 現代のブラウザ、ここでは Chromium（Edge、Chrome）を外部から制御する方法は、大きく分けて2つあります。
 

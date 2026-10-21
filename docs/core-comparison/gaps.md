@@ -349,4 +349,4 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 
 - [概要と結論](/core-comparison/) — 比較全体のサマリ
 - [設計思想](/concepts/design-philosophy) — なぜこのスコープを選んだのか
-- [BiDi 対応の物語](/stories/bidi-story) — 実際にどう作られたか
+- [BiDi 対応の物語](/stories/DevHistory/bidi-story) — 実際にどう作られたか

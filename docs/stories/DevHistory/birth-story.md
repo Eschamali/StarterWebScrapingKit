@@ -324,7 +324,7 @@ WebDriver BiDi 対応です。`mapperTab.js` という 2 万行の JavaScript �
 
 なぜ 2 万行の JS を Excel のセルに詰め込むことになったのか、そこに至るまでの経緯はかなり長くなるので、独立した記事があります。
 
-👉 **[なぜ `WebDriver.exe` なしで「WebDriverBiDi」プロトコルで、ブラウザ自動化ができるとわかったのか](/stories/bidi-story)**
+👉 **[なぜ `WebDriver.exe` なしで「WebDriverBiDi」プロトコルで、ブラウザ自動化ができるとわかったのか](/stories/DevHistory/bidi-story)**
 
 ---
 
@@ -947,7 +947,7 @@ Loop
 ただし、この章の主役の1人は、**8月に生まれたコードではありません**。
 
 ::: tip もっと詳しく
-このブランチが辿った道のり（きっかけとなった記事、一度は本体と分離してしまった経緯、たーぼーさんからの一通の報告で復活した顛末）は、[WebView2、登場秘話](/stories/webview2-story) にまとめています。
+このブランチが辿った道のり（きっかけとなった記事、一度は本体と分離してしまった経緯、たーぼーさんからの一通の報告で復活した顛末）は、[WebView2、登場秘話](/stories/DevHistory/webview2-story) にまとめています。
 :::
 
 ### 春に埋めた種
@@ -1233,7 +1233,7 @@ v4.0.0 で入口を作り直したあと、次に手を付けたのは、ずっ�
 
 **WebDriver BiDi には、要素操作のヘルパーがない。**
 
-CDP には `CDPElement` があります。`getElementByQuery(...)` で要素を取って、`.click` や `.value = "..."` と書くだけです。一方 BiDi は、[BiDi 登場秘話](/stories/bidi-story)のとおり、通信の土台はできても、要素を触るには `jsEval` で JavaScript を書くか、`UpgradeBiDiPlus` で CDP に変換するしかありませんでした。
+CDP には `CDPElement` があります。`getElementByQuery(...)` で要素を取って、`.click` や `.value = "..."` と書くだけです。一方 BiDi は、[BiDi 登場秘話](/stories/DevHistory/bidi-story)のとおり、通信の土台はできても、要素を触るには `jsEval` で JavaScript を書くか、`UpgradeBiDiPlus` で CDP に変換するしかありませんでした。
 
 ---
 
@@ -1464,8 +1464,8 @@ WebDriverも、アドインも、PowerShellファイル配置等、面倒な設�
 
 ## 次に読む
 
-- [なぜ `WebDriver.exe` なしでWebDriverBiDiプロトコルが扱えるとわかったのか](/stories/bidi-story) — 第4章の 19,879 行の正体
-- [WebView2、登場秘話](/stories/webview2-story) — v3.0.0 の章で触れたWebView2ブランチの、3月の着手から半年越しの復活までの全貌
+- [なぜ `WebDriver.exe` なしでWebDriverBiDiプロトコルが扱えるとわかったのか](/stories/DevHistory/bidi-story) — 第4章の 19,879 行の正体
+- [WebView2、登場秘話](/stories/DevHistory/webview2-story) — v3.0.0 の章で触れたWebView2ブランチの、3月の着手から半年越しの復活までの全貌
 - [Excel単独で「真のWebView2」を完全制御する](/userform/vba-only) — v3.0.0 の章で合流したブランチの、利用者向けの使い方
 - [WebSocket モードでできること](/websocket/capabilities) — WinSock が開けた 1% の扉
 - [`BrowserCapabilities`](/api/cdp/BrowserCapabilities) / [`ReattachOptions`](/api/cdp/ReattachOptions) — v4.0.0 の章のオプションオブジェクト

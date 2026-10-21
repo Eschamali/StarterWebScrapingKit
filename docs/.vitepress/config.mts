@@ -168,17 +168,17 @@ export default withMermaid(
         {
           text: '開発秘話',
           items: [
-            { text: 'このツールの誕生秘話', link: '/stories/birth-story' },
-            { text: 'BiDi 登場秘話', link: '/stories/bidi-story' },
-            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' }
+            { text: 'このツールの誕生秘話', link: '/stories/DevHistory/birth-story' },
+            { text: 'BiDi 登場秘話', link: '/stories/DevHistory/bidi-story' },
+            { text: 'WebView2 登場秘話', link: '/stories/DevHistory/webview2-story' }
           ]
         },
         {
           text: '技術資料',
           items: [
-            { text: 'Pipe 経路', link: '/stories/pipe-tech' },
-            { text: 'WebSocket 経路', link: '/stories/websocket-tech' },
-            { text: 'WebView2 経路', link: '/stories/webview2-tech' }
+            { text: 'Pipe 経路', link: '/stories/DebugRouteTech/pipe-tech' },
+            { text: 'WebSocket 経路', link: '/stories/DebugRouteTech/websocket-tech' },
+            { text: 'WebView2 経路', link: '/stories/DebugRouteTech/webview2-tech' }
           ]
         },
         {
