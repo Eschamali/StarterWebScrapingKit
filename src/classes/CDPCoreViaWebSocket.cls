@@ -120,14 +120,14 @@ Private m_WebSocketFrame As WebSocketReceiveFrameManage
 'WINHTTP_WEB_SOCKET_BUFFER_TYPE
 'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
 Public Enum WS_BUFFER_TYPE
-    WS_NOT_MESSAGE = -3       ' 一度も受信してません            ※一度も`GetAsyncMessage`を呼び出してない初期値
-    WS_PAYLOAD_FRAGMENT = -2  ' ペイロード自体が欠けてる場合    ※フレームヘッダー情報に載ってるペイロードデータサイズが、WinSockPipeに入ってない理不尽パターン
-    WS_PAYLOAD_EMPTY = -1     ' ペイロード自体がない　          ※フレームヘッダー情報は届いたのに、ペイロードデータが届いてない理不尽パターン
-    WS_BINARY_MESSAGE = 0     ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
-    WS_BINARY_FRAGMENT = 1    ' WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE
-    WS_UTF8_MESSAGE = 2       ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
-    WS_UTF8_FRAGMENT = 3      ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
-    WS_CLOSE_MESSAGE = 4      ' WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
+    WS_NOT_MESSAGE = -3 ' 一度も受信してません          ※一度も`GetAsyncMessage`を呼び出してない初期値
+    WS_PAYLOAD_FRAGMENT ' ペイロード自体が欠けてる場合  ※WinSockバッファーに収まらない OR 通信環境不良で欠けた状態のペイロード状態
+    WS_PAYLOAD_EMPTY    ' ペイロード自体がない          ※フレームヘッダー情報は届いたのに、ペイロードデータが届いてない OR そもそもペイロード自体が存在しないパターン
+    WS_BINARY_MESSAGE   ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
+    WS_BINARY_FRAGMENT  ' WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE
+    WS_UTF8_MESSAGE     ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
+    WS_UTF8_FRAGMENT    ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
+    WS_CLOSE_MESSAGE    ' WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
 End Enum
 
 'Opcode 一覧
@@ -837,15 +837,27 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
             End If
         Else
             ' ペイロード自体が欠けてます
-            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_FRAGMENT
             printMsg Debug_, "Not all payloads have been received yet.", FromProcedureName
             EndOfData = False
         End If
     Else
-        'ペイロードデータが届いてない
-        m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
-        printMsg Debug_, "Payload data has not been received.", FromProcedureName
-        EndOfData = False
+        'ペイロードサイズ自体が0であるか？
+        If m_WebSocketFrame.PayloadLength = 0 Then
+            'フレーム情報だけなので、タグを無効化させて次回の取り出し時は、タグ情報を更新するようにする
+            m_WebSocketFrame.ValidTags = False
+            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
+            printMsg info_, "This frame does not contain any payload data.", FromProcedureName
+
+            'フレーム情報だけなので、データは終わりとみなす印にする
+            EndOfData = True
+        Else
+            'ペイロードデータが届いてない
+            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
+            printMsg Debug_, "Payload data has not been received.", FromProcedureName
+
+            'ペイロードデータはあるので、まだ終わってないとみなす印にする
+            EndOfData = False
+        End If
     End If
 
     '5. 取り出したペイロードサイズとして、返却
