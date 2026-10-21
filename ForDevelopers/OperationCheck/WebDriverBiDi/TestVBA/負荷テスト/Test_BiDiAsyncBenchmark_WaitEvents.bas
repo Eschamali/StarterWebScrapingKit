@@ -104,13 +104,14 @@ Public Sub Test_BiDiAsyncBenchmark_WaitEvents()
 '    UserName = ShSetting01_StartBrowser.CurrentUserName
 '
 '    '2. 指定のWebSocketForCDPへ接続
-'    Dim WebSocketCDP As New CDPCoreViaWebSocket
-'    Debug.Print WebSocketCDP.ConnectCDP(UserName, "/session", 49198)
-'    WebSocketCDP.DirectWebDriverBiDiMode = True
+'    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
+'    Debug.Print WebSocketCDP.ConnectCDP(UserName, "/session", 53879)
 '
-'    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+'    '3. 繋げたWebSocketオブジェクトを`ReattachOptions`オブジェクトに渡し、リアタッチ適用
+'    ReattachOptions.Set_DirectWebDriverBiDi = True
+'    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 '    Set mode = New WebDriverBiDiMode
-'    mode.reattach UserName, , WebSocketCDP
+'    mode.reattach ReattachOptions
     '------------------------------------------------
 
     '---------------- Chromium用 --------------------
@@ -283,7 +284,7 @@ Private Sub FinishBenchmark(mode As WebDriverBiDiMode, benchStart As Double, ByR
     PrintHeader "[BiDi/WaitEventsパターン] ベンチマーク結果"
     Debug.Print "  タブ数               : " & NUM_TABS
     Debug.Print "  ラウンド数            : " & NUM_ROUNDS
-    Debug.Print "  接続方式             : " & IIf(ShSetting01_StartBrowse.GetSettingCDP(SettingCDP.UseBrowserPreset, "FinishBenchmark"), "WebSocket", "Pipe")
+    Debug.Print "  接続方式             : " & IIf(ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, "FinishBenchmark"), "WebSocket", "Pipe")
     Debug.Print "  経過時間             : " & Format((CDPHelpers.TimerCounter - benchStart) / 1000, "0.0") & " 秒"
     For t = 1 To NUM_TABS
         Debug.Print "  Tab " & t & " タイムアウト回数    : " & tabStates(t).TimedOutRounds & " / " & NUM_ROUNDS & " ラウンド"
@@ -293,7 +294,7 @@ Private Sub FinishBenchmark(mode As WebDriverBiDiMode, benchStart As Double, ByR
     Debug.Print "  Screenshot保存先     : " & saveDir
     Debug.Print RESULT_SECTION_LINE
 
-    mode.quit
+    mode.CloseBrowser
 End Sub
 
 '---------------------------------------------------------------------------------------------------

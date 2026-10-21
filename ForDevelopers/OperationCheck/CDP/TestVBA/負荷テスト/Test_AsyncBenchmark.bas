@@ -83,14 +83,12 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    Set chrome = New CDPBrowser
     If WebView2Mode Then
         With WebView2Form
-            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set chrome = .StartCDPModeWebView2
             Set tabs(1) = .ThisCDPContext
-            Set chrome = tabs(1).ThisCDPBrowser
 
-            'イベント購読
+            '追加のイベント購読
             .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
 
             '1つ目のフォームを表示
@@ -115,7 +113,6 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
     For t = 1 To NUM_TABS
         tabStates(t).Index = t
 
-        tabs(t).ExecuteCDP "Page.enable"
         tabs(t).ExecuteCDP "Network.enable"
         tabs(t).SetFilterEvents = "Page.loadEventFired"
         tabs(t).SetFilterEvents = "Network.requestWillBeSent"
@@ -200,12 +197,10 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    Set chrome = New CDPBrowser
     If WebView2Mode Then
         With WebView2Form
-            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set chrome = .StartCDPModeWebView2
             Set tabs(1) = .ThisCDPContext
-            Set chrome = tabs(1).ThisCDPBrowser
 
             'イベント購読
             .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
@@ -214,7 +209,18 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
             .show False
         End With
     Else
+        
+        '------ 一般ルート ------
         Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        '------------------------
+
+        '---- マニュアルルート---
+'        Dim CoreEvent As CDPCore    '`exCDP_PageLoadWatcherForCore.cls`ファイルを使用する場合はこれも使うこと
+'        Set CoreEvent = BrowserCapabilities.ClsGet_CDPCore
+'        Set chrome = New CDPBrowser
+'        chrome.OpenBrowser BrowserCapabilities
+        '------------------------
+        
         Set tabs(1) = chrome.getTab(setMain:=True)
     End If
 
@@ -232,7 +238,8 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
         tabStates(t).Index = t
 
         Set watchers(t) = New exCDP_PageLoadWatcher
-        watchers(t).Init tabs(t)   ' Page/Network有効化はクラス内部で完了する
+'        watchers(t).InitCore CoreEvent  '`exCDP_PageLoadWatcherForCore.cls`ファイルを使用する場合はこれも使うこと
+        watchers(t).Init tabs(t)        ' Page/Network有効化はクラス内部で完了する
     Next t
 
     ReDim cookieTickets(1 To NUM_TABS * NUM_ROUNDS)
@@ -401,7 +408,7 @@ Private Sub FinishBenchmark(chrome As CDPBrowser, benchStart As Double, ByRef ta
     Debug.Print RESULT_SECTION_LINE
 
     If WebView2Mode Then WebView2Form.hide
-    chrome.quit
+    chrome.CloseBrowser
     If WebView2Mode Then Unload WebView2Form
 End Sub
 

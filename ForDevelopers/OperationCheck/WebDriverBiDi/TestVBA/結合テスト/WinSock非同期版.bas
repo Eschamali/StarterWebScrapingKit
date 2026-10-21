@@ -46,13 +46,14 @@ Public Sub BiDiÇ…ÇÊÇÈñ`åØÇÃénÇ‹ÇË_îÒìØä˙î≈()
 
     '-----WebSocketÉãÅ[Ég-----
 '    Dim UserName As String
-'    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+'    UserName = ShSetting01_StartBrowser.CurrentUserName
 '
-'    Dim WebSocketBiDi As New CDPCoreViaWebSocket
+'    Dim WebSocketBiDi As CDPCoreViaWebSocket: Set WebSocketBiDi = New CDPCoreViaWebSocket
 '    WebSocketBiDi.ConnectCDP UserName, "/devtools/browser/1ee505aa-2eaf-4b0e-874b-c9a8ae154442"
 '
 '    Dim b As New WebDriverBiDiMode
-'    b.reattach UserName, WebSocketMode:=WebSocketBiDi
+'    ReattachOptions.Set_WebSocketMode(WebSocketBiDi) = UserName
+'    b.reattach ReattachOptions
 '    Set g_Main10Browser = b.newTab(setMain:=True)
     '-------------------------
 
@@ -302,7 +303,7 @@ Private Sub Main10_ReleaseBrowser()
     On Error Resume Next
 
     If Not g_Main10Browser Is Nothing Then
-        g_Main10Browser.ThisWebDriverBiDiMode.quit
+        g_Main10Browser.ThisWebDriverBiDiMode.CloseBrowser
     End If
 
     Set g_Main10Browser = Nothing

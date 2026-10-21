@@ -53,7 +53,7 @@ Public Sub RunAll_CDPElement_Tests()
 
     br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopApiError:=True
 
-    br.ThisCDPBrowser.quit
+    br.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '==============================================================================
@@ -475,6 +475,8 @@ Private Sub Test19_HoverReveal_Click(br As CDPContext)
     AssertEq "ホバー前のクリック回数", revealBtn.getAttribute("data-clickcount"), "0"
 
     container.sendHover
+    Dim waitResult As String: waitResult = WaitUntilClickable(revealBtn)
+    AssertTrue "ホバー後、ボタンがクリック可能になること(DOM安定待機)" & IIf(waitResult = "OK", "", " / " & waitResult), (waitResult = "OK")
     revealBtn.sendClick
     AssertEq "ホバー→sendClick後のクリック回数", revealBtn.getAttribute("data-clickcount"), "1"
 
@@ -484,6 +486,47 @@ End Sub
 '==============================================================================
 ' ヘルパー
 '==============================================================================
+'==============================================================================
+' DOMが落ち着いた(要素がクリック可能になった)かの待機
+'  ・実行中のアニメーション/トランジションがない
+'  ・visibility:visible かつ opacity:1
+'  ・要素の中心座標の最前面が、その要素自身(Shadow DOM内は、そのShadow-root側で判定)
+'  上記を満たした時点で即 "OK" を返す。上限時間内に満たさない場合は、失敗時の状態(診断情報)を返す(固定秒数の待機ではない)
+'  診断情報：ページの表示/フォーカス状態、親要素の:hover状態、ボタンのスタイル、各中心座標の最前面要素 等
+'  【メモ】失敗時の診断で visibilityState=hidden かつ runningAnimations>0 のまま opacity=0 の場合は、ホバーは届いているが、
+'          ブラウザの画面が他のウィンドウの裏に隠れていて、アニメーションの描画が止まっている状態(環境要因・テスト対象の不具合ではない)
+'          → 起動時の追加引数に `--disable-backgrounding-occluded-windows` `--disable-renderer-backgrounding` を付けると安定する
+'            (2026/10/16 xlflow経由の5回連続実行で、引数なし：15回中9回失敗 → 引数あり：15回すべて合格)
+'==============================================================================
+Private Function WaitUntilClickable(el As CDPElement, Optional timeoutMs As Long = 5000) As String
+    Dim waitJS As String
+    waitJS = "function(){" & _
+             "  const el = this, root = el.getRootNode(), parent = el.parentElement, deadline = performance.now() + " & timeoutMs & ";" & _
+             "  const desc = n => !n ? 'null' : (n.tagName || n.nodeName) + (n.id ? '#' + n.id : '') + (n.className && typeof n.className === 'string' ? '.' + n.className.trim().replace(/\s+/g, '.') : '');" & _
+             "  const center = n => { const r = n.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };" & _
+             "  const hitAt = n => { const c = center(n); return root.elementFromPoint(c[0], c[1]); };" & _
+             "  const running = () => el.getAnimations().filter(a => a.playState === 'running').length;" & _
+             "  const diag = () => { const s = getComputedStyle(el), r = el.getBoundingClientRect(); return [" & _
+             "    'visibilityState=' + document.visibilityState, 'hasFocus=' + document.hasFocus()," & _
+             "    'viewport=' + window.innerWidth + 'x' + window.innerHeight," & _
+             "    'parentHover=' + (parent ? parent.matches(':hover') : 'n/a'), 'parentClass=' + (parent ? parent.className : 'n/a')," & _
+             "    'btnVisibility=' + s.visibility, 'btnOpacity=' + s.opacity, 'runningAnimations=' + running()," & _
+             "    'btnRect=' + [r.left, r.top, r.width, r.height].map(Math.round).join(',')," & _
+             "    'hitAtBtn=' + desc(hitAt(el)), 'hitAtParent=' + (parent ? desc(hitAt(parent)) : 'n/a')" & _
+             "  ].join(' | '); };" & _
+             "  return new Promise(resolve => {" & _
+             "    const check = () => {" & _
+             "      const s = getComputedStyle(el), hit = hitAt(el);" & _
+             "      const ok = running() === 0 && s.visibility === 'visible' && Number(s.opacity) >= 1 && !!hit && (hit === el || el.contains(hit));" & _
+             "      if (ok) { resolve('OK'); } else if (performance.now() > deadline) { resolve(diag()); } else { setTimeout(check, 16); }" & _
+             "    };" & _
+             "    check();" & _
+             "  });" & _
+             "}"
+
+    WaitUntilClickable = CStr(el.jsEval(waitJS, IFEXCEPTION:="exception while waiting", awaitPromise:=True))
+End Function
+
 Private Sub AssertEq(Name As String, actual As Variant, expected As Variant)
     If CStr(actual) = CStr(expected) Then
         passCount = passCount + 1

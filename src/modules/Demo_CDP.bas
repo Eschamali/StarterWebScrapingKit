@@ -605,7 +605,8 @@ Sub runNewTab()
    'Google search result returns links that open in the same tab window
    'For this demonstration, we need to make it open in a new tab window instead
     Dim targetElement As CDPElement
-    Set targetElement = chrome.getElementByXPath(".//a[contains(@href, 'https://www.newstarget.com/')]")
+    '※2026/10/17確認時、Googleの検索結果リンクは`href="/goto?url=..."`(リダイレクト)形式に変わったため、リンク内に表示されるURL(`cite`)でも判定する
+    Set targetElement = chrome.getElementByXPath("//a[contains(@href, 'https://www.newstarget.com/') or .//cite[contains(., 'https://www.newstarget.com')]]")
     targetElement.setAttribute "target", "_blank"   'Modify the element attribute to open in a new tab instead
     targetElement.click                             'Click the link, a new tab will be spontaneously open. 別タブで開いてしまうため、ここは待機なしクリックにする
 
@@ -802,10 +803,12 @@ End Function
 '* 注意事項：後続のDemoを試す際はこのプロシージャで実行した通信経路として続けること
 '***************************************************************************************************
 Sub demoReattachmentPart1()
+    ' 起動
+    Dim First As CDPContext
+    Set First = ShSetting01_StartBrowser.StartCDPModeContext
 
-    Dim c As CDPContext
-    Set c = ShSetting01_StartBrowser.StartCDPModeContext
-    c.navigate "https://google.com"
+    'GoogleTopページへ遷移
+    First.navigate "https://google.com"
 
 '    c.KeepSession = True    'もし、SessionIDを保持する場合はこれを最後に足して`demoReattachmentPart2ForTab`にてお試しください
 End Sub
@@ -818,26 +821,22 @@ End Sub
 '            ・通信経路に応じた記述分岐が必要です
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
-    'セルから設定情報を取得
-    With ShSetting01_StartBrowser
-        '1. 設定セルから、ユーザ名を取得
-        Dim UserName As String
-        UserName = .CurrentUserName
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-        '2. Excelに記録されてるハンドル情報から復旧を試みる
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '2-1. Pipeモードで復帰する設定にする
-            ReattachOptions.Set_PipeMode = UserName
-        Else
-            '2-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+    '2. 制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
-            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
-        End If
-    End With
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    End If
 
     '3. ブラウザオブジェクトに、接続情報を渡す
     Dim b As New CDPBrowser
@@ -859,26 +858,22 @@ End Sub
 '* 注意事項：Context(タブ)情報が失ってる場合は、このDemoではエラーとなります
 '***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
-    'セルから設定情報を取得
-    With ShSetting01_StartBrowser
-        '1. 設定セルから、ユーザ名を取得
-        Dim UserName As String
-        UserName = .CurrentUserName
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-        '2. Excelに記録されてる`TargetID`の生存確認
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '2-1. Pipeモードで復帰する設定にする
-            ReattachOptions.Set_PipeMode = UserName
-        Else
-            '2-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+    '制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
-            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
-        End If
-    End With
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    End If
 
     '3. コンテキスト(タブ)オブジェクトに、接続情報を渡す
     '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
@@ -961,24 +956,34 @@ End Sub
 '* 機能　　：「DevToolsActivePort」ファイルモードで起動したブラウザに対するWebSocket接続を行います
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：「DevToolsActivePort」ファイルモードは、下記のいずれかで使用されます。それを利用したDemoとなります
-'            ・`remote-debugging-port=0`で起動したブラウザ
+'            ・`remote-debugging-port=0`で起動したブラウザ(demoReattachmentPart2ForBrowser/Tab も実はこれ)
 '            ・「edge://inspect/#remote-debugging」にて、リモートデバッグを許可する
 '
 '            [!NOTE]
 '            「WebSocketから切断」の処理を飛ばして、1回処理を通した後、`reuseMode`を`True`にして再度処理をすると、
 '            「リモートデバッグの接続を許可しますか？（Allow / Cancel）」ダイアログをPASSできます
 '
-'* 注意事項：「edge://inspect/#remote-debugging」にて事前準備が必要です
+'* 注意事項：このDemoは、普段のブラウザを制御するDemoとしても兼ねてるため、「edge://inspect/#remote-debugging」にて事前準備が必要です
 '***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
     '0. 事前設定
     Const UserNameBrowser   As String = "User Data"
-    Const reuseMode         As Boolean = False
+    Const reuseMode         As Boolean = False  '内部ハンドルを使いまわすか？
 
 
-    '1. 指定のWebSocketForCDPへ接続
+    '1. 分岐に応じたWebSocketへ接続
     Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
-    WebSocketCDP.ReConnectCDP UserNameBrowser, reuseMode
+    If reuseMode Then
+        '1-1. 指定のユーザ名に記録済みのWinSockハンドルを取り出す
+        WebSocketCDP.ReConnectCDP UserNameBrowser
+    Else
+        '1-1. 探す目印となるUserNameを指定
+        '※ローカルブラウザ依存の「DevToolsActivePort」探索の都合により「BrowserCapabilities」を使用します
+        BrowserCapabilities.Set_UserDataDirName = UserNameBrowser
+
+        '1-2. 指定のユーザ名のWebSocketForDevToolsActivePortへ接続
+        WebSocketCDP.AutoConnectDevToolsActivePort BrowserCapabilities
+    End If
 
     '2. いくつか初期設定を設ける
     With ReattachOptions
@@ -1001,6 +1006,7 @@ Sub AutoConnectDevToolsActivePort()
     t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
 
     '6. WebSocketから切断
+    '※下記をコメントアウト後、処理を済ませ、`reuseMode:=True`にすると、このプロシージャを実行するたびに、新規タブが湧き出します
     t.ThisCDPBrowser.DisconnectCDP
 End Sub
 

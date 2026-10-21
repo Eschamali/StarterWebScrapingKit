@@ -3,4 +3,5 @@
 
 |ディレクトリ名|説明|
 |---|---|
-|CDP|`CDPBrowser.cls`に対する機能拡張フォーマット|
+|CDP|`CDPContext.cls` / `CDPBrowser.cls`に対する機能拡張フォーマット|
+|WebDriverBiDi|`WebDriverBiDiContext.cls`に対する機能拡張フォーマット|

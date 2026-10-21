@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           `WebDriverBiDiCore.cls`に対する機能拡張を提供するテンプレートクラスファイルです
+'           `WebDriverBiDiMode.cls`の`ExEvent`を受け取る、テスト用の拡張クラスファイルです
 '***************************************************************************************************
 Option Explicit
 
@@ -18,21 +18,20 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_WebDriverBiDi As WebDriverBiDiCore
-Attribute ex_WebDriverBiDi.VB_VarHelpID = -1
+Private WithEvents ex_BiDiMode  As WebDriverBiDiMode
+Attribute ex_BiDiMode.VB_VarHelpID = -1
 
 '内部使用用
-Private Const ThisClassName         As String = "WebDriverBiDiEventtest"             'ログのトレース用
+Private Const ThisClassName     As String = "WebDriverBiDiEventtest"    'ログのトレース用
 
 'ステート管理
-Private currentLog                 As StateLog     'ログ設定
-
-Public EnableBrowserEvents          As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
-Public targetContext                As String
+Private m_LogID                 As String   'ログ識別ID
+Private m_context               As String   '特定タブ向けに処理したい場合などに
+Private EnableBrowserEvents     As Boolean  'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 
 ' 既定: はい=OK 系 / prompt 用の入力文字列
-Private mDefaultAccept              As Boolean
-Private mDefaultPromptText          As String
+Private mDefaultAccept          As Boolean
+Private mDefaultPromptText      As String
 
 
 
@@ -82,8 +81,8 @@ End Property
 '***************************************************************************************************
 '* 機能　　：非同期イベントを処理したいときにご利用ください。あなたのイメージをコードに落とし込む場所の1つです
 '***************************************************************************************************
-Private Sub ex_WebDriverBiDi_detectionBiDiEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_WebDriverBiDi_detectionBiDiEvent"
+Private Sub ex_BiDiMode_ExEvent(methodName As String, EventRawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_BiDiMode_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -102,10 +101,10 @@ Private Sub ex_WebDriverBiDi_detectionBiDiEvent(methodName As String, EventRawJs
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
             
             Dim paramsBiDi As Dictionary: Set paramsBiDi = New Dictionary
-            paramsBiDi.Add "context", targetContext
+            paramsBiDi.Add "context", m_context
             paramsBiDi.Add "accept", mDefaultAccept
             paramsBiDi.Add "userText", DefaultPromptText
-            invokeMethod "browsingContext.handleUserPrompt", paramsBiDi
+            ExecuteBiDi "browsingContext.handleUserPrompt", paramsBiDi
 
 
         Case Else
@@ -128,49 +127,53 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPBrowser`直通メソッド ■■■
+'                           ■■■ `WebDriverBiDiMode`直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：いちいち、`○○.invokeMethod`といった記述を防ぐ措置となります。
+'* 機能　　：親クラスへの直通ラッパーです。
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：メインの`WebDriverBiDiCore`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくことをお勧めします
+'* 詳細説明：下記は一例です。待機は`CDPHelpers.Sleep` / `CDPHelpers.TimerCounter`を直接使ってください。必要に応じて削除や追加も可能です
+'* 注意事項：各種メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておき、Private化すること
 '***************************************************************************************************
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_WebDriverBiDi.sleep seconds
-End Sub
-
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
+    Const LogFileExtension  As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_WebDriverBiDi.invokeMethod(methodName, params, StopError)
+Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
+    Set ExecuteBiDi = ex_BiDiMode.ExecuteBiDi(methodName, params, StopError)
 End Function
+
+'非同期イベント発火(RaiseEvent)に必要です
+Private Sub TakeEvents(Optional destruction As Boolean)
+    ex_BiDiMode.TakeEvents , destruction
+End Sub
 
 
 
 '***************************************************************************************************
 '                             ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：WebDriverBiDi制御のベースとなる`WebDriverBiDiCore.cls`を継承させます
+'* 機能　　：BiDi制御のベースとなる`WithEvents`を継承させます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・BiDiの場合、CDPと違いイベント情報にタブ宛て/ブラウザ宛てという概念がありません。
+'              そのため、`WithEvents`継承は常に`As WebDriverBiDiMode`となります。
 '***************************************************************************************************
-Friend Sub Init(Inheritance As WebDriverBiDiCore)
-    '継承
-    Set ex_WebDriverBiDi = Inheritance
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.DirectControlCDP.ThisCDPCore.LogSettings
+Friend Sub Init(Inheritance As WebDriverBiDiContext)
+    '必要なBiDiオブジェクトを継承
+    Set ex_BiDiMode = Inheritance.ThisWebDriverBiDiMode
+
+    'コンテキスト情報
+    m_context = Inheritance.context
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：`LogID`を採番します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    currentLog.LogID = "EVID" & Format(Rnd * 1000, "000")
+    m_LogID = "EVID" & Format(Rnd * 1000, "000")
 End Sub

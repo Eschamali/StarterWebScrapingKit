@@ -1,0 +1,291 @@
+=== BiDi Discovery Log (Optimized for AI Analysis) ===
+Timestamp | Type | Method/Status | MIME | URL/Detail
+CONFIG | minStableMs(default)=500 | maxTimeoutMs(default)=10000 | excludeResources=True | manualDomCapture=True | manualUserActions=True | userActionScript=12 | popupActions=True | downloadEvents=on | promptEvents=on | recorderCtx=3B7EAAD584068C9991446AD092D8FECC
+BODY-CONFIG | requested=True | active=True | dataType=response | mime=json-only | patterns=(top-context same-site-json default) | retrievalScope=top-context+sec-fetch-site-default-or-explicit-pattern | collectorMaxEncodedDataSize=262144 | maxLoggedChars=8192 | maxCount=25 | maxCandidates=1000 | selection=evidence>pattern>wait>other,newest-first | maxPerMethodKeyMime=1 | aiCompact=True | frameJson=True | embeddedJson=True | losslessSourceMaxChars=4096 | maxStringChars=256 | maxArrayItems=3 | maxObjectMembers=24 | strictStringChars=128 | strictArrayItems=2 | strictObjectMembers=10
+LEGEND | [RES] carries: id=<reqId; a redirect chain reuses the SAME id, pairing its hops> key=<normalized network endpoint; URL fragment removed ([NAV] shows #<fragment-redacted>); query parameter names preserved with values stripped, except the rpcids value and token-shaped action values (operation names such as UpdateItem) retained> idle=<skip|track: was this URL in the idle probes ignore set>
+LEGEND | [REQ]=request start (network.beforeRequestSent; recording-only, not wired to consensus). During Discovery recording, GLOBAL network.responseCompleted remains subscribed through navigation URL-stability so [RES] and BODY candidate coverage are continuous. Per-request latency (dur=) is not computed.
+LEGEND | downloadEvents=on means both BiDi download events were subscribed; unavailable means the recorder cannot determine whether downloads occurred. [DOWNLOAD-WILL-BEGIN] and [DOWNLOAD-END] correlate by download/navigation IDs (download may be (missing); then match by context+navigation); [DOWNLOAD-END] status=complete is browser-reported, not a disk verification. URL keys are normalized; filepath is a basename only. Filenames and paths can still disclose sensitive details; review before sharing.
+LEGEND | A [RES] 200 followed by [ERR] net::ERR_ABORTED for a file may reflect handoff to native download handling; this pair ALONE proves neither successful nor failed download. Check [DOWNLOAD-END] when downloadEvents=on.
+LEGEND | [NAV-TARGET] = the URL passed to ExecuteNavigateAndGetStatus while recording, logged as given (query and fragment included). Review before sharing.
+LEGEND | [USER-ACTION] records opt-in manual pointerdown/click/focusin/change event snapshots with target/actionable/ancestor/child/shadowHost clues. These are not verified XPaths; closed Shadow Roots may be opaque and ctx may change after navigation. 
+LEGEND | Typed input contents are NEVER collected by this observer: valueLen= carries character counts only. For INPUT types button/submit/reset/image, the displayed value attribute may be recorded (max 96 chars); other INPUT values are shown as (len=N). On select change, selectedText= can include page-defined option labels, which may contain personal information. Unknown attribute values are omitted; only data-testid, data-test, data-qa, data-cy, and date-shaped data-iso expose data-* values (capped); other data-* attributes retain names only. URL attributes/frameUrl are resolved against the page base URL (where applicable), sanitized to origin+pathname, and capped; query and fragment are omitted. These are NOT literal DOM attributes. 
+LEGEND | frameUrl is read from page document location and may switch to a writer URL after document.open(). ctxUrl is the first observed NAV/DCL URL for the active READY realm, retained through same-realm rewrites (not a fresh getTree URL). READY uses ctxUrl=(pending) until its realm's first observed DCL. Resolve frames by ctx and verify live browsingContext.getTree before replay; never use frameUrl alone. Child option[selected] is an HTML default attribute; current SELECT choice comes from selectedText/selectedCount. 
+LEGEND | Permitted locator attribute values and visible labels/text may still reveal personal information, and paths may carry identifiers. Review the entire log before sharing. [NAV-TARGET] is a separate existing field that may retain query/fragment values. 
+LEGEND | [USER-ACTION-CONFIRM] pairs click to pointerdown within 1500ms by realm/seq; no confirm is not proof of failure. A click immediately after select change on the same element is suppressed as a duplicate, as are the click and focusin that a clicked <label> forwards to its control (the label click is the action; the control's change still follows). [USER-ACTION-STATS] records count, installs, missing realms, parse errors, listener rehooks/errors, and cleanup warnings. A rehook is requested only after repeated domContentLoaded with no new READY realm; it is not proof of document.open. 
+LEGEND | A pointerdown with no [USER-ACTION-CONFIRM] can be a drag: HTML5 drag-and-drop, a slider, a scrollbar, or a text selection. Drops, scrolling, hover, and individual key presses (Enter, Tab, Esc, arrows) are not recorded, and neither are edits inside contenteditable editors (for example rich-text editors in an iframe). Do not replay such a pointerdown as a click without checking the live page.
+LEGEND | replayDropped (in [USER-ACTION-STATS]) counts action pushes the browser delivered again for the same realm and seq; each is logged only once. On Edge this happened when Back restored a page from the back/forward cache: no [NAV] appears, and [USER-ACTION-RESTORED] marks the page shown again. Replay that step with history navigation (ExecuteTraverseHistory), not a fresh navigate.
+LEGEND | event=focusin means an element gained focus, not necessarily an explicit user action. It may occur when focus returns to the opener after a popup closes, when a JS dialog closes, or after a keyboard Tab move. It also fires on the element that last had focus whenever the browser window or tab regains focus, including after Back shows a cached page ([USER-ACTION-RESTORED]); such a focusin is not a user action. Do not replay focusin alone as a click or keystroke; interpret it using surrounding actions and context transitions.
+LEGEND | actionable=(none) means no button, link, form control, label with a control, or ARIA widget role was on the event path (page background, a text-selection drag, or a custom clickable element without a role). Such lines carry no text=/children=; targetText= appears only when the target is not html/body, has at most 3 child elements, and its whole visible text is 60 chars or less (a short label, never a container dump). Do NOT turn an actionable=(none) line into a replay step without confirming it against the live DOM.
+LEGEND | sibling=k/n gives the position of the actionable element (or the target when actionable=(none)) among its parent's child elements with the same tag, as in XPath parent/button[k]. It appears only for elements without an id that have same-tag siblings, and it is the position at event time, not a stable locator; prefer text or attributes when they are distinctive. In text=/targetText=, \u00a0 marks a non-breaking space (U+00A0) that the page text really contains. XPath normalize-space() does not treat it as a space: build such text in VBA with ChrW(160), or match the words around it with contains().
+LEGEND | popupActions=True: the action observer is registered for ALL browsing contexts, but a [USER-ACTION] is logged only from the recorder top context, its descendant frames, and top-level contexts whose BiDi originalOpener (or parent frame) is already in scope. [USER-ACTION-SCOPE] status=added marks such a popup/tab with its opener ctx and first URL; use it to switch browsing context during replay (the popup is a separate top-level context, not a frame). Pushes from unrelated tabs and the STOP tab are discarded without logging their content; counts appear in [USER-ACTION-SCOPE-STATS].
+LEGEND | [USER-ACTION-SCOPE] status=ensured means the observer was re-attached or installed shortly (about 100-300 ms) after that popup's domContentLoaded (needed for window.open('') + document.write popups, and for same-origin window.open(url) popups whose initial about:blank realm is reused: their only READY shows frameUrl=[non-http-url]); actions made before it may be missing; ensure-failed means it could not be attached.
+LEGEND | scopeDeferred=true marks an action held until its context's scope was resolved; its [t] and at= are the original receipt times, so it may physically appear after later lines (order by [t]). [SPA-ACT] DOM sampling still covers only the recorder top context; network lines from popups carry ctx=other:.
+LEGEND | [DISCOVERY-CONTROL] marks a separate, opt-in control tab. [DISCOVERY-STOP] source=control-tab means STOP clicked; source=control-tab-closed means the tab was closed; source=time-limit means the safety maximum elapsed. Control-tab cleanup is separate; the target page DOM is unchanged.
+LEGEND | [RECORDER-QUEUE-STATS] (end) = recorder health. events=taken from the event FIFO while recording; parsed=JSON-parsed (reducedEvents of them from a header/cookie-stripped copy; fallbackOriginalParse=reduced copy rejected and original parsed, expected 0); fastPath=suppressed script loads handled without a JSON parse; maxEventFifoDepth=deepest FIFO at a drain start (limit 2000); maxDispatchLagMs=largest socket-arrival-to-take delay (maxLagArrivalAt=its arrival time); lagOver1s/lagOver5s=events taken 1 s/5 s or more after arrival; maxDrainGapMs=longest pause between recorder drains; parseMs/fastPathMs=time spent parsing/fast-handling (event retrieval excluded); asyncLossSinceStart=events lost during recording. Large lag means recording itself may have shifted waits and element searches; compare with an unrecorded run before tuning timing from this log.
+LEGEND | asyncLossSinceStart (transportOversize=n) = how many of the lost events were dropped at the 5 MiB transport receive cap; such requests never reach the timeline and are absent from [REQ-UNPAIRED].
+LEGEND | navPollPauses (in [RECORDER-QUEUE-STATS]) counts top-level navigations during which manual [SPA-ACT] DOM sampling paused, from browsingContext.navigationStarted until the new document's READY/domContentLoaded/load (or a Back/Forward cache restore, the context closing, or a download starting). No [SPA-ACT] is sampled during a pause; user actions and network lines continue. navPauseTimeouts counts pauses that reached the 30 s cap. pollQueryFailures counts manual sampling queries that failed or hit their 2 s bound, typically one per link click when the query was sent just before the navigation began; sampling simply retries, so these are not errors by themselves.
+LEGEND | [REQ-UNPAIRED] tracks request hops by (request id, redirectCount), including suppressed requests. Categories are exclusive: open-at-end=still had no observed terminal event/redirect advance when recording ended; other=no terminal event observed, but later evidence (such as the next redirect hop) showed the hop was no longer open.
+LEGEND | Known observation (Edge): a new top-level context opened by a rel=noopener / target=_blank link may never report network.responseCompleted for its document request although its domContentLoaded/load arrive (ctx=other:...). Such a hop stays open-at-end; by itself it is NOT evidence of an unfinished wait or a too-short timeout.
+LEGEND | [ERR]/[BLOCK] carry request id + normalized key; if fetchError omits its URL, the recorder falls back to the beforeRequestSent id->URL/key cache (including suppressed requests). Path/matrix assignment values such as ;ord=... or /_dc_unique_id=... are stripped to name= so volatile identifiers do not fragment keys.
+LEGEND | ctx= on [REQ]/[RES]/[ERR]/[BLOCK]/[NAV] appears only for events outside the recorder top-level context (CONFIG recorderCtx): ctx=(empty) = no browsing context, typically a Web Worker; its Fetch/XHR is invisible to idle consensus and never enters render-evidence checks. ctx=other:<first 8 chars> = another tab or frame. No ctx= = recorder context (if recorderCtx=unresolved, only (empty) is marked).
+LEGEND | [SPA-ACT] ends with n=<entries listed in this sample>; dropped=<mutation entries beyond the probe's 50-entry list> appears on overflow. Dropped content mutations still count as render evidence (render=DOM:(overflow), path unknown). [SPA-WAIT-END] changeOverflow= totals dropped entries for that wait; nonzero means its [SPA-ACT] lines are incomplete.
+LEGEND | [SPA-ACT]=sampled/coalesced DOM mutation burst (NOT an exhaustive event stream; absence does not prove no mutation)  [SPA-STABLE]=consensus  [SPA-WAIT-BEGIN/END]=one wait (END has achieved quiet + observed confirmation-window duration; neither is a safety-margin score)  [SUPPRESSED]=filtered-noise tally aggregated by normalized host+path; query presence '?' is retained but query parameter names/values are omitted; idle=skip|track. excludeScripts=True moves script loads (URL path ending .js/.mjs) into [SUPPRESSED]; script loads are not Fetch/XHR and never drive consensus
+LEGEND | [SPA-PROBE-INITIALIZING]/[SPA-PROBE-READY]=normal first-use/new-document lazy initialization. [SPA-PROBE-UNHEALTHY]/[SPA-PROBE-RECOVERED]=a probe already verified healthy in the same document was later missing/unhealthy and recovered. Unverified samples contribute NO stability evidence; READY/RECOVERED restart the full confirmation window. WAIT-END reports probeHealthy, probeInitializations, probeRecoveries, and detectedUnhealthyMs.
+LEGEND | leading [t] = when the recorder/wrapper processed or observed the line (VBA poll-based, ~100ms granularity; do not over-trust sub-100ms gaps). Event-derived lines ([REQ]/[RES]/[ERR]/[BLOCK]/[NAV]/console and net [SPA-SIGNAL-HIT]) also carry at=<sec>s = socket arrival time; [t] can lag at= by seconds when events queued faster than the recorder dispatched them (event bursts such as SPA boot, or long commands such as native key input). Order by [t]; use at= for event timing. minStableMs/maxTimeoutMs above are DEFAULTS; per-action effective values appear on each [SPA-WAIT-BEGIN].
+LEGEND | [SPA-SIGNAL-ARM/HIT]=completion-signal gate (type=dom|net|vis; Arm*Signal APIs). A HIT opens the gate and resets the consensus stability window. dom/vis quietAtHit is measured on the poll that detects the hit (~100ms). net HITs are event-triggered between polls, so quietAtHit=unknown; lastPolledQuietMs/sampleAgeMs are diagnostic samples only and MUST NOT be treated as quiet at the network event. [SPA-NET-TO-CONTENT] is the earliest content mutation at/after the armed net response's completion lower bound. A response completes within [lo, hi]: lo = request timings responseEnd (header receipt for streamed bodies), hi = event arrival mapped to the page clock. relation=AFTER (mutation after hi) or INDETERMINATE (inside the interval; order not determinable); delayMs=min..max is completion-to-mutation delay, widthMs=hi-lo; observedMs is only HIT-to-poll observation delay; owner is not asserted. Gated waits carry signal=<armed types> on BEGIN and hit|miss on END.
+LEGEND | A net arm rejects responses from another or empty browsing context ([SPA-SIGNAL-CTX-MISS]); ArmNetworkSignal allowContextless:=True additionally accepts empty-context (e.g. Web Worker) responses, logged as ctx=(empty) | contextlessOptIn=true | attribution=unverified because such a HIT cannot be tied to the owner tab.
+LEGEND | If a net HIT occurs before SPA-WAIT-BEGIN, the net gate is already open when the wait starts. The wait's stability window starts at SPA-WAIT-BEGIN (after the HIT), so no separate HIT reset is needed. SPA-NET-TO-CONTENT is NOT measured for such a HIT. Completion then relies on the idle/DOM-quiet/probe state observed during the wait; the net gate itself does NOT link that HIT to any specific render.
+LEGEND | For dom signals, count= is the cumulative number of MutationRecords observed by the armed MutationObserver from ARM until the polling cycle that first detects the HIT. The observer watches the subtree of the single target node resolved at ARM (the FIRST node matched by xpath=). Attribute mutations are included only when the ARM line shows attributes=true. count= is NOT the number of matched elements, rendered rows, page-wide mutations, or mutations attributable only to the subsequent action.
+LEGEND | stableWindowMs is elapsed time since the most recent of: wait start, a poll that observed the combined idle/quiet condition as false, or an explicit reset (dom/vis HIT; net HIT at the first poll that observes it, not its event timestamp; probe READY/RECOVERED; navigation reset; probe missing/unhealthy detection). It is NOT an exact post-threshold dwell time or a safety margin; the true condition may have become satisfied between polls.
+LEGEND | signal miss at TIMEOUT = the armed signal never arrived (selector/pattern error, action never fired, or the site produced no change). signal hit at TIMEOUT = signal arrived but post-signal quiet never settled. [SPA-SIGNAL-LOST] = navigation destroyed an armed dom/vis observer mid-wait; the gate stays closed (fail-safe) so that wait ends TIMEOUT with miss.
+LEGEND | At STABLE each tracked json/API seen in the wait's browsing context is checked against the latest observed content render using its completion interval [lo, hi]. [SPA-CONSENSUS-SUSPECT]=at least one response completed inside probe observation with NO content render at/after lo -> the STABLE may be premature (firstJson=<key>@<sec> is the earliest such response; note is advisory). [SPA-CONSENSUS-UNRESOLVED] verdict=INDETERMINATE (latest render inside [lo, hi]) or UNOBSERVED (no render seen, but the response may have completed before the probe started observing) = render order cannot be determined; it is NOT a failure and NOT a suspect. No line = every response had a render after hi. [SPA-CARRYOVER-NOTE]=after a SUSPECT only, the IMMEDIATELY next wait in the same browsing context showed a content render that MAY be that previous action's delayed paint. All are heads-up markers: no owner is asserted, consensus is unchanged. Confirm with an armed re-run (see section 3).
+LEGEND | BODY STORE is separate from the 5000-line timeline ring. With no explicit body patterns, JSON retrieval/logging requires BOTH the recorder top-level browsing context and Sec-Fetch-Site same-origin/same-site/none. Child-frame, cross-site, and unknown-context/site bodies are not pulled into the log. Explicit AddBodyCapturePattern entries act as the body allow-list and may intentionally override those defaults. The browser-side BiDi collector may still temporarily retain other data until cleanup.
+LEGEND | BODY maxPerMethodKeyMime uses an internal method + fragment-free full URL + MIME identity, separate from the public normalized key. Query values remain private but different query values count as distinct BODY capture identities; repeated requests to the same URL still share the cap.
+LEGEND | [BODY] may be REQUEST or RESPONSE; normalized=True means parseable XSSI/length-framed JSON was converted to a canonical json-frames envelope. Small payloads under losslessSourceMaxChars are normalized without lossy sampling. compacted=True means lossy AI structural reduction was applied (long strings summarized and/or large arrays/objects sampled). truncated=True means the final result still exceeded maxLoggedChars and only its prefix was written.
+LEGEND | normalized=True or compacted=True means BODY content is not byte-for-byte raw. AI normalization/compaction preserves structural/value samples; sourceChars is retrieved text length and loggedChars is final output length.
+LEGEND | BODY selection happens at Stop, not on arrival: up to maxCandidates metadata entries are kept and maxCount bodies are pulled by priority evidence (SUSPECT/UNRESOLVED response) > pattern (explicit AddBodyCapturePattern) > wait (arrived during a recorded SPA wait or within 1.5s before it) > other, newest first within a priority; output stays in arrival order. priority= and at= appear on [BODY]/[BODY-MISS]. at= is the socket arrival time (s); timeline [..s] stamps are recorder dispatch time and can lag arrival by seconds when events queued faster than they were dispatched.
+LEGEND | [BODY-SKIP] means getData was deliberately not called (redirect, oversize, per-identity cap, candidate-index cap, or unselected at Stop). [BODY-MISS] means a selected getData pull failed; unavailable commonly means data was not retained/was evicted. Missing body data must NOT be interpreted as an empty response body.
+LEGEND | [BODY-STATS] summarizes captured/normalized/compacted/truncated/miss/skip outcomes for quick review; detailed [BODY], [BODY-SKIP], and [BODY-MISS] lines remain authoritative.
+
+=== ANALYSIS REQUEST (for AI) ===
+Using ONLY the data in this log, produce four things for THIS site:
+
+1) Network config suggestions
+   - IGNORE (bidi.AddIdleIgnoreNetworkPattern): background telemetry / high-freq APIs that
+     should NOT gate the SPA idle wait. IGNORE is non-destructive (the request still fires),
+     so it is the safe default for first-party telemetry (e.g. /log, generate_204, autocomplete).
+   - BLOCK (bidi.ExecuteEnableResourceBlocking): ONLY requests safe to kill (third-party
+     ads/analytics/trackers, or bulk resources not needed). BLOCK is page-altering. NEVER block
+     hosts that also serve app code/content (e.g. a CDN serving the page's JS), auth/SSO
+     endpoints, or anything page logic depends on. If unsure -> IGNORE, not BLOCK.
+   - Derive patterns from URLs ACTUALLY seen below (do not guess). '*' = wildcard "contains";
+     no '*' = literal substring. Do not over-broaden (use "/log?" literal, NOT "*/log*", which
+     would also match /login). Match what was observed (e.g. generate_204, not gen_204).
+     Timeline [REQ]/[RES] normalized keys preserve query parameter names but strip values (except
+     rpcids and operation-name action values), so patterns such as year= can be derived without
+     exposing the original query value.
+     [SUPPRESSED] intentionally aggregates more coarsely by normalized host+path plus query presence
+     only; use [REQ]/[RES] when query parameter names matter for a suggested pattern.
+
+2) Wait-time assessment
+   - Consensus uses current network-idle + DOM-quiet>=minStableMs AND a poll-based
+     stable-window timer. stableWindowMs begins at the first sampled poll that satisfies the
+     combined condition after WAIT-BEGIN or after any false poll / explicit reset; unsampled
+     time never contributes to the confirmation window. Explicit resets include
+     dom/vis HIT; net HIT at the first poll that observes it, not its event timestamp;
+     probe READY/RECOVERED; navigation reset; probe missing/unhealthy detection.
+     Because the true threshold crossing occurs between polls, stableWindowMs is NOT an exact
+     post-threshold dwell time or a safety margin. Its amount above minStableMs is largely
+     polling phase/overshoot. Do NOT rank or tune waits from that difference.
+   - Probe health is fail-safe. Every SPA stability evaluation requires a freshly verified healthy
+     probe sample; navigation/unsampled periods contribute NO stability evidence. INITIALIZING/READY
+     is normal first-use/new-document setup. UNHEALTHY/RECOVERED is reserved for a probe already
+     verified healthy in the same document. READY/RECOVERED restart the full confirmation window.
+     At WAIT-END, probeHealthy=true is required for a trustworthy STABLE; otherwise flag error-state.
+   - detectedUnhealthyMs starts at the first OBSERVED unhealthy sample, not at the unknown instant the
+     probe may actually have disappeared. probeInitializations/probeRecoveries are diagnostics, not
+     failures by themselves. Do not infer total probe-absence duration from detectedUnhealthyMs.
+   - Check elapsedMs vs maxTimeoutMs (headroom). Any TIMEOUT/HALT = wait too short or a real stall.
+   - Discovery recording keeps GLOBAL network.responseCompleted subscribed through navigation URL-stability.
+     Use [REQ-UNPAIRED] open-at-end/other to classify remaining unmatched request hops.
+   - Long elapsed caused by slow server responses is NOT a threshold problem; do not raise
+     minStableMs for that. Infer server latency from the timestamp gaps between consecutive
+     [RES]/[NAV] lines (per-request dur is not recorded; see LEGEND).
+   - Gated waits ([SPA-WAIT-BEGIN] carries signal=): a TIMEOUT with signal=..:miss is NOT a
+     threshold problem -- do not suggest raising minStableMs for it; fix the armed selector/
+     pattern or the action instead. For vis HITs, quietAtHit is measured at poll time. For
+     net HITs, quietAtHit=unknown by design: lastPolledQuietMs/sampleAgeMs are stale-sample
+     diagnostics only and MUST NOT be used to infer a settle-to-render gap. If a
+     [SPA-NET-TO-CONTENT] line exists, delayMs=min..max bounds the delay from response completion
+     to the first content mutation; relation=INDETERMINATE means the order itself is not determinable.
+     observedMs is only the later poll-observation delay and may be much larger when polling or
+     recorder-queue work is delayed. A delayMs max near/above minStableMs is a warning/uncertain
+     zone, not proof of early completion. Prefer a stable content/visibility gate or a larger
+     per-action minStableMs when capture correctness matters. For dom HITs, quietAtHit is
+     structurally near zero because the hit itself is a mutation.
+
+3) Settle-to-render suspicion check (early-STABLE warning; the tool pre-computes this)
+   - The tool already emits these advisory markers; you do NOT re-derive them by pairing:
+     [SPA-CONSENSUS-SUSPECT] = this wait hit STABLE while a tracked json/API it saw produced
+       no content render -> treat that STABLE as possibly premature (NOT clean for capture).
+     [SPA-CONSENSUS-UNRESOLVED] = the render order could not be determined from the network
+       completion interval (INDETERMINATE) or observation window (UNOBSERVED); not a suspect.
+     [SPA-CARRYOVER-NOTE] = the immediately next wait in the same browsing context then showed a content render that MAY be
+       the previous action's delayed paint. It is a heads-up, not an attribution.
+   - Deliberately NOT provided: an exact OWNER-ATTRIBUTED settle-to-render gap or a pairing
+     proving which json produced which render. Network completion is an interval, not a point:
+     [SPA-NET-TO-CONTENT] gives a delay range for an explicitly armed net signal, and
+     owner=not-asserted remains important.
+   - The check is adjacent-wait only: a hint lives for exactly ONE following wait, so a SUSPECT
+     with no NOTE in the very next wait is not chased further. Absence of a NOTE is not 'safe'.
+   - Absence of [SPA-CONSENSUS-SUSPECT] does NOT prove render safety, especially when the relevant
+     json/API response or net HIT occurred before SPA-WAIT-BEGIN. BODY STORE presence proves capture,
+     not response-to-render timing; do not use BODY ordering in this saved log as temporal proof.
+   - Before treating a SUSPECT firstJson as render-producing work, check whether it looks like
+     telemetry/beacon/browser-metadata traffic. If so, prefer an IGNORE suggestion for that
+     observed endpoint; idle=skip responses do not create SUSPECT state.
+   - For an app/content API SUSPECT/NOTE (do NOT just raise minStableMs on an ungated wait):
+     re-run with an explicit gate from observed lines to confirm and to get the real timing --
+       bidi.ArmContentSignal "<a stable, value-identifying xpath informed by [SPA-ACT]>"
+       and/or bidi.ArmNetworkSignal "<substring of the SUSPECT's firstJson key>".
+     [SPA-ACT] is sampled/coalesced rather than exhaustive; avoid dynamic IDs when the log
+     shows them changing across otherwise similar UI states. Prefer stable attributes.
+     With net+content armed, the HITs provide cleaner action-scoped evidence than ungated inference,
+     but they still do NOT prove that a specific network response caused a specific render.
+     Fallback: on a net-armed wait with no stable DOM selector, an observed
+     NET-TO-CONTENT delayMs max near/above minStableMs can justify a more conservative per-action
+     minStableMs, but include poll uncertainty rather than treating observedMs as exact.
+   - Beware a stale render tripping a naive gate: arming a bare content xpath can HIT on the
+     PREVIOUS action's late paint. Prefer a value-identifying selector for the expected content.
+
+Per-line features to use: id (same id across a redirect chain), key (normalized endpoint),
+idle (skip|track), [SPA-ACT] (sampled/coalesced DOM mutation evidence), [SUPPRESSED] (filtered-noise tally aggregated by normalized host+path plus query presence; each key carries idle=skip|track).
+Exact-value rule for automation code: normalized URL key= entries such as name= may have had their values stripped; [NAV] fragments are redacted, and valueLen= is not input text.
+Use [NAV-TARGET] when present for the caller-supplied navigation URL. For any missing URL values, fragments, or typed input text, ASK THE USER; do not silently omit, substitute, or infer them.
+If BODY STORE is present, correlate RESPONSE to [RES] and REQUEST to [REQ] by the same ShortId + key. Treat [BODY-SKIP]/[BODY-MISS] as capture outcomes, not evidence that the HTTP body was empty. With default patterns, child-frame/cross-site/unknown-scope JSON is intentionally skipped; explicit body patterns are an opt-in allow-list override.
+For multiplexed POST endpoints that reuse the same normalized key, one captured BODY is only one call sample. If additional calls are [BODY-SKIP] reason=cap or unselected, do NOT assume they used the same operation, payload, or response semantics.
+A BODY with normalized=True is a canonical AI-oriented representation, not byte-for-byte raw. Small framed bodies below losslessSourceMaxChars are normalized without lossy sampling (compacted=False). compacted=True means some detail may be summarized/sampled; <LONG_STRING len=N>, __ai_omitted_items, and __ai_omitted_members explicitly mark that loss. __ai_envelope__=json-frames marks normalized XSSI/length-framed JSON, and __ai_embedded_json__ marks a JSON string expanded structurally; do not infer omitted values.
+Use [BODY-STATS] as the quick outcome summary before inspecting individual BODY records.
+
+4) Reconstruct manual actions from [USER-ACTION] as unverified hints
+   - Use element/ancestor/child/shadowHost attributes and visible text as locator candidates; verify against the live DOM and beware hidden duplicates.
+   - An id that looks generated (UUID-like, long hex, or long digit runs) may change on every page load; prefer visible text or stable attributes for such elements.
+   - Recorded clicks are real (trusted) mouse clicks, but ExecuteClick defaults to a synthetic element.click(). If a replayed click does not produce the change the recording shows after its CONFIRM ([SPA-ACT]/[NAV]), set bidi.UseTrustedClick = True for that click.
+   - href/src in [USER-ACTION] are resolved and sanitized, not literal DOM attributes. Never build an exact @href XPath from them; prefer ancestor IDs, visible text, or a distinctive path segment verified against the live DOM.
+   - Treat valueLen as a length only. selectedText is the capped visible label of a select choice (not its value attribute); review for personal data. Ask the user for exact typed input values and any full URLs required by replay.
+   - A change event may fire on blur, during or after the next pointerdown. Infer editing order using earlier focusin/pointerdown clues and context; do not treat change order as keystroke order.
+   - For iframe actions, use ctx and ctxUrl as context hints; frameUrl may become a writer URL after document.open(), and neither URL alone proves a frame locator. Verify the live context tree before replay; a frameUrl does not form a cross-frame XPath. Timing proximity alone does not prove causality. Popup/new-tab actions are covered only for contexts listed by [USER-ACTION-SCOPE] status=added; switch to that ctx before replaying them.
+=== END REQUEST ===
+--------------------------------------------------------
+[USER-ACTION-ROUTE] preload=installed | scope=top-descendants-and-opened | preloadTargets=all-contexts | filter=parent-or-originalOpener | nativeConsoleInfo=bound | script=12
+[0.68s] [USER-ACTION-READY] realm=834423470642515393.-4508174193799436895 | seq=0 | ctx=3B7EAAD584068C9991446AD092D8FECC | frameUrl=[non-http-url] | ctxUrl=(pending) | at=0.64s
+[0.98s] [NAV-TARGET] url=https://www.customs.go.jp/toukei/srch/index.htm?M=01&P=0
+[1.46s] [REQ] GET | id=5F095C1BA346D1E43B | key=www.customs.go.jp/toukei/srch/index.htm?M=&P= | idle=track | at=1.12s
+[1.51s] [USER-ACTION-READY] realm=-5395124457654731278.8311986275264752689 | seq=0 | ctx=3B7EAAD584068C9991446AD092D8FECC | frameUrl=www.customs.go.jp/toukei/srch/index.htm | ctxUrl=(pending) | at=1.30s
+[1.54s] [RES] 200 [text/html] | id=5F095C1BA346D1E43B | key=www.customs.go.jp/toukei/srch/index.htm?M=&P= | idle=track | at=1.30s
+[1.73s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/index.htm?M=&P= | at=1.33s
+[1.73s] [REQ] GET | id=D2CA52C95D0DA22BB3 | key=www.customs.go.jp/toukei/srch/top.htm | idle=track | ctx=other:6915F63C | at=1.73s
+[1.75s] [USER-ACTION-READY] realm=-6722575931352994832.-1830526921807943086 | seq=0 | ctx=6915F63C2E1FCC8DECE3E3D36A15961F | frameUrl=www.customs.go.jp/toukei/srch/top.htm | ctxUrl=(pending) | at=1.75s
+[1.78s] [RES] 200 [text/html] | id=D2CA52C95D0DA22BB3 | key=www.customs.go.jp/toukei/srch/top.htm | idle=track | ctx=other:6915F63C | at=1.77s
+[1.81s] [REQ] GET | id=7EDAAFB78B77AC985C | key=www.customs.go.jp/toukei/srch/jccht01j.htm? | idle=track | ctx=other:6915F63C | at=1.81s
+[2.05s] [USER-ACTION-READY] realm=-8252234935701156788.5397962930597459802 | seq=0 | ctx=6915F63C2E1FCC8DECE3E3D36A15961F | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=(pending) | at=1.89s
+[2.06s] [RES] 200 [text/html] | id=7EDAAFB78B77AC985C | key=www.customs.go.jp/toukei/srch/jccht01j.htm? | idle=track | ctx=other:6915F63C | at=1.89s
+[2.08s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht01j.htm? | ctx=other:6915F63C | at=1.89s
+[2.08s] [REQ] GET | id=2F68ECFF44B1D8A4E6 | key=www.customs.go.jp/toukei/srch/jccht00d.htm | idle=track | ctx=other:540A8885 | at=1.89s
+[2.08s] [REQ] GET | id=231F89AF734E7069B1 | key=www.customs.go.jp/toukei/srch/jccht01jc.htm | idle=track | ctx=other:AAB8F520 | at=1.89s
+[2.09s] [REQ] GET | id=AB3EAB105C0412EE0F | key=www.customs.go.jp/toukei/srch/jccht00p.htm | idle=track | ctx=other:77AE8AC5 | at=1.89s
+[2.09s] [USER-ACTION-READY] realm=-1544447541221550296.7929365402670991098 | seq=0 | ctx=AAB8F52019E991CFC12FC73B6778CFD8 | frameUrl=www.customs.go.jp/toukei/srch/jccht01jc.htm | ctxUrl=(pending) | at=1.89s
+[2.10s] [RES] 200 [text/html] | id=231F89AF734E7069B1 | key=www.customs.go.jp/toukei/srch/jccht01jc.htm | idle=track | ctx=other:AAB8F520 | at=1.89s
+[2.10s] [USER-ACTION-READY] realm=8876621848693361007.-7186169995766995477 | seq=0 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | frameUrl=www.customs.go.jp/toukei/srch/jccht00d.htm | ctxUrl=(pending) | at=1.89s
+[2.10s] [RES] 200 [text/html] | id=2F68ECFF44B1D8A4E6 | key=www.customs.go.jp/toukei/srch/jccht00d.htm | idle=track | ctx=other:540A8885 | at=1.89s
+[2.11s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht00d.htm | ctx=other:540A8885 | at=1.89s
+[2.11s] [NAV] load - www.customs.go.jp/toukei/srch/jccht00d.htm | ctx=other:540A8885 | at=1.89s
+[2.19s] [USER-ACTION-READY] realm=1871056276906367333.-8664309182738595121 | seq=0 | ctx=77AE8AC5E862AC0D65C38E990B28A6D7 | frameUrl=www.customs.go.jp/toukei/srch/jccht00p.htm | ctxUrl=(pending) | at=1.89s
+[2.23s] [RES] 200 [text/html] | id=AB3EAB105C0412EE0F | key=www.customs.go.jp/toukei/srch/jccht00p.htm | idle=track | ctx=other:77AE8AC5 | at=1.89s
+[2.23s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht00p.htm | ctx=other:77AE8AC5 | at=1.89s
+[2.24s] [NAV] load - www.customs.go.jp/toukei/srch/jccht00p.htm | ctx=other:77AE8AC5 | at=1.89s
+[2.28s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht01jc.htm | ctx=other:AAB8F520 | at=1.94s
+[2.29s] [NAV] load - www.customs.go.jp/toukei/srch/jccht01jc.htm | ctx=other:AAB8F520 | at=1.94s
+[2.29s] [NAV] load - www.customs.go.jp/toukei/srch/jccht01j.htm? | ctx=other:6915F63C | at=1.94s
+[2.29s] [NAV] load - www.customs.go.jp/toukei/srch/index.htm?M=&P= | at=1.94s
+[2.31s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht00d.htm | ctx=other:540A8885 | at=1.97s
+[2.56s] [NAV] load - www.customs.go.jp/toukei/srch/jccht00d.htm | ctx=other:540A8885 | at=2.12s
+[3.05s] [SPA-WAIT-BEGIN] minStableMs=500 | maxTimeoutMs=10000 | ctx=3B7EAAD584068C9991446AD092D8FECC
+[3.26s] [SPA-PROBE-INITIALIZING] reason=new-document-or-first-use | ctx=3B7EAAD584068C9991446AD092D8FECC
+[3.42s] [SPA-PROBE-READY] initMs=169 | attempts=1 | ctx=3B7EAAD584068C9991446AD092D8FECC
+[4.33s] [SPA-STABLE] Consensus reached (minStableMs=500)
+[4.35s] [SPA-WAIT-END] STABLE | elapsedMs=1288 | domQuietMs=1035 | stableWindowMs=508 | minStableMs=500 | fetch=0 | xhr=0 | probeHealthy=true | probeInitializations=1 | probeRecoveries=0 | detectedUnhealthyMs=0 | changeOverflow=0
+[4.47s] [DISCOVERY-CONTROL] status=ready | ctx=2925769EE3444F293200B2EE33502CCB | scope=separate-tab | timeout=RecordEventsForSeconds
+[4.48s] [USER-ACTION-REHOOK] status=ok | ctx=540A8885DAD32D002CC7AD0DEDEA53C9
+[4.58s] [SPA-ACT] DOM:/html[1]/frameset[1] | n=1
+[12.87s] [USER-ACTION] realm=8876621848693361007.-7186169995766995477 | seq=1 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=www.customs.go.jp/toukei/srch/jccht00d.htm | event=pointerdown | target=<input id="la_imp" name="OptExport" type="RADIO" value="(len=1)" onclick class> | actionable=<input id="la_imp" name="OptExport" type="RADIO" value="(len=1)" onclick class> | scope=document | ancestor1=<p class> | ancestor2=<div class> | ancestor3=<div id="contents"> | at=12.85s
+[13.02s] [USER-ACTION-CONFIRM] realm=8876621848693361007.-7186169995766995477 | seq=1 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | event=click | at=12.89s
+[13.03s] [USER-ACTION] realm=8876621848693361007.-7186169995766995477 | seq=2 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=www.customs.go.jp/toukei/srch/jccht00d.htm | event=change | target=<input id="la_imp" name="OptExport" type="RADIO" value="(len=1)" onclick class> | actionable=<input id="la_imp" name="OptExport" type="RADIO" value="(len=1)" onclick class> | scope=document | valueLen=1 | checked=true | ancestor1=<p class> | ancestor2=<div class> | ancestor3=<div id="contents"> | at=12.89s
+[16.28s] [USER-ACTION] realm=8876621848693361007.-7186169995766995477 | seq=3 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=www.customs.go.jp/toukei/srch/jccht00d.htm | event=pointerdown | target=<input type="BUTTON" value="参照" onclick> | actionable=<input type="BUTTON" value="参照" onclick> | sibling=3/3 | scope=document | ancestor1=<p class> | ancestor2=<div class> | ancestor3=<div id="contents"> | at=16.27s
+[16.45s] [USER-ACTION-CONFIRM] realm=8876621848693361007.-7186169995766995477 | seq=3 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | event=click | at=16.44s
+[16.64s] [USER-ACTION-SCOPE] status=added | ctx=C1632B21F2899FE56B134D38D7803800 | via=originalOpener | opener=AAB8F52019E991CFC12FC73B6778CFD8 | url=about:blank | source=contextCreated | at=16.49s
+[16.64s] [USER-ACTION-READY] realm=-5295617837179150684.-8593791550946570150 | seq=0 | ctx=C1632B21F2899FE56B134D38D7803800 | frameUrl=[non-http-url] | ctxUrl=(pending) | at=16.49s
+[16.66s] [NAV] domContentLoaded - about:blank | ctx=other:C1632B21 | at=16.49s
+[16.66s] [NAV] load - about:blank | ctx=other:C1632B21 | at=16.49s
+[16.83s] [USER-ACTION-SCOPE] status=ensured | ctx=C1632B21F2899FE56B134D38D7803800
+[18.32s] [USER-ACTION] realm=-5295617837179150684.-8593791550946570150 | seq=1 | ctx=C1632B21F2899FE56B134D38D7803800 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=about:blank | event=pointerdown | target=<option value="(len=2)"> | actionable=<option value="(len=2)"> | sibling=1/28 | text=０１類～０５類：動物及び動物性生産品（含魚介類） | scope=document | ancestor1=<select name="LstHSGroup" size onchange ondblclick class style> | ancestor2=<p class> | ancestor3=<form name="form01c"> | at=18.31s
+[18.33s] [USER-ACTION] realm=-5295617837179150684.-8593791550946570150 | seq=2 | ctx=C1632B21F2899FE56B134D38D7803800 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=about:blank | event=focusin | target=<select name="LstHSGroup" size onchange ondblclick class style> | actionable=<select name="LstHSGroup" size onchange ondblclick class style> | scope=document | valueLen=0 | children=<option value="(len=2)"> ０１類～０５類：動物及び動物性生産品（含魚介類） ~ <option value="(len=2)"> ０６類～１５類：植物性生産品、動植物油脂 ~ <option value="(len=2)"> １６類～２４類：調製食料品、飲料、アルコール、たばこ等 ~ <option value="(len=2)"> ２５類～２８類：鉱物性生産品（含石油）、無機化学品等 | ancestor1=<p class> | ancestor2=<form name="form01c"> | ancestor3=<body onload> | at=18.32s
+[18.34s] [USER-ACTION] realm=-5295617837179150684.-8593791550946570150 | seq=3 | ctx=C1632B21F2899FE56B134D38D7803800 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=about:blank | event=change | target=<select name="LstHSGroup" size onchange ondblclick class style> | actionable=<select name="LstHSGroup" size onchange ondblclick class style> | scope=document | valueLen=2 | selectedText=０６類～１５類：植物性生産品、動植物油脂 | selectedCount=1 | children=<option value="(len=2)"> ０１類～０５類：動物及び動物性生産品（含魚介類） ~ <option value="(len=2)"> ０６類～１５類：植物性生産品、動植物油脂 ~ <option value="(len=2)"> １６類～２４類：調製食料品、飲料、アルコール、たばこ等 ~ <option value="(len=2)"> ２５類～２８類：鉱物性生産品（含石油）、無機化学品等 | ancestor1=<p class> | ancestor2=<form name="form01c"> | ancestor3=<body onload> | at=18.33s
+[20.83s] [USER-ACTION] realm=-5295617837179150684.-8593791550946570150 | seq=4 | ctx=C1632B21F2899FE56B134D38D7803800 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=about:blank | event=pointerdown | target=<input type="BUTTON" value="決定" onclick> | actionable=<input type="BUTTON" value="決定" onclick> | sibling=1/2 | scope=document | ancestor1=<p class> | ancestor2=<form name="form01c"> | ancestor3=<body onload> | at=20.83s
+[20.97s] [USER-ACTION-CONFIRM] realm=-5295617837179150684.-8593791550946570150 | seq=4 | ctx=C1632B21F2899FE56B134D38D7803800 | event=click | at=20.97s
+[20.98s] [USER-ACTION] realm=8876621848693361007.-7186169995766995477 | seq=4 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=www.customs.go.jp/toukei/srch/jccht00d.htm | event=focusin | target=<input type="BUTTON" value="参照" onclick> | actionable=<input type="BUTTON" value="参照" onclick> | sibling=3/3 | scope=document | valueLen=2 | ancestor1=<p class> | ancestor2=<div class> | ancestor3=<div id="contents"> | at=20.98s
+[24.38s] [USER-ACTION] realm=8876621848693361007.-7186169995766995477 | seq=5 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=www.customs.go.jp/toukei/srch/jccht00d.htm | event=pointerdown | target=<input type="SUBMIT" value=" 検  索 " onclick> | actionable=<input type="SUBMIT" value=" 検  索 " onclick> | sibling=1/2 | scope=document | ancestor1=<p class> | ancestor2=<div class> | ancestor3=<div id="contents"> | at=24.38s
+[24.76s] [USER-ACTION-CONFIRM] realm=8876621848693361007.-7186169995766995477 | seq=5 | ctx=540A8885DAD32D002CC7AD0DEDEA53C9 | event=click | at=24.44s
+[24.76s] [REQ] GET | id=53C828CF3B409357A1 | key=www.customs.go.jp/toukei/srch/index.htm?M=&P= | idle=track | at=24.44s
+[24.78s] [USER-ACTION-READY] realm=3250976790522300049.-4139144897391102138 | seq=0 | ctx=3B7EAAD584068C9991446AD092D8FECC | frameUrl=www.customs.go.jp/toukei/srch/index.htm | ctxUrl=(pending) | at=24.45s
+[24.79s] [RES] 200 [text/html] | id=53C828CF3B409357A1 | key=www.customs.go.jp/toukei/srch/index.htm?M=&P= | idle=track | at=24.45s
+[24.79s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/index.htm?M=&P= | at=24.45s
+[24.79s] [REQ] GET | id=00CEF21083483F766C | key=www.customs.go.jp/toukei/srch/top.htm | idle=track | ctx=other:9F1B7EDB | at=24.45s
+[24.80s] [USER-ACTION-READY] realm=8685056225149955194.3881451797153302436 | seq=0 | ctx=9F1B7EDBAE978002D4C6874F9D3976CF | frameUrl=www.customs.go.jp/toukei/srch/top.htm | ctxUrl=(pending) | at=24.59s
+[24.89s] [RES] 200 [text/html] | id=00CEF21083483F766C | key=www.customs.go.jp/toukei/srch/top.htm | idle=track | ctx=other:9F1B7EDB | at=24.61s
+[24.90s] [REQ] GET | id=9A2F422B9014235543 | key=www.customs.go.jp/toukei/srch/jccht01j.htm?P= | idle=track | ctx=other:9F1B7EDB | at=24.61s
+[24.90s] [USER-ACTION-READY] realm=-124417600881619713.3049204352921804144 | seq=0 | ctx=9F1B7EDBAE978002D4C6874F9D3976CF | frameUrl=www.customs.go.jp/toukei/srch/jccht01j.htm | ctxUrl=(pending) | at=24.61s
+[24.91s] [REQ] GET | id=9727ED217906FE4272 | key=www.customs.go.jp/toukei/srch/jccht00d.htm | idle=track | ctx=other:A15D32F7 | at=24.62s
+[24.92s] [REQ] GET | id=2C2B3FBE4C66063FAF | key=www.customs.go.jp/toukei/srch/jccht01jc.htm | idle=track | ctx=other:EB06953C | at=24.62s
+[24.92s] [RES] 200 [text/html] | id=9A2F422B9014235543 | key=www.customs.go.jp/toukei/srch/jccht01j.htm?P= | idle=track | ctx=other:9F1B7EDB | at=24.62s
+[24.92s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht01j.htm?P= | ctx=other:9F1B7EDB | at=24.62s
+[24.92s] [REQ] GET | id=780CE034062CDC0285 | key=www.customs.go.jp/toukei/srch/jccht00p.htm | idle=track | ctx=other:4D6E5608 | at=24.62s
+[24.93s] [USER-ACTION-READY] realm=-8202679974655374080.-6381532400933030129 | seq=0 | ctx=EB06953CD1F3B27A67E634A65D733F04 | frameUrl=www.customs.go.jp/toukei/srch/jccht01jc.htm | ctxUrl=(pending) | at=24.62s
+[24.95s] [RES] 200 [text/html] | id=2C2B3FBE4C66063FAF | key=www.customs.go.jp/toukei/srch/jccht01jc.htm | idle=track | ctx=other:EB06953C | at=24.63s
+[24.96s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht01jc.htm | ctx=other:EB06953C | at=24.63s
+[24.96s] [NAV] load - www.customs.go.jp/toukei/srch/jccht01jc.htm | ctx=other:EB06953C | at=24.63s
+[24.96s] [USER-ACTION-READY] realm=6196531607449767712.-8882926406278852043 | seq=0 | ctx=4D6E5608BCB6AA3D4B8BFEA00096140F | frameUrl=www.customs.go.jp/toukei/srch/jccht00p.htm | ctxUrl=(pending) | at=24.63s
+[24.97s] [RES] 200 [text/html] | id=780CE034062CDC0285 | key=www.customs.go.jp/toukei/srch/jccht00p.htm | idle=track | ctx=other:4D6E5608 | at=24.63s
+[24.97s] [NAV] domContentLoaded - www.customs.go.jp/toukei/srch/jccht00p.htm | ctx=other:4D6E5608 | at=24.63s
+[24.98s] [USER-ACTION-READY] realm=-4728197208850339867.-9159503229379616517 | seq=0 | ctx=A15D32F7A4663B06305F449DE179E05C | frameUrl=[non-http-url] | ctxUrl=(pending) | at=24.63s
+[24.98s] [RES] 200 [text/html] | id=9727ED217906FE4272 | key=www.customs.go.jp/toukei/srch/jccht00d.htm | idle=track | ctx=other:A15D32F7 | at=24.63s
+[24.98s] [ERR] net::ERR_ABORTED | id=9727ED217906FE4272 | key=www.customs.go.jp/toukei/srch/jccht00d.htm | idle=track | ctx=(empty) | at=24.63s
+[25.12s] [NAV] domContentLoaded - about:blank | ctx=other:A15D32F7 | at=24.63s
+[25.14s] [NAV] load - www.customs.go.jp/toukei/srch/jccht00p.htm | ctx=other:4D6E5608 | at=24.63s
+[25.14s] [NAV] load - about:blank | ctx=other:A15D32F7 | at=24.63s
+[25.14s] [NAV] load - www.customs.go.jp/toukei/srch/jccht01j.htm?P= | ctx=other:9F1B7EDB | at=24.63s
+[25.14s] [NAV] load - www.customs.go.jp/toukei/srch/index.htm?M=&P= | at=24.63s
+[25.14s] [REQ] POST | id=658BEC865B0E9F3E1A | key=www.customs.go.jp/JCWSV01/servlet/JCWSV01 | idle=track | ctx=other:9F1B7EDB | at=24.63s
+[25.15s] [USER-ACTION-READY] realm=246410934364407153.-9161706087328165532 | seq=0 | ctx=9F1B7EDBAE978002D4C6874F9D3976CF | frameUrl=www.customs.go.jp/JCWSV01/servlet/JCWSV01 | ctxUrl=(pending) | at=25.15s
+[25.22s] [RES] 200 [text/html] | id=658BEC865B0E9F3E1A | key=www.customs.go.jp/JCWSV01/servlet/JCWSV01 | idle=track | ctx=other:9F1B7EDB | at=25.22s
+[25.24s] [NAV] domContentLoaded - www.customs.go.jp/JCWSV01/servlet/JCWSV01 | ctx=other:9F1B7EDB | at=25.24s
+[25.27s] [NAV] load - www.customs.go.jp/JCWSV01/servlet/JCWSV01 | ctx=other:9F1B7EDB | at=25.27s
+[25.29s] [SPA-ACT] DOM:/html[1]/head[1]/title[1] | n=1
+[28.79s] [DISCOVERY-STOP] source=control-tab-closed | ctx=2925769EE3444F293200B2EE33502CCB | at=28.79s
+[end] [REQ-UNPAIRED] count=0 | open-at-end=0 | other=0
+[end] [RECORDER-QUEUE-STATS] events=339 | parsed=241 | fastPath=98 | reducedEvents=156 | fallbackOriginalParse=0 | drains=411 | maxEventFifoDepth=143 | maxDispatchLagMs=509 | maxLagArrivalAt=24.63s | lagOver1s=0 | lagOver5s=0 | maxDrainGapMs=346 | maxDrainGapEndAt=24.75s | parseMs=620 | avgParseUs=2574 | fastPathMs=39 | avgFastPathUs=402 | asyncLossSinceStart=0 | navPollPauses=2 | navPauseTimeouts=0 | pollQueryFailures=0
+[end] [USER-ACTION-STATS] captured=9 | confirms=4 | installs=15 | topReady=3 | missingRealm=0 | parseErrors=0 | rehooks=1 | rehookErrors=0 | rehookGone=0 | cleanupWarnings=0 | replayDropped=0
+[end] [USER-ACTION-SCOPE-STATS] scopeContexts=10 | openedContexts=1 | deferred=0 | deferredAccepted=0 | outOfScopeDropped=1 | unresolvedDropped=0 | pendingOverflow=0 | pendingAtEnd=0
+[end] [SUPPRESSED-TOTAL] 228 event(s) filtered, 40 distinct key(s) (excludeResources=True, excludeScripts=True)
+[end] [SUPPRESSED] count=14 | key=www.customs.go.jp/toukei/srch/jcc.css | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/toplogo.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/mainvisual.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/bta_headermenu01.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/bta_headermenu02.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/bta_headermenu05.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/bta_headermenu04.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/bta_headermenu03.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/spacer.gif | idle=track
+[end] [SUPPRESSED] count=10 | key=www.customs.go.jp/toukei/srch/img/common/bta_headermenu06.gif | idle=track
+[end] [SUPPRESSED] count=8 | key=www.customs.go.jp/toukei/srch/display/jccjs00mj.js | idle=track
+[end] [SUPPRESSED] count=6 | key=www.customs.go.jp/toukei/srch/img/common/bg_mainvisual.gif | idle=track
+[end] [SUPPRESSED] count=6 | key=www.customs.go.jp/toukei/srch/img/common/bg_ttl_contents.gif | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/jccj.css | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/dm/jccdm01j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/dm/jccdm02j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/dm/jccdm06j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/dm/jccdm20.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/dm/jccdm30.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/resource/jccrs01j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/resource/jccrs02j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/resource/jccrs03j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/resource/jccrs05j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/resource/jccrs06j.js | idle=track
+[end] [SUPPRESSED] count=4 | key=www.customs.go.jp/toukei/srch/resource/jccrs20j.js | idle=track
+[end] [SUPPRESSED] ... and 15 more recorded distinct key(s)
+
+=== BODY STORE (Optional Network Bodies) ===
+BODY-SECURITY | Request/response bodies may contain credentials, personal, authentication, or confidential data. Default BODY STORE retrieval/logging requires the recorder top-level context plus Sec-Fetch-Site same-origin/same-site/none; explicit AddBodyCapturePattern entries override that allow-list. The browser-side BiDi collector may still temporarily retain other response data until collector cleanup. Review logs before sharing with AI or public forums.
+BODY-CONFIG | dataType=response | mime=json-only | patterns=(top-context same-site-json default) | retrievalScope=top-context+sec-fetch-site-default-or-explicit-pattern | collectorMaxEncodedDataSize=262144 | maxLoggedChars=8192 | maxCount=25 | maxCandidates=1000 | selection=evidence>pattern>wait>other,newest-first | maxPerMethodKeyMime=1 | aiCompact=True | frameJson=True | embeddedJson=True | losslessSourceMaxChars=4096 | maxStringChars=256 | maxArrayItems=3 | maxObjectMembers=24 | strictStringChars=128 | strictArrayItems=2 | strictObjectMembers=10
+[BODY-STATS] captured=0 | response=0 | request=0 | truncated=0 | normalized=0 | compacted=0 | sourceChars=0 | loggedChars=0 | savedChars=0 | miss=0 | missUnavailable=0 | skipCap=0 | skipUnselected=0 | skipRedirect=0 | skipOversize=0 | skipScope=0 | skipOther=0 | disabled=0
+=== END BODY STORE ===

@@ -18,18 +18,15 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 'ブラウザ制御オブジェクト
-Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
-Attribute ex_CDPCore.VB_VarHelpID = -1
-Private ex_CDPBrowser               As CDPBrowser   '継承元のコンテキスト(タブ)
-Private ex_CDPContext               As CDPContext   '継承元のブラウザ
+Private WithEvents ex_CDPBrowser    As CDPBrowser   '継承元のコンテキスト(タブ)
+Private WithEvents ex_CDPContext    As CDPContext   '継承元のブラウザ
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_Template"
 
 'ステート管理
-Private currentLog                 As StateLog     'ログ設定
+Private m_LogID                     As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
-Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
 
 
 
@@ -54,8 +51,8 @@ End Property
 '***************************************************************************************************
 '* 機能　　：タブ向けの非同期イベントを処理したいときにご利用ください。あなたのイメージをコードに落とし込む場所の1つです
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
+Private Sub ex_CDPContext_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPContext_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -66,18 +63,15 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Exit Sub
     End If
 
-    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionId <> sessionID Then Exit Sub
-
-    '3. 処理したい対象の非同期イベント名を、各Case に記述してください。
+    '2. 処理したい対象の非同期イベント名を、各Case に記述してください。
     Select Case methodName
         Case "○○.△△"
-            '4. ↓ここから、あなたの非同期Aの処理イメージをコードに落とし込む↓
+            '3. ↓ここから、あなたの非同期Aの処理イメージをコードに落とし込む↓
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
 
 
         Case "□□.◇◇"
-            '4. ↓ここから、あなたの非同期Bの処理イメージをコードに落とし込む↓
+            '3. ↓ここから、あなたの非同期Bの処理イメージをコードに落とし込む↓
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
 
 
@@ -94,8 +88,8 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ブラウザ単位での非同期イベントを処理したいときにご利用ください。あなたのイメージをコードに落とし込む場所の1つです
 '***************************************************************************************************
-Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPBrowserEvent"
+Private Sub ex_CDPBrowser_ExEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_ExEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -156,14 +150,15 @@ End Sub
 '* 注意事項：各種メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておき、Private化すること
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+    Const LogFileExtension  As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    ex_CDPCore.TakeEvents StopPipeError, destruction
+    '※ブラウザ向けコマンドが必要な場合にのみ、このようなヘルパーをもうけること
+    ex_CDPContext.ThisCDPBrowser.TakeEvents StopPipeError, destruction
 End Sub
 
 
@@ -171,32 +166,25 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：CDP制御のベースとなる`CDPCore.cls`等を継承させます
+'* 機能　　：CDP制御のベースとなる`WithEvents`を継承させます
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：CDP制御に関する全てのオブジェクトをここで継承させ、タブのSesssionIDも適用させてください
-'* 注意事項：・タブの場合は、「CDPContext,CDPBrowser,CDPCore」の3つ、ブラウザの場合は、「CDPBrowser,CDPCore」の2つとなります
-'           ・SessionId は、タブで継承する際に使用します
+'* 詳細説明：CDP制御に関するオブジェクトをここで継承さます
+'* 注意事項：・タブの場合は、「CDPContext」、ブラウザの場合は、「CDPBrowser」となります
+'            ・`CDPContext`だけであっても一応`.ThisCDPBrowser`で同時に取れますが、なるべくスコープ範囲を守るようにしましょう
+'              タブで完結するなら､「CDPContext」だけといった感じです。
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, ex_CDPCore.LogSettings
-
-    'SessionIdを取得
-    CurrentSessionId = ex_CDPContext.CurrentSessionId
+    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser  '※ブラウザ向けイベントが必要な場合のみ使用
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：`LogID`を採番します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    currentLog.LogID = "XTID" & Format(Rnd * 1000, "000")
+    m_LogID = "XTID" & Format(Rnd * 1000, "000")
 End Sub

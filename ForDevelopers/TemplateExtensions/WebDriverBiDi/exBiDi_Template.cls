@@ -2,42 +2,41 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "exBiDi_Template.cls"
+Attribute VB_Name = "exBiDi_Template"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           `WebDriverBiDiCore.cls`ã«å¯¾ã™ã‚‹æ©Ÿèƒ½æ‹¡å¼µã‚’æä¾›ã™ã‚‹ãƒ†ãƒ³ãƒ—ãƒ¬ãƒ¼ãƒˆã‚¯ãƒ©ã‚¹ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™
+'           `WebDriverBiDiMode.cls`‚É‘Î‚·‚é‹@”\Šg’£‚ğ’ñ‹Ÿ‚·‚éƒeƒ“ƒvƒŒ[ƒgƒNƒ‰ƒXƒtƒ@ƒCƒ‹‚Å‚·
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…±é€šå®šç¾©å¤‰æ•°/å®šæ•° â– â– â– 
+'                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
 '***************************************************************************************************
-'å†…éƒ¨å‚ç…§ç”¨ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
-Private WithEvents ex_BiDiCore  As WebDriverBiDiCore
-Attribute ex_BiDiCore.VB_VarHelpID = -1
-Private ex_BiDiContext          As WebDriverBiDiContext
-Attribute ex_BiDiContext.VB_VarHelpID = -1
+'“à•”QÆ—pƒIƒuƒWƒFƒNƒg
+Private WithEvents ex_BiDiMode  As WebDriverBiDiMode
+Attribute ex_BiDiMode.VB_VarHelpID = -1
 
-'å†…éƒ¨ä½¿ç”¨ç”¨
-Private Const ThisClassName         As String = "exBiDi_Template.cls"             'ãƒ­ã‚°ã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨
+'“à•”g—p—p
+Private Const ThisClassName     As String = "exBiDi_Template"   'ƒƒO‚ÌƒgƒŒ[ƒX—p
 
-'ã‚¹ãƒ†ãƒ¼ãƒˆç®¡ç†
-Private currentLog                 As StateLog     'ãƒ­ã‚°è¨­å®š
-Private EnableBrowserEvents         As Boolean      'ã“ã®æ‹¡å¼µæ©Ÿèƒ½ã«ã‚ˆã‚‹ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’æœ‰åŠ¹åŒ–ã™ã‚‹ã‹ã—ãªã„ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°
+'ƒXƒe[ƒgŠÇ—
+Private m_LogID                 As String   'ƒƒO¯•ÊID
+Private EnableBrowserEvents     As Boolean  '‚±‚ÌŠg’£‹@”\‚É‚æ‚éƒuƒ‰ƒEƒU”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğ—LŒø‰»‚·‚é‚©‚µ‚È‚¢‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO
+Private m_context               As String   '“Á’èƒ^ƒuŒü‚¯‚Éˆ—‚µ‚½‚¢ê‡‚È‚Ç‚É
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ â– â– â– 
+'                               ¡¡¡ ŒöŠJƒvƒƒpƒeƒB ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’è¡Œã†ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã§ã™
+'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğs‚¤‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šã‚¹ã‚³ãƒ¼ãƒ—ç¯„å›²ã®èª¿æ•´ã«ã©ã†ãã€‚åç§°ã¯ã€ã€ŒApplication.EnableEventsã€ã‹ã‚‰å–ã‚Šã¾ã—ãŸ
+'* Ú×à–¾FƒXƒR[ƒv”ÍˆÍ‚Ì’²®‚É‚Ç‚¤‚¼B–¼Ì‚ÍAuApplication.EnableEventsv‚©‚çæ‚è‚Ü‚µ‚½
 '***************************************************************************************************
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
@@ -50,18 +49,18 @@ End Property
 
 
 '***************************************************************************************************
-'                     â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ† éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç·¨ â– â– â– 
+'                     ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª ”ñ“¯ŠúƒCƒxƒ“ƒg•Ò ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã‚’å‡¦ç†ã—ãŸã„ã¨ãã«ã”åˆ©ç”¨ãã ã•ã„ã€‚ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€å ´æ‰€ã®1ã¤ã§ã™
+'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒg‚ğˆ—‚µ‚½‚¢‚Æ‚«‚É‚²—˜—p‚­‚¾‚³‚¢B‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚ŞêŠ‚Ì1‚Â‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼š`ex_BiDiContext.cls`ã‹ã‚‰å—ã‘å–ã£ãŸ`Context`ã ã‘å‡¦ç†ã‚’é€šã™å ´åˆã¯ãã®åˆ¤å®šå‡¦ç†ã‚’åˆ¥é€”ã€caseå†…ã«è¨˜è¿°ã—ã¦ä¸‹ã•ã„ã€‚
-'            ãªãŠã€CDPç‰ˆã¨é•ã£ã¦ã€ã‚¤ãƒ™ãƒ³ãƒˆå†…å®¹ã«ã‚ˆã£ã¦`Context`ã®è¨˜è¼‰æƒ…å ±ä½ç½®ãŒç•°ãªã‚‹ãŸã‚ã€ã‚¤ãƒ™ãƒ³ãƒˆmethodåã”ã¨ã«contextåˆ¤å®šã¨ã„ã†ãƒ•ãƒ­ãƒ¼ã«ã—ã¦ä¸‹ã•ã„
+'* ’ˆÓ–€F“Á’è‚Ì`Context`‚¾‚¯ˆ—‚ğ’Ê‚·ê‡‚Í‚»‚Ì”»’èˆ—‚ğ•Ê“rAcase“à‚É‹Lq‚µ‚Ä‰º‚³‚¢B
+'            ‚È‚¨ACDP”Å‚Æˆá‚Á‚ÄAƒCƒxƒ“ƒg“à—e‚É‚æ‚Á‚Ä`Context`‚Ì‹LÚî•ñˆÊ’u‚ªˆÙ‚È‚é‚½‚ßAƒCƒxƒ“ƒgmethod–¼‚²‚Æ‚Écontext”»’è‚Æ‚¢‚¤ƒtƒ[‚É‚µ‚Ä‰º‚³‚¢
 '***************************************************************************************************
-Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_BiDiCore_detectionBiDiEvent"
+Private Sub ex_BiDiMode_ExEvent(methodName As String, EventRawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_BiDiMode_ExEvent"
 
 
-    '1. éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†è‡ªä½“ãŒç„¡åŠ¹çŠ¶æ…‹ãªã‚‰ã€å³æŠœã‘
+    '1. ”ñ“¯ŠúƒCƒxƒ“ƒgˆ—©‘Ì‚ª–³Œøó‘Ô‚È‚çA‘¦”²‚¯
     If EnableBrowserEvents Then
         printMsg Trace_, "Asynchronous event handling is enabled in this extended class.", FromProcedureName
     Else
@@ -69,15 +68,15 @@ Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, EventRawJson As
         Exit Sub
     End If
 
-    '2. å‡¦ç†ã—ãŸã„å¯¾è±¡ã®éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆåã‚’ã€å„Case ã«è¨˜è¿°ã—ã¦ãã ã•ã„ã€‚
+    '2. ˆ—‚µ‚½‚¢‘ÎÛ‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg–¼‚ğAŠeCase ‚É‹Lq‚µ‚Ä‚­‚¾‚³‚¢B
     Select Case methodName
-        Case "â—‹â—‹.â–³â–³"
-            '3. â†“ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®éåŒæœŸAã®å‡¦ç†ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
+        Case "››.¢¢"
+            '3. «‚±‚±‚©‚çA‚ ‚È‚½‚Ì”ñ“¯ŠúA‚Ìˆ—ƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş«
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
 
-        Case "â–¡â–¡.â—‡â—‡"
-            '3. â†“ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®éåŒæœŸBã®å‡¦ç†ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
+        Case "  ."
+            '3. «‚±‚±‚©‚çA‚ ‚È‚½‚Ì”ñ“¯ŠúB‚Ìˆ—ƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş«
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
 
@@ -87,22 +86,22 @@ Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, EventRawJson As
 
     End Select
 
-    'åŸºæœ¬çš„ã«ã¯ã€`Case`å†…å®ŒçµãŒæœ›ã¾ã—ã„ã§ã™ãŒã€å¿…è¦ã«å¿œã˜ã¦ã€ä¸‹æº–å‚™ã‚„å¾Œå§‹æœ«è¦å› ã§ã€éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã®å‡¦ç†å‰å¾Œã§ã‚ã£ã¦ã‚‚ã€ã‚³ãƒ¼ãƒ‰ã‚’è¨˜è¿°ã—ã¦ã„ãŸã ã„ã¦æ§‹ã„ã¾ã›ã‚“ã€‚
+    'Šî–{“I‚É‚ÍA`Case`“àŠ®Œ‹‚ª–]‚Ü‚µ‚¢‚Å‚·‚ªA•K—v‚É‰‚¶‚ÄA‰º€”õ‚âŒãn––—vˆö‚ÅA”ñ“¯ŠúƒCƒxƒ“ƒg‚Ìˆ—‘OŒã‚Å‚ ‚Á‚Ä‚àAƒR[ƒh‚ğ‹Lq‚µ‚Ä‚¢‚½‚¾‚¢‚Ä\‚¢‚Ü‚¹‚ñB
 
 End Sub
 
 
 
 '***************************************************************************************************
-'                           â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ†ç·¨ â– â– â– 
+'                           ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª•Ò ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ†ã®1ã¤ã§ã™ã€‚ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€å ´æ‰€ã®1ã¤ã§ã™
+'* ‹@”\@@FƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª‚Ì1‚Â‚Å‚·B‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚ŞêŠ‚Ì1‚Â‚Å‚·
 '***************************************************************************************************
 Public Sub Main01(hoge1 As String, hoge2 As String)
-    Const FromProcedureName As String = ThisClassName & ".Main01"   'Logã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨ã«ã€ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£åã‚’å®šæ•°ã§ç”¨æ„ã—ã¦ãŠãã¨ä¾¿åˆ©ã§ã™
+    Const FromProcedureName As String = ThisClassName & ".Main01"   'Log‚ÌƒgƒŒ[ƒX—p‚ÉAƒvƒƒV[ƒWƒƒ–¼‚ğ’è”‚Å—pˆÓ‚µ‚Ä‚¨‚­‚Æ•Ö—˜‚Å‚·
 
 
-    'â†“ã“ã“ã‹ã‚‰ã€ç‹¬è‡ªã®æ©Ÿèƒ½æ‹¡å¼µå‡¦ç†ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
+    '«‚±‚±‚©‚çA“Æ©‚Ì‹@”\Šg’£ˆ—ƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş«
 
 
 
@@ -111,62 +110,62 @@ End Sub
 
 
 '***************************************************************************************************
-'                           â– â– â–  `WebDriverBiDi`ç›´é€šãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
+'                           ¡¡¡ `WebDriverBiDiMode`’¼’Êƒƒ\ƒbƒh ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šã„ã¡ã„ã¡ã€`â—‹â—‹.ExecuteBiDi`ã¨ã„ã£ãŸè¨˜è¿°ã‚’é˜²ãæªç½®ã¨ãªã‚Šã¾ã™ã€‚
+'* ‹@”\@@FeƒNƒ‰ƒX‚Ö‚Ì’¼’Êƒ‰ƒbƒp[‚Å‚·B
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼šãƒ»å‰å¾Œã®å‡¦ç†ç­‰ã‚‚å‡ºæ¥ã¾ã™ãŒåŸºæœ¬ã¯ã€1è¡Œã ã‘ã«ç•™ã‚ã¦ãŠãã“ã¨ã‚’ãŠå‹§ã‚ã—ã¾ã™
-'            ãƒ»å„è©³ç´°ã¯ã€`WebDriverBiDi`ã®æ–¹ã‚’ã”è¦§ãã ã•ã„
+'* Ú×à–¾F‰º‹L‚Íˆê—á‚Å‚·B‘Ò‹@‚Í`CDPHelpers.Sleep` / `CDPHelpers.TimerCounter`‚ğ’¼Úg‚Á‚Ä‚­‚¾‚³‚¢B•K—v‚É‰‚¶‚Äíœ‚â’Ç‰Á‚à‰Â”\‚Å‚·
+'* ’ˆÓ–€FŠeíƒƒ\ƒbƒh‚ğs‚¤‘OŒã‚Ìˆ—“™‚ào—ˆ‚Ü‚·‚ªŠî–{‚ÍA1s‚¾‚¯‚É—¯‚ß‚Ä‚¨‚«APrivate‰»‚·‚é‚±‚Æ
 '***************************************************************************************************
-'è² è·ã‚’æŠ‘ãˆã‚‹ã¨ãã«ã©ã†ã
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_BiDiCore.sleep seconds
-End Sub
-
-'ãƒ­ã‚°ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å‡ºã™ã¨ãã«ã©ã†ã
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    Const LogFileExtension         As String = ".bidi.log"  'ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«æ‹¡å¼µå­
+    Const LogFileExtension  As String = ".bidi.log"  'ƒƒOƒtƒ@ƒCƒ‹Šg’£q
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
-'BiDiå®Ÿè¡Œã«å¿…è¦ã§ã™
-Private Function ExecuteBiDi(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
-    Set ExecuteBiDi = ex_BiDiContext.ExecuteBiDi(methodName, params, StopError)
+Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
+    Set ExecuteBiDi = ex_BiDiMode.ExecuteBiDi(methodName, params, StopError)
 End Function
 
-'éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç™ºç«(RaiseEvent)ã«å¿…è¦ã§ã™
+'”ñ“¯ŠúƒCƒxƒ“ƒg”­‰Î(RaiseEvent)‚É•K—v‚Å‚·
 Private Sub TakeEvents(Optional destruction As Boolean)
-    ex_BiDiCore.TakeEvents , destruction
+    ex_BiDiMode.TakeEvents , destruction
 End Sub
 
 
 
 '***************************************************************************************************
-'                             â– â– â–  åˆæœŸè¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
+'                             ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šæƒ…å ±ç¶™æ‰¿ã‚’è¡Œã„ã¾ã™
+'* ‹@”\@@FBiDi§Œä‚Ìƒx[ƒX‚Æ‚È‚é`WithEvents`‚ğŒp³‚³‚¹‚Ü‚·
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€FEBiDi‚Ìê‡ACDP‚Æˆá‚¢ƒCƒxƒ“ƒgî•ñ‚Éƒ^ƒuˆ¶‚Ä/ƒuƒ‰ƒEƒUˆ¶‚Ä‚Æ‚¢‚¤ŠT”O‚ª‚ ‚è‚Ü‚¹‚ñB
+'              ‚»‚Ì‚½‚ßA`WithEvents`Œp³‚Íí‚É`As WebDriverBiDiMode`‚Æ‚È‚è‚Ü‚·B
+'            Eó‹µ‚É‰‚¶‚ÄA‚Ç‚Á‚¿‚©‚ğ‘I‚ñ‚Å‚­‚¾‚³‚¢
 '***************************************************************************************************
+Friend Sub Init(Inheritance As WebDriverBiDiMode, Optional contextID As String)
+    '•K—v‚ÈBiDiƒIƒuƒWƒFƒNƒg‚ğŒp³
+    Set ex_BiDiMode = Inheritance
+
+    'ƒRƒ“ƒeƒLƒXƒgî•ñ
+    m_context = contextID
+End Sub
+
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
-    'ç¶™æ‰¿
-    Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, ex_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
-    
-    'ã‚³ãƒ³ãƒ†ã‚­ã‚¹ãƒˆæƒ…å ±
+    '•K—v‚ÈBiDiƒIƒuƒWƒFƒNƒg‚ğŒp³
+    Set ex_BiDiMode = Inheritance.ThisWebDriverBiDiMode
+
+    'ƒRƒ“ƒeƒLƒXƒgî•ñ
     m_context = Inheritance.context
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼š`LogID`ã‚’æ¡ç•ªã—ã¾ã™
+'* ‹@”\@@F`LogID`‚ğÌ”Ô‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
-    'ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸå‡¦ç†ã‚’æœ‰åŠ¹åŒ–
+    'ƒuƒ‰ƒEƒU”ñ“¯Šúˆ—‚ğ—LŒø‰»
     EnableBrowserEvents = True
 
-    currentLog.LogID = "XBID" & Format(Rnd * 1000, "000")
+    m_LogID = "XBID" & Format(Rnd * 1000, "000")
 End Sub

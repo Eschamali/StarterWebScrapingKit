@@ -77,13 +77,14 @@ Public Sub BiDiÇ…ÇÊÇÈñ`åØÇÃénÇ‹ÇË_GoogleFlightsîÒìØä˙î≈()
 
     '-----WebSocketÉãÅ[Ég-----
 '    Dim UserName As String
-'    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+'    UserName = ShSetting01_StartBrowser.CurrentUserName
 '
-'    Dim WebSocketBiDi As New CDPCoreViaWebSocket
+'    Dim WebSocketBiDi As CDPCoreViaWebSocket: Set WebSocketBiDi = New CDPCoreViaWebSocket
 '    WebSocketBiDi.ConnectCDP UserName, "/devtools/browser/00db52b3-1ade-4291-aae6-dcec17d463cb"
 '
 '    Dim b As New WebDriverBiDiMode
-'    b.reattach UserName, WebSocketMode:=WebSocketBiDi
+'    ReattachOptions.Set_WebSocketMode(WebSocketBiDi) = UserName
+'    b.reattach ReattachOptions
 '    Set g_GF_Browser = b.newTab(setMain:=True)
     '-------------------------
 
@@ -481,7 +482,7 @@ Private Sub GF_ReleaseBrowser()
 
     If Not g_GF_Browser Is Nothing Then
         Set g_GF_Browser.ThisWebDriverBiDiMode.BiDiEvents = Nothing
-        g_GF_Browser.ThisWebDriverBiDiMode.quit
+        g_GF_Browser.ThisWebDriverBiDiMode.CloseBrowser
     End If
 
     Set g_GF_Browser = Nothing
