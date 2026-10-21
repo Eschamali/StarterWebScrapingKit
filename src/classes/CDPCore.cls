@@ -1285,12 +1285,12 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
     printMsg Trace_, "Starts retrieving data from the WebSocket...", FromProcedureName
 
     '終了サインかつ、受信データなしになるまで、ループ受信を行います
-    Dim LoopCounter As Long
+    Dim ResCounter As Long
     Dim isFIN As Boolean: isFIN = True  '初期化
     Do
         '一定の回数ごとに`DoEvents`を呼ぶ。※初回ループは、必ず呼ぶ
-        If LoopCounter Mod RunDoEventsCount = 0 Then DoEvents
-        LoopCounter = LoopCounter + 1
+        If ResCounter Mod RunDoEventsCount = 0 Then DoEvents
+        ResCounter = ResCounter + 1
 
 
         '受信処理
