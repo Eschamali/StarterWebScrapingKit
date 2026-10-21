@@ -103,12 +103,12 @@ End Type
 
 'WebSocketのFrame単位を管理する独自構造体
 Private Type WebSocketReceiveFrameManage
-    PayloadLength   As Long     '今回来る1Frameのサイズ
-    CurrentCursor   As Long     '`PayloadLength`のうち、どこまで書き込んだ？
-    ValidTags       As Boolean  '有効なタグ中か？ペイロードデータ自体の欠け対策です
-    isFIN           As Boolean  'FINフラグ
-    opcode          As Long     '「これはテキストだよ（1）」「バイナリだよ（2）」「切断要求だよ（8）」などのデータ種類
-    FrameHeaderSize As Long     '今回のフレームヘッダーサイズ
+    PayloadLength   As Long             '今回来る1Frameのサイズ
+    CurrentCursor   As Long             '`PayloadLength`のうち、どこまで書き込んだ？
+    ValidTags       As Boolean          '有効なタグ中か？ペイロードデータ自体の欠け対策です
+    isFIN           As Boolean          'FINフラグ
+    opcode          As OpcodeRegistry   '「これはテキストだよ（1）」「バイナリだよ（2）」「切断要求だよ（8）」などのデータ種類
+    FrameHeaderSize As Long             '今回のフレームヘッダーサイズ
 End Type
 Private m_WebSocketFrame As WebSocketReceiveFrameManage
 
@@ -128,6 +128,16 @@ Public Enum WS_BUFFER_TYPE
     WS_UTF8_MESSAGE = 2       ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
     WS_UTF8_FRAGMENT = 3      ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
     WS_CLOSE_MESSAGE = 4      ' WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
+End Enum
+
+'Opcode 一覧
+Private Enum OpcodeRegistry
+    ContinuationFrame
+    TextFrame
+    BinaryFrame
+    ConnectionCloseFrame = 8
+    PingFrame
+    PongFrame
 End Enum
 
 '主要な、winsock定数
@@ -551,7 +561,7 @@ End Function
 Private Sub SendMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean)
     ' 1. 送信Opcodeの決定 (テキスト=0x01, バイナリ=0x02)
     Dim opcode As Byte
-    opcode = IIf(TextType, &H1, &H2)
+    opcode = IIf(TextType, TextFrame, BinaryFrame)
 
     ' 2. WebSocketの仕様(RFC 6455)に準拠したマスク付きフレームを構築
     Dim wsFrame() As Byte
@@ -735,7 +745,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         If Not UpdateFrameHeader(bytesAvailable) Then Exit Function
 
         'ヘッダー情報解析後の、切断要求チェック (Opcode: 8)
-        If m_WebSocketFrame.opcode = 8 Then
+        If m_WebSocketFrame.opcode = m_WebSocketFrame.opcode Then
             Call DisconnectCDP
             m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE ' プロパティを切断状態に
             printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
@@ -800,7 +810,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 
             'テキストとして送られた物か確認
             Dim TextType As Boolean
-            TextType = (m_WebSocketFrame.opcode = &H1 Or m_WebSocketFrame.opcode = &H0) ' テキストまたは継続テキスト
+            TextType = (m_WebSocketFrame.opcode = TextFrame Or m_WebSocketFrame.opcode = ContinuationFrame) ' テキストまたは継続テキスト
 
             '`Base Header`としての、`FINフラグ`チェック
             If m_WebSocketFrame.isFIN Then
