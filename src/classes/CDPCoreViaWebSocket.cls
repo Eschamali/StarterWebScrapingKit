@@ -156,6 +156,7 @@ Private Const D_host        As String = "127.0.0.1"
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
+Private Const RunPingCount  As Integer = 2 ^ 13 '受信0による長いループ中に`SendPing`を挟む間隔値
 
 
 
@@ -180,6 +181,7 @@ Private m_WSAInitialized    As Boolean          'WinSockの初期化成功可否
 Private m_IsConnected       As Boolean          '既にWebSocketに接続済みか？
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
+Private m_resPong           As Boolean          '最後のPongを受信したか？
 
 'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
@@ -255,6 +257,13 @@ End Function
 '***************************************************************************************************
 Property Get Connection_hProcess() As LongPtr
     Connection_hProcess = hProcess
+End Property
+
+'***************************************************************************************************
+'* 機能    ：最後のPingで送ったのが、Pongとしてきたか？
+'***************************************************************************************************
+Property Get IsComePong() As Boolean
+    IsComePong = m_resPong
 End Property
 
 
@@ -572,6 +581,30 @@ Private Sub SendMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean
 End Sub
 
 '***************************************************************************************************
+'* 機能    ：Pingとして、WebSocketへ送信を行います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：接続の生存確認に使います
+'* 注意事項：結果のPongは、ここでは回収しません
+'***************************************************************************************************
+Private Sub SendPing()
+    Const FromProcedureName As String = ThisClassName & ".SendPing"
+
+
+    '1. フラグリセット
+    m_resPong = False
+
+    '2. Pingのペイロードデータを作成
+    Dim PingData() As Byte
+    PingData = StrConv("VulpesVulpesSchrencki", vbFromUnicode)  '※ASCIIのみ想定。中身はPongでそのまま返ってくる
+
+    '3. WinSock経由でデータを全て送信
+    RawSend BuildFrame(PingData, PingFrame)
+
+    '4. 送信自体ができない場合は、相手のWebSocketが切断処理されてるので、止める
+    If LastWinSockError.StyleErrWriteFile Then printMsg ERROR_, "Ping failed to send. ErrorCode: " & LastWinSockError.StyleErrWriteFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrWriteFile, "ws2_32"), FromProcedureName, doRaiseError:=True
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：WebSocketフレームの構築（マスク処理含む）を行います
 '***************************************************************************************************
 Private Function BuildFrame(Payload() As Byte, opcode As Byte) As Byte()
@@ -715,12 +748,31 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 
     '2. 状況に応じた分岐処理
     If bytesAvailable <= 0 Then
-        '受信サイズ0以下なら即抜け
+        '受信サイズ0以下なら、いくつか処理をし、抜ける
         printMsg Trace_, "The received data is empty.", FromProcedureName
 
-        'ペイロード処理中の場合は、`False`に上書きしておきます
+        '2-1. ペイロード処理中の場合は、`False`に上書きしておきます
         '※破棄モードの場合は、スルー
         If Not destruction Then EndOfData = Not m_WebSocketFrame.ValidTags
+
+        '2-2. 受信0の時のみ、一定の回数ごとに`Ping`を送る。※初回ループは、送らない
+        Static EmptyCounter As Integer
+        EmptyCounter = EmptyCounter + 1
+        If EmptyCounter Mod RunPingCount = 0 Then
+            'ログを出して
+            printMsg info_, "A ping was sent because data was not received a certain number of times.", FromProcedureName
+
+            'Ping発信
+            SendPing
+
+            'オーバフローしないように、リセットしておく
+            EmptyCounter = 0
+
+            '次のループでPong回収出来るように、フラグを上書き
+            EndOfData = False
+        End If
+
+        '2-3. ここで抜けて次のループに回す
         Exit Function
 
     ElseIf destruction Then
@@ -744,13 +796,18 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         'この場合、サイズ0、エラーなしとなります。
         If Not UpdateFrameHeader(bytesAvailable) Then Exit Function
 
-        'ヘッダー情報解析後の、切断要求チェック (Opcode: 8)
-        If m_WebSocketFrame.opcode = m_WebSocketFrame.opcode Then
-            Call DisconnectCDP
-            m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE ' プロパティを切断状態に
-            printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
-            Exit Function
-        End If
+        'ヘッダー情報解析後の、`Opcode`ごとの追加処理
+        Select Case m_WebSocketFrame.opcode
+            Case ConnectionCloseFrame
+                '切断要求が来たのでこっちも、切断準備する
+                m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE  'プロパティを切断状態にし、`CDPCore.cls`側で切断処理をするようにフラグ付け
+                printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
+
+            Case PongFrame
+                'Pongを受け取ったので、その更新
+                m_resPong = True
+                printMsg info_, "I received a Pong.", FromProcedureName
+        End Select
     End If
 
     '3. 必要な取り出しペイロードデータサイズを計算
@@ -792,9 +849,11 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 '            Debug.Assert bSuccess = TakePayloadSize
 '            Debug.Assert m_WebSocketFrame.CurrentCursor <= m_WebSocketFrame.PayloadLength
 
-            'ストリームに書き込み、イベント発信
+            'ストリームにペイロードデータを書き込み
             WebSocketReceiveStream.Write payloadBuffer
-            RaiseEvent readWebSocketCDP(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
+
+            'テキスト(CDP-Json文字列テキストだけの想定)なら、イベント発信する
+            If m_WebSocketFrame.opcode = TextFrame Then RaiseEvent readWebSocketCDP(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
         Else
             '取り出しに失敗したら、エラー情報を記録して抜ける
             LastWinSockError.StyleErrReadFile = Err.LastDllError
@@ -1423,6 +1482,7 @@ Private Sub Class_Initialize()
     '各種ステータスを初期化
     m_hSocket = -1
     m_LastBufferType = WS_NOT_MESSAGE
+    m_resPong = True
 End Sub
 
 Private Sub Class_Terminate()
