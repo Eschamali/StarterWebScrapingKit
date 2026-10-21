@@ -918,7 +918,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         'VBA側としては、相手がどの箱で送ってきたかに合わせて、ソケットから「追加で2バイト読み取るか、8バイト読み取るか」を変えなければならないため、この儀式が必要になります。
         Dim lenIndicator As Byte
         lenIndicator = (header(1) And &H7F)
-        If lenIndicator < 126 Then
+        If lenIndicator <= 125 Then
             printMsg Trace_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
 
 
