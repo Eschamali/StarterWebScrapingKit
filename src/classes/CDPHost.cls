@@ -313,21 +313,28 @@ Property Get getBrowserPath() As String
     Dim subPath As String
     subPath = EnumToStringBrowserList_BrowserPath(UserBrowserMode)
 
-    '4. 開発レベルに応じたブラウザフルパス生成
+    '4. 開発レベルに応じたブラウザ親パス生成
     Dim envLocal As String: envLocal = Environ$("LOCALAPPDATA")
     Dim envProg As String:  envProg = Environ$("ProgramFiles")
     Dim envX86 As String:   envX86 = Environ$("ProgramFiles(x86)")
     Select Case UserBrowserMode
         Case RunChrome_Stable, RunEdge_Stable, RunChrome_Beta, RunEdge_Beta, RunChrome_Dev, RunEdge_Dev
             '4-1. まずは「x86」側で確認
+            '※基本はこれ
             getBrowserPath = envX86 & subPath & "\Application\" & BrowserExeName
             If LenB(Dir(getBrowserPath)) Then Exit Property  '見つかったらそこで抜ける
 
-            '4-2. 無印側で返却
+            '4-2. つぎに無印側(x64)で確認
+            '※最近のChromeはこれ
             getBrowserPath = envProg & subPath & "\Application\" & BrowserExeName
+            If LenB(Dir(getBrowserPath)) Then Exit Property  '見つかったらそこで抜ける
+
+            '4-3. 最後に、ユーザー単位
+            '※UAC で『いいえ』／管理者権限なし／Edge のポリシー
+            getBrowserPath = envLocal & subPath & "\Application\" & BrowserExeName
 
         Case RunChrome_Canary, RunEdge_Canary
-            '4-1. ユーザー専用領域で返却
+            '4-1. 常に、ユーザー単位
             getBrowserPath = envLocal & subPath & "\Application\" & BrowserExeName
     End Select
 End Property
