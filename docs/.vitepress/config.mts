@@ -177,6 +177,7 @@ export default withMermaid(
           text: '技術資料',
           items: [
             { text: 'はじめに', link: '/stories/DebugRouteTech/' },
+            { text: 'ブラウザの探し方', link: '/stories/DebugRouteTech/TheBeginningOfEverything' },
             { text: 'Pipe 経路', link: '/stories/DebugRouteTech/pipe-tech' },
             { text: 'WebSocket 経路', link: '/stories/DebugRouteTech/websocket-tech' },
             { text: 'WebView2 経路', link: '/stories/DebugRouteTech/webview2-tech' }
