@@ -45,7 +45,7 @@ promo/
   ```
 
 - 声が読み込めなかった場合、ムービーはナレーションなし（BGM・効果音・字幕のみ）で再生されます
-- `ReiwaIE_DebugRoute` だけは作り方が違います。台本・描画コード・BGM の合成はリポジトリ直下の `movie/DebugRouteTech/` にあり、`build_web.py` が HTML と、このフォルダの `narration.json`・`<id>.wav`・`bgm.mp3`（BGM と効果音を事前に合成したもの）を書き出します。手で直さず、`movie/DebugRouteTech/` 側を直して書き出し直してください
+- `ReiwaIE_DebugRoute` だけは作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて、BGM と効果音を事前に合成した `bgm.mp3` を置いています
 
 ## narration.json の書き方
 
