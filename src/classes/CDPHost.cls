@@ -315,8 +315,11 @@ Property Get getBrowserPath() As String
 
     '4. 開発レベルに応じたブラウザ親パス生成
     Dim envLocal As String: envLocal = Environ$("LOCALAPPDATA")
-    Dim envProg As String:  envProg = Environ$("ProgramFiles")
+    Dim envProg As String:  envProg = Environ$("ProgramW6432")      '64bit の Excel でも 32bit の Excelでも同じパス(C:\Program Files)を返すように
     Dim envX86 As String:   envX86 = Environ$("ProgramFiles(x86)")
+
+    If LenB(envProg) = 0 Then envProg = Environ$("ProgramFiles")    '取れなかったときに備える(Windows 7 より前には無い変数)
+
     Select Case UserBrowserMode
         Case RunChrome_Stable, RunEdge_Stable, RunChrome_Beta, RunEdge_Beta, RunChrome_Dev, RunEdge_Dev
             '4-1. まずは「x86」側で確認
