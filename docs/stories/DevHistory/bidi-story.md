@@ -2,174 +2,306 @@
 description: WebDriver なしでWebDriverBiDiが扱えるとわかった経緯。公式ドライバーに頼らない BiDi 対応の登場秘話です。
 ---
 
-# なぜ `WebDriver` なしでWebDriverBiDiが扱えるとわかったのか
+# なぜ外部依存なしで、ChromiumにWebDriverBiDiが扱えるとわかったのか
 
-::: tip 登場秘話
-〜公式ドライバーの闇を暴いた、土日の記録〜
-:::
-
-## すべては、ある海外の議論から
 
 ![海外フォーラムでの議論](/img/story/1.png)
+すべては[この議論](https://github.com/GCuser99/SeleniumVBA/discussions/164#discussioncomment-15988897])から始まりました。
 
-すべては、ある海外の議論で見かけたこの意見から始まりました。
+> Well, I think we had this discussion earlier regarding BiDi. 
+> And when it comes to companies not allowing local software installations: if Chrome is not being allowed to install, then CDP is worthless anyway. So even in a scenario of restricted environments I assume CDP support not to be a breakthrough.
+さて、この話は以前にもBiDiについて話したと思います。CDPはBiDiほど将来性に欠けています。
+そして、企業がローカルソフトウェアのインストールを許可しない場合、Chromeのインストールが許可されていなければ、CDPは結局無意味です。ですので、制限された環境のシナリオでも、CDPサポートは画期的なものではないと考えます。
 
-> 「CDP（Chrome DevTools Protocol）はChrome専用の独自仕様。将来性は WebDriver BiDi が上だ。」
+この頃になると、CDPに対する知識は随分と溜まってきました。
+なので、すぐに気付きました。半分あっていて、半分間違ってる
 
-言っていることは正しい。でも、現場のリアルは少し違います。企業環境において自動化を阻む本当の壁は「ブラウザのインストール禁止」よりも、**「プリインストール以外のexeやNode.jsを情シスが許可しない」** という壁でした。  
-それでも……**「将来性はBiDiが上」** という言葉が頭から離れなかった。
+CDPは、Chromeブランドではなく、Chromiumブランドです。よって、業務PCにプリインストールされているEdgeもCDP対応するということになります。
+今思えば、あのMicrosoftのEdgeごり押し戦法
 
----
+・世間からMicrosoftに批判ラッシュがあっても
+・大手ニュースから批判されても
+・アンインストールできる仕組みはあるのに、アンインストールさせない罠によるバッシング
 
-## 壁 — `msedgedriver.exe` という巨大な存在
+それでもMicrosoftはWindowsのEdgeを推し進めた
+結果的にブック1枚でブラウザ自動化が、IEの頃から(偶然にも？)受け継いだのです。
+これは紛れもない事実です。
 
-![msedgedriverの壁](/img/story/2.png)
+でも...**「将来性はBiDiが上」**
+これも、ある意味、事実です。
 
-ネットを調べるたびに、同じ言葉が出てくる。
+その言葉が頭から離れなかったのです。
 
-> 「まず、対応するWebDriver — Edgeなら `msedgedriver.exe` をダウンロードします」
+こうして、私は決めたのです。
+>絶対に、外部依存なしで、ChromiumにWebDriverBiDiで扱える方法を探してやる
 
-ExcelでBiDiを使う記事があっても、結局は *exe × WebSocket* の構成に依存してしまう。  
-「やっぱりexeが要る。情シスの壁は越えられない……」と一度は諦めかけた。
 
-それでも手が止まらず調査を続けた数日後、あるリポジトリに辿り着いた。
+と
+本題に入る前に少しこのWebDriverBiDiに至るまでの歴史をサクッと述べようと思います。
 
-![核となるリポジトリ](/img/story/3.png)
+## WebDriverの歴史
 
-🔗 [GoogleChromeLabs / chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)
+立ち位置としてはCDPと同じです。指定のフォーマットに従ってJson文字列を書いてブラウザに送る...違いは誰がルールを決めてるかです。
+CDP:Google
+WebDriverBiDi:W3C
 
-いかにもChromium公式のBiDiリポジトリ。しかしREADMEには `Node.js`、`npm`…「結局これも外部依存か」と落胆した。
+W3Cは簡単に言うと、大手のブラウザメーカーたちが集まって共通のコマンド名でうちらのブラウザを操る世界標準を作るグループみたいなもんです。
 
----
+全ての始まりは、GoogleでもなくMicrosoftではなく、Seleniumです。
+そうです。VBAでは標準となってる`SeleniumVBA`もSeleniumというメーカーの上で成り立っています
 
-## 転機 — AIが明かした真実。主役は「exe」ではなかった
+最初の自動化はどうしてたのかというと...
+なんと！ネットワークの書き換えです🫨
 
-![Google AI Pro 特典メール](/img/story/4.png)
+要するに、間にプロキシサーバーを挟んでその内部で受信したhtmlにテストツールのjsを仕込む
 
-そんな中、「**Google AI Pro を3か月お試し**」というメールが届いた。早速有効化し、[Antigravity](https://antigravity.google/) といったAIにコードを読み込ませて解説してもらう機能を発見した。
+という今見たらもはやウイルスチックなことをしてました。でも当時はこれしか選択肢がなかったのです🙃
+しかし、当然この仕組みは限界があります。
+あくまでも、主体はJavaScriptなので、JavaScriptのルール違反になるようなことをしようとすると当然動きません。
+でも、そのルール違反的なことをしないと、テストもままにならないのも事実...
 
-![Antigravityのホームページ](/img/story/5.png)
+そして時が経ちようやくここでおなじみのWebDriverが登場しました...いや厳密には「WebDriver」という製品名が来ました
 
-::: tip 閃き
-**「AIに chromium-bidi のソースを読ませて、Excelで完全再現できないか？」**
-:::
+でも内部ロジックとしては今と同じように
+・各ブラウザごとの操作内容を隠ぺい/共通化
+しています。
 
-そして、衝撃の事実が判明した。`Node.js` や `.exe` は単なる「**運び屋（橋渡し役）**」に過ぎなかった。AIは言った——
+例えばこのツールのIntroとして出してるIEならCOM
+別ブランチ(ex-Firefox)で密かに対応してるFirefoxなら、当時はXPCOM
+今主流のChromeなら、当時はNPAPI
 
-> 「`mapperTab.js` という巨大なJavaScriptファイルこそが、BiDiの心臓部です。」
+当然こんなバラバラ相手に1つ1つ学習してたらキリがありません。
+それをWebDriverという製品が解決してくれました
 
-![BiDiの心臓部ソースコード](/img/story/6.png)
+そしてSeleniumは気付きました
+・うちのJavaScriptハックよりもこのWebDriverのほうがええやん🙃
 
----
+こうしていい感じに統合されて、ここでようやく、規格としてのWebDriverが登場しました。
+複数ブラウザ相手なのに覚えるAPIはWebDriverという巨大なでも1種類だけ
+当時は画期的でした。
 
-## 手順 — 実現のための「5ステップ」
+しかし、Webの進化は異常に進みました。
+ちょっと思い出してみてください。
 
+昔、ブラウザでゲームと言えば
+・flashPlayer
+・Java
+
+みたいな今でいう拡張機能を入れる必要がありました。
+「これを使うには、flashPlayをインストール...」
+一体何回見たことやら...
+
+また、当時のYoutubeも実は動画部分をflashPlayerに依存してました
+
+でも今のブラウザはどうです？
+・URLを共有するだけで動画もゲームもすぐにできる/見れる
+
+理由は単純です。それらをつかさどる機能がブラウザに丸ごと次々と標準搭載されたからです
+・WebGLAPI
+・WebAUDIOAPI
+・WebAssemble
+・CANVAS
+...AndMore
+
+こういった技術の結集が高速に実装され、リンク共有だけで素晴らしい体験ができました。
+
+...しかし、この進化に追いつけてないのが1つだけありました。
+はい、WebDriverです。
+
+WebDriverの基本は、送って応答待って回答を得るという同期スタイルです。(技術的にいうとhttpといった同期やり取り)
+しかしさきほどの進化の影響でこの仕組みに限界が出てきました
+・ページは読み込み終わったのに、ページに表示されてる内容が書き換わる
+　→検索ボタンを押したら、まるごとページ読み見直しではなく、部分的に読み直す
+
+・inputタグの動的生成対応
+　→初期状態にはなく、ボタン押下することで初めて出現するタイプ。検索では見つからない
+
+・ネットワークの監視
+　→非同期処理によるデータ内容に応じた処理
+
+いずれもこれは、SPA（SinglePageApplication）サイトによる「内部で起こった出来事」挙動です。技術が発展したからこそ登場したサイトです。
+
+しかし実はこれら3つとも解決できる手段はあったっちゃありました。
+はい、このツールの主題であるCDPです。
+
+元々はデバッグ操作用としてGoogle独自に実装した2011年発のコマンドです。以外にも、WebDriverよりも後発です😳
+ChromiumもCDPもGoogleが作ってます。当然、Webの進化とともに、CDPも同時に進化していきました。
+そして進化していくうえで気づいてしまいました
+>あれ？これブラウザ自動化にも使えるじゃん
+
+これが、あのPuppeterの登場です。
+
+しかし、名称の通り、あくまでもChromium(Chrome/Edge)製でしか通じないプロトコルです。
+このままでは、またあの
+・各ブラウザ相手1つ1つ学習してたら鬱になる
+
+が戻ってしまいます
+
+こうして、現在のWebDriver BiDiの制定にいたりました。
+
+## ChromiumをWebDriverBiDiとして話す方法
+
+さて、お待たせしました。ようやく、本題です。
+大まかな歴史をつかんだところで、このツールはどうやって、ChromiumをBiDiとして喋っているのか...
+
+### WebDriver.exeルート
+
+とその前に、一般的にWebDriver.exe経由でChromiumに、このWebDriverBiDiを扱うにはどうするのか？
+ざっくりフローとしてはこうです
+1. DLしたWebDriverに対して、「--port=9222」オプションをつけて起動する。
+2. 空いたPortに向かってcapabilitiesに「webSocketUrl: true」と送る
+3. すると内部で`session.new`が発火し、WebDriverBiDiが有効。`session.NewResult`が返る
+4. レスポンスに`webSocketUrl`にWebSocketURLが来るのでそこにWebSocket接続を行う
+5. あとはBiDiのルールとしてコマンドのやり取りを、WebSocket上で行う
+
+WebDriver.exeで、BiDiを扱う詳細なフローは[ここで](https://note.com/sele_chan/n/n2b21c7c26ef8)確認できます。
+
+### このツール
+
+では、このツールの場合はどうなのか...
+大きく2フェーズあります。
+こうなります。
+
+<準備編>
+1. npm等で`mappertab.js`を入手
+2. 中身をExcel/Accessに保存
+　→Excelの場合は、セル内に保持できる総文字数が、32,767 文字なので、百万近くある`mapperTab.js`文字数ををその文字数として分割保存してます。
+　　Accessは、1レコードに収める「長いテキスト」型があるので、特に難なく入れれた
+
+<実際に動かす>
+1. BiDiとして使用を開始する`Sub`を呼び、Chromiumのデバック(Port/Pipe)に接続
+2. 準備編で保存した`mapperTab.js`を変数に確保する
+　→Excelの場合は、分割したやつをJoinする。AccessはシンプルにSelect文
+
+3. 新しいタブ("Target.createTarget")を非表示("hidden:=True")で開く　※必要に応じで表示する設定も可能。以降は、3で開いたタブに対する操作となる
+4. `Target.exposeDevToolsProtocol`によるJavaScript操作によるCDP操作権を与える
+5. `Runtime.addBinding`で、BiDiのレスポンスを受け取る名称を設定。任意でデバッグ用の名称も設定します
+6. `Runtime.evaluate`で、`mapperTab.js`の内容を実行する
+7. 6で実行した際の初期化用関数`runMapperInstance`に、3で開いたタブIDを渡して初期化
+8. `Runtime.callFunctionOn`の引数に、BiDiコマンドとして載せてJavaScript実行
+9. "Runtime.bindingCalled"を監視し、BiDiの結果なら、RaiseEventでBiDi用のClassへ伝達
+
+おわかりいただけただろうか...
+BiDiを送っているはずなのに何故か内部ではCDPとして送っていることに...
+
+実は、ChromiumSource(cファイル等)そのものには、BiDiを話すロジックは備わっていません。
+あるのは、BiDiをCDPに翻訳するための[TypeScriptベースのプロジェクト](https://github.com/GoogleChromeLabs/chromium-bidi)をビルドした`mapperTab.js`があるだけです。
+もう一度言います。Chromium本体ccファイルではなく、jsファイルです。つまり、ビルド済みブラウザのタブで扱える言語です
+
+そうです。
+主役は「exe」ではなかったのです。本当の主役は`mapperTab.js`
+exeはただ
+・`mapperTab.js`をタブへ運びセットアップする
+・レスポンス内容をパススルーする
+
+という非常にシンプルな役目に降格しました
+
+今回、Excelで再現したこのフローは[chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)を参考に作り上げました。
 ![大まかな手順](/img/story/7.png)
 
-1. **JSの入手:** `npm` や `JSDelivr` などのCDNから `mapperTab.js` を取得する。
-2. **特権の付与:** CDPコマンド `Target.exposeDevToolsProtocol` でタブにブラウザ操作の特権を与える。
-3. **窓口の確保:** `Runtime.addBinding` でVBAと通信するための受け取り口を確保。
-4. **注入と起動:** `mapperTab.js` をタブに注入し、`Runtime.evaluate` でBiDiを起動する。
-5. **非同期通信:** `Runtime.bindingCalled` イベントをキャプチャし、BiDiの非同期レスポンスを受け取る。
+じゃ～WebDriver.exeは、どうなのか...
 
-もうお分かりだろう。**「mapperTab.js というブラウザ内で動くプログラムが、BiDiコマンドをCDPに翻訳する作業をぜ〜〜んぶ肩代わりしていたのだ。」**
-
----
-
-## 封印 — Excelのセルにブラウザの心臓部を閉じ込める
-
-主役はバイナリ（exe）ではなく、テキストデータ（js）だった。  
-**そうです。テキストなら、Excelのセルに置けちゃうのです。**
-
-![Excelのセルにブラウザの心臓部を封印](/img/story/8.png)
-
-数万行のスクリプトでも複数セルに分割して格納し、VBAの `Join` 関数で結合してブラウザへ注入できる。バイナリ（exe）は情シスに即ブロックされるが、テキストデータなら**「ただのExcelファイル」**としてパスできるのだ。
-
-::: tip 到達点
-**ついに、Excel単体でBiDiコマンドが実行できるようになりました！**
-:::
-
-土日を完全に溶かし、BiDi版の低レベル制御機能（`ExecuteBiDi`, `ExecuteBiDiAsync`, `TakeEvents`）を `WebDriverBiDiMode` / `WebDriverBiDiContext` として作り上げた。
-
-![完成](/img/story/12.png)
-
-さらに、SeleniumVBAにあった「自動更新機能」も独自実装。`jsdelivr.com` のAPIを叩くことで:
-
-![自動更新のサイト](/img/story/9.png)
-
-- 最新バージョンのチェック
-- `mapperTab.js` 自体の自動ダウンロード
-
-がVBA単体で完結。SeleniumVBAが「フォルダに `webdriver.exe` を配置」するのに対し、このツールは **「ExcelのテーブルにJSのテキストを上書き」** するだけ。情シスの監視をすり抜ける*究極のステルス仕様*だ。
-
----
-
-## 疑惑 — 公式 `msedgedriver.exe` も同じハックをしているのか？
-
-夢は叶った。しかし一つの怖い疑問が湧いた。
-
-> 「本当に公式の msedgedriver.exe も、ただの橋渡し役なのか？」
-
-もしexeがもっと高度なネイティブロジックで動いていたら、自分の作ったものは「非公式の迂回ルート」になってしまう。
-
-そこで、[SeleniumVBAのBiDi拡張版](https://github.com/hanamichi77777/WebDriverBiDi-via-VBA-test)を使い、**公式ドライバーが裏で何をやっているか、この目で確認することにした。**
-
-![SeleniumVBAにWebDriver BiDi機能を付けた拡張版](/img/story/10.png)
-
-起動してみたが、画面に「BiDi-CDP Mapper is controlling this tab」というタブは見当たらない。  
-「やっぱり違う戦法か」と絶望しかけたが、AIからヒントが届いた。
-
-![AIからの新たな手がかり](/img/story/11.png)
-
-> 「新しいタブを **非表示（type: other）** として生成している可能性があります。`edge://inspect/#devices` で確認できるはずです」
-
-早速ブラウザのデバッグ画面を開くと……
-
-![デバッグ画面を開くと](/img/story/13.png)
-
-1つしか開いてないのにターゲットが3つ？ クリックしてみると……**あるじゃありませんか！**
-
-![あるじゃありませんか](/img/story/14.png)
-
-非表示タブなので画面は描画されないが、`outerHTML`をコピーしてファイル化してみると、BiDiコマンドが処理されている痕跡が残っていた。
-
-| outerHTML をコピー | ファイル化 | BiDi 処理の痕跡 |
-| --- | --- | --- |
-| ![outerHTMLをコピー](/img/story/15.png) | ![ファイル化してみると](/img/story/16.png) | ![BiDiコマンドを処理している痕跡](/img/story/17.png) |
-
-さらにAIからの助言が続いた。**「exe をテキストエディタで強引に開けば証拠が見つかるかもしれません」**
-
-「どうかプレーンテキストで残ってますように……！」と祈りながら、`msedgedriver.exe` をバイナリエディタで強引に開き、検索をかけた。
-
-::: tip 発見
-**ヒットした！**
-:::
-
-著作権表示と共に `<!DOCTYPE html><title>BiDi-CDP Mapper</title>...` という生々しいコードが、数万行にわたってハードコードされていた！
+実は全く同じフローなのです。
+なんなら<準備編>の2が、exeの場合は、巨大な配列定数として、`mapperTab.js`がある。完全にExcelと役割として一致しているのです。
 
 ![バイナリエディタで検索結果](/img/story/18.png)
 
-あの重厚な公式ドライバーも、裏では私がVBAでやったのと全く同じ **「JSの翻訳機を隠しタブに注入する」** という泥臭いハックをやっていた。「この土日の作業は無駄ではなかった」と心から納得できた。
+著作権表示と共に `<!DOCTYPE html><title>BiDi-CDP Mapper</title>...` という生々しいコードが、数万行にわたってハードコードされていた！
 
----
+exe：配列として分割配置
+Excel：複数セルとして分割配置
+Access：1レコード
+Puppeter： 依存関係の設定により、chromium-bidi リポジトリから直接呼び出される
 
-## 結論 — そして、未来へ
+他の有名ツールもWebDriver.exeも自分で組んだVBAも、全く同じフローでChromiumをBiDi化していたのだ。
+決して無駄なことではないことに安心した瞬間だった。
+こうして、v1.6.0で、VBA初の外部依存なしでWebDriverBiDiが話せるようになりました
 
-WebDriver BiDi 自体はまだβ版。将来的には `mapperTab.js` が不要になる日も来るかもしれない。しかし、AIをフル活用してこの「ロマンティックなツール」を作り上げたことは、最高の勉強になった。
+![完成](/img/story/12.png)
 
-言語も環境（バイナリ、Node.js、Excelマクロ）も全く違うのに、**ブラウザの裏口（CDP）を開けて翻訳機を忍ばせる**という本質的なアプローチは、見事に共通していた。
+## Firefoxはどうなのか？
 
-| 方式 | 仕組み |
-| --- | --- |
-| exe によるオートメーション | `msedgedriver.exe` などが内部C++の文字列として隠し持ち、起動時に注入する |
-| Node.js によるオートメーション | Google Chrome Labs の chromium-bidi リポジトリから直接呼び出される |
-| VBA によるオートメーション | Excelのセルにテキストとして封印され、VBAマクロから直接ブラウザへ送り込まれる |
+実はこのツール、最近になってFirefoxもついに制御することに成功しました。
 
-最新のWeb標準規格の裏側を支えているのが、たったひとつの巨大なJavaScriptファイル。それが「Excel VBA」というレガシーな環境にもピタリと当てはまる。
+さっき、WebDriverBiDiも話せるようになったっっとお伝えしました。
+しかし、あの時はまだ、かなり密結合な状態で、あくまでも、Chromium専用のBiDiClassとして作っていました。
 
-::: tip フィナーレ
-技術の最先端と普遍性を同時に味わえた、最高にエキサイティングで、**ハッカーとしてのロマンに溢れた週末だった！**
-:::
+何故なら、Firefoxは、WebDriverBiDiをネイティブに扱えるからです。
+つまり、このツールの場合は、CDP系Classを経由せずに直でFirefoxに届けないと、一切話せないのです。
+
+WebDriverBiDiというクロスブラウザという規格なのに、Chromiumしか話せない...
+そんな矛盾がしばらくは続いてました。
+
+しかし、幾度な改修工事(RaiseEvents,CDPを真似たClass構成,徹底的な責務分離,OptionClass概念...)を得て、ついに...
+メインのコードには、数十行の追記だけで、起動済みFirefoxに限るが、ついにFirefoxもこのツールでも比較的用意に制御できるようになりました
+
+「Chromium で積み上げた設計が、本物の WebDriver BiDi にもそのまま通用した」という、ちょっとした答え合わせになりました
+
+
+## 将来、ChromiumはWebDriverBiDiをネイティブに扱えるのか？
+
+執筆時点では少なくとも
+・Chromiumに、(Firefoxみたいに)WebDriverBiDiをネイティブに扱えるOption起動引数的な物
+
+は存在しませんし、公式やsourceからもそのような示唆は見当たりませんでした。
+
+以降は私の予想になりますが。
+・一生、ネイティブ搭載はしない。`mapperTab.js`経由を強いられる
+
+と思っています。
+何故そう思うか？理由はシンプルです。
+・代替機能がないから
+
+実はこの辺、VBAと似た概念があります。
+
+Microsoftはここんところ、いくつかの製品サポートを終了させています
+1. Microsoft Publisher
+2. VBS
+3. そしてもちろんIE
+
+代表に挙げた3つはどれも代替品があります
+1. Microsoft Create、Word や PowerPointにあるテンプレート系等
+2. ps1
+3. Chrome(Edge)
+
+では、VBAはどうか？
+ないんです。
+
+何故か？では、下記の代替機能は他のプログラミング言語にありますか？特にExcelVBAはどうです？
+・環境構築不要(Officeインストールというインストールexeを実行で、Office開いてalt + F11でStart)
+　→他言語の場合は、追加でvscodeが要る
+
+・ワークシートがGUIエディター
+　→他言語の場合は、xaml等と言ったコードページのUI構成言語の知識を要求される
+
+・データとプログラムが一心同体(ワークシート/Accessテーブル)
+　→他言語の場合は、SQLiteやini,csvといった外部ファイル化することになり、意図せずファイル移動/削除なんかしたら、もう動かなくなることも
+　　責務分離としては美しいので、ここは賛否両論ありそう。
+
+・ファイル配布しやすさの異常さ
+　→他言語の場合は、ZIPとして見た目上、1ファイルとしてやる必要があり、実際に実行する際は、結局ちらばるし、Runtime(python,node.js)がなかったら詰み
+　　まぁ、Officeもなかったらそれも詰みではあるが、「会社」という括りなら、相殺される
+
+・追加申請不要(業務遂行上必要なファイルとして情シスの検問をPASS)
+　→他言語の場合は、要申請になるし、待たされた挙句拒否されることも。
+　　まぁ、これは個人PCにとっては意味のない記述だが、「会社」という括りなら、価値あるメリット
+
+どうです？この5つを全て叶えるプログラミング言語、思いつきます？🙃🙃思いつかないと思います。
+
+意外かもしれませんが、
+銀行、証券、工場、官公庁……。
+世界中の名だたる大企業の「絶対に止めてはいけない日次処理」が、誰が書いたかも分からないスパゲッティVBAで動いています。
+Microsoftがもし「明日からVBAを廃止します」と言った瞬間、経済が止まるほどです。
+
+CDPも実は同じです。思いつきますか？CDPの代替機能。
+ないです。だってGoogle自身が作ったプログラミング言語ならぬ、プロトコルなのですから。
+
+唯一近いWebDriverBiDi、でもこれはあくまでも、自動化という括りまでの制定です。
+CDPはデバック兼自動化。BiDiは自動化だけ。
+
+どっちがカバー範囲が大きいかは明らかですね。
+ただ、それだけのことです。
+
 
 ## 次に読む
 
