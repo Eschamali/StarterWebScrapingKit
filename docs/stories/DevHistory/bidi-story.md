@@ -10,21 +10,21 @@ description: WebDriver なしでWebDriverBiDiが扱えるとわかった経緯�
 
 > Well, I think we had this discussion earlier regarding BiDi. CDP is not futureproof as BiDi is.
 > And when it comes to companies not allowing local software installations: if Chrome is not being allowed to install, then CDP is worthless anyway. So even in a scenario of restricted environments I assume CDP support not to be a breakthrough.
-さて、この話は以前にもBiDiについて話したと思います。CDPはBiDiほど将来性に欠けています。
-そして、企業がローカルソフトウェアのインストールを許可しない場合、Chromeのインストールが許可されていなければ、CDPは結局無意味です。ですので、制限された環境のシナリオでも、CDPサポートは画期的なものではないと考えます。
+さて、BiDiについては、以前にもこの話をしたと思います。CDPには、BiDiほどの将来性がありません。
+そして、企業がローカルへのソフトウェアのインストールを許可しない場合についていえば、Chromeのインストールが許可されていないなら、CDPはどのみち無意味です。ですので、制限のある環境を想定した場合でも、CDPへの対応は画期的なものではないと考えます。
 
 この頃になると、CDPに対する知識は随分と溜まってきました。
-なので、すぐに気付きました。半分あっていて、半分間違ってる
+なので、すぐに気付きました。半分合っていて、半分間違ってる、と。
 
-CDPは、Chromeブランドではなく、Chromiumブランドです。CDP の[公式ページ](https://chromedevtools.github.io/devtools-protocol/)も、対象を「Chromium、Chrome、そのほかの Blink 系ブラウザ」と書いています。よって、業務PCにプリインストールされているEdgeもCDP対応するということになります。Microsoft も、Edge の DevTools Protocol は Chrome DevTools Protocol の API と一致すると[説明しています](https://learn.microsoft.com/ja-jp/microsoft-edge/devtools/protocol)。
+CDPは、Chromeブランドではなく、Chromiumブランドです。CDP の[公式ページ](https://chromedevtools.github.io/devtools-protocol/)も、対象を「Chromium、Chrome、そのほかの Blink 系ブラウザ」としています。よって、業務PCにプリインストールされているEdgeも、CDPに対応していることになります。Microsoft も、Edge の DevTools Protocol は Chrome DevTools Protocol と API が一致すると[説明しています](https://learn.microsoft.com/ja-jp/microsoft-edge/devtools/protocol)。
 今思えば、あのMicrosoftのEdgeごり押し戦法
 
 ・世間からMicrosoftに批判ラッシュがあっても
 ・大手ニュースから批判されても
 ・アンインストールできる仕組みはあるのに、アンインストールさせない罠によるバッシング
 
-それでもMicrosoftはWindowsのEdgeを推し進めた
-結果的にブック1枚でブラウザ自動化が、IEの頃から(偶然にも？)受け継いだのです。
+それでもMicrosoftはWindowsのEdgeを推し進めた。
+結果的に、ブック1枚でのブラウザ自動化が、IEの頃から(偶然にも？)受け継がれたのです。
 これは紛れもない事実です。
 
 でも...**「将来性はBiDiが上」**
@@ -33,117 +33,115 @@ CDPは、Chromeブランドではなく、Chromiumブランドです。CDP の[�
 その言葉が頭から離れなかったのです。
 
 こうして、私は決めたのです。
->絶対に、外部依存なしで、ChromiumにWebDriverBiDiで扱える方法を探してやる
+>絶対に、外部依存なしで、ChromiumをWebDriverBiDiで扱える方法を探してやる
 
+と。
 
-と
-本題に入る前に少しこのWebDriverBiDiに至るまでの歴史をサクッと述べようと思います。
+本題に入る前に、WebDriverBiDiに至るまでの歴史を、少しサクッと述べようと思います。
 
 ## WebDriverの歴史
 
-立ち位置としてはCDPと同じです。指定のフォーマットに従ってJson文字列を書いてブラウザに送る...違いは誰がルールを決めてるかです。
+WebDriverBiDiの立ち位置は、CDPと同じです。決められた形式に従ってJSONの文字列を書き、ブラウザに送ります。違いは、誰がルールを決めているかです。
 CDP:Google（Chromium）
 WebDriverBiDi:W3C
 
 W3Cは簡単に言うと、大手のブラウザメーカーたちが集まって共通のコマンド名でうちらのブラウザを操る世界標準を作るグループみたいなもんです。
 
-全ての始まりは、GoogleでもなくMicrosoftでもなく、Seleniumです。2004年に ThoughtWorks の Jason Huggins が作ったテストツールが始まりでした（[Selenium 公式の歴史](https://www.selenium.dev/history/)）。
-そうです。VBAでは標準となってる`SeleniumVBA`もSeleniumというプロジェクトの上で成り立っています（Selenium の WebDriver を使い、ドライバーが無ければ自動で落としてきます。[SeleniumVBA の README](https://github.com/GCuser99/SeleniumVBA)）
+全ての始まりは、GoogleでもMicrosoftでもなく、Seleniumです。2004年に ThoughtWorks の Jason Huggins が作ったテストツールです（[Selenium 公式の歴史](https://www.selenium.dev/history/)）。
+そうです。VBAでは標準となってる`SeleniumVBA`も、Seleniumというプロジェクトの上に成り立っています。Selenium の WebDriver を使い、ドライバーが無ければ自動で落としてくる作りです（[SeleniumVBA の README](https://github.com/GCuser99/SeleniumVBA)）。
 
 最初の自動化はどうしてたのかというと...
-テスト用の JavaScript（Selenium Core）を、テストしたいサイトと同じサーバーに置いて、ブラウザの中で動かしていました。ブラウザには、JavaScript からはページを配ったサーバーにしかアクセスさせない決まり（同一オリジンポリシー）があるからです（[Selenium WebDriver の作者 Simon Stewart による解説](https://aosabook.org/en/v1/selenium.html)）。
+テスト用の JavaScript（Selenium Core）を、テストしたいサイトと同じサーバーに置き、ブラウザの中で動かしていました。ブラウザには、JavaScript からはページを配ったサーバーにしかアクセスさせない決まり（同一オリジンポリシー）があるからです（[Selenium WebDriver の作者 Simon Stewart による解説](https://aosabook.org/en/v1/selenium.html)）。
 
-でも、テストのたびに相手のサーバーへ置くのは現実的ではありません。そこで登場した Selenium RC では...
-なんと！ネットワークの書き換えです🫨
+でも、テストのたびに相手のサーバーへ置くのは現実的ではありません。そこで登場した Selenium RC がやったのは...
+なんと！ネットワークの書き換えです。
 
-要するに、間にプロキシサーバーを挟んでその内部で受信したhtmlにテストツールのjsを仕込む（[Selenium RC の公式ドキュメント](https://www.selenium.dev/documentation/legacy/selenium_1/)でいう「Proxy Injection」）
+要するに、間にプロキシサーバーを挟み、そこで受け取ったHTMLにテストツールのJSを仕込むという、今見たらもはやウイルスチックなことをしていました（[Selenium RC の公式ドキュメント](https://www.selenium.dev/documentation/legacy/selenium_1/)でいう「Proxy Injection」）。でも当時は、これしか選択肢がなかったのです。
+しかし当然、この仕組みには限界があります。
+あくまでも主体はJavaScriptなので、JavaScriptのルール違反になるようなことをしようとすると、動きません（ファイルのアップロードや、ドメインをまたぐ移動が例に[挙がっています](https://opensource.googleblog.com/2009/05/introducing-webdriver.html)）。
+でも、そのルール違反的なことをしないと、テストもままならないのも事実...
 
-という今見たらもはやウイルスチックなことをしてました。でも当時はこれしか選択肢がなかったのです🙃
-しかし、当然この仕組みは限界があります。
-あくまでも、主体はJavaScriptなので、JavaScriptのルール違反になるようなことをしようとすると当然動きません（ファイルのアップロードや、ドメインをまたぐ移動が例に[挙がっています](https://opensource.googleblog.com/2009/05/introducing-webdriver.html)）。
-でも、そのルール違反的なことをしないと、テストもままにならないのも事実...
-
-そして時が経ちようやくここでおなじみのWebDriverが登場しました...いや厳密には「WebDriver」という製品名が来ました（2007年の初めに最初のコードが公開。[Simon Stewart による解説](https://aosabook.org/en/v1/selenium.html)）
+そして時が経ち、ようやくおなじみのWebDriverが登場しました...いや厳密には、「WebDriver」という名前の製品が登場しました。最初のコードが公開されたのは、2007年の初めです（[Simon Stewart による解説](https://aosabook.org/en/v1/selenium.html)）。
 
 でも内部ロジックとしては今と同じように
-・各ブラウザごとの操作内容を隠ぺい/共通化
+・ブラウザごとの操作内容を隠ぺい/共通化
 しています。
 
-例えばこのツールのIntroとして出してるIEならCOM
+例えば、このツールのIntroとして出してるIEならCOM
 別ブランチ(ex-Firefox)で密かに対応してるFirefoxなら、当時は拡張機能（XPCOM）
 今主流のChromeなら、当時は拡張機能＋NPAPI プラグイン
 
-IE と Firefox のやり方は、作者の Simon Stewart 自身が[ブログ](https://opensource.googleblog.com/2009/05/introducing-webdriver.html)と[解説](https://aosabook.org/en/v1/selenium.html)に書いています（IE は MSHTML と ShDocVw の COM インターフェース、Firefox は XPCOM を使う拡張機能）。Chrome は、Selenium 2.0 alpha 1（2009年）の Chrome ドライバーが「WebDriver extension for Chrome」という拡張機能で、[NPAPI のプラグイン `npchromedriver.dll` を積んでいます](https://github.com/SeleniumHQ/selenium/blob/05ceaf552081cba0035862ea0483c08b2692338e/chrome/src/extension/manifest-win.json#L4-L17)。
+IE と Firefox のやり方は、作者の Simon Stewart 自身が[ブログ](https://opensource.googleblog.com/2009/05/introducing-webdriver.html)と[解説](https://aosabook.org/en/v1/selenium.html)で説明しています。IE は MSHTML と ShDocVw の COM インターフェースを使い、Firefox は XPCOM を使う拡張機能です。Chrome については、Selenium 2.0 alpha 1（2009年）の Chrome ドライバーが、「WebDriver extension for Chrome」という拡張機能に [NPAPI のプラグイン `npchromedriver.dll`](https://github.com/SeleniumHQ/selenium/blob/05ceaf552081cba0035862ea0483c08b2692338e/chrome/src/extension/manifest-win.json#L4-L17) を積んだ作りでした。
 
-当然こんなバラバラ相手に1つ1つ学習してたらキリがありません。
-それをWebDriverという製品が解決してくれました
+当然、こんなバラバラな相手を1つ1つ学習してたらキリがありません。
+それを、WebDriverという製品が解決してくれました。
 
 そしてSeleniumは気付きました
-・うちのJavaScriptハックよりもこのWebDriverのほうがええやん🙃
+・うちのJavaScriptハックよりもこのWebDriverのほうがええやん
 
-こうしていい感じに統合されて（2009年に[統合を発表](https://opensource.googleblog.com/2009/05/introducing-webdriver.html)、2011年に [Selenium 2.0 として公開](https://www.selenium.dev/blog/2011/selenium-2-0/)）、2018年、ここでようやく、規格としてのWebDriverが[W3C 勧告](https://www.w3.org/TR/2018/REC-webdriver1-20180605/)として登場しました。
-複数ブラウザ相手なのに覚えるAPIはWebDriverという巨大なでも1種類だけ
+こうしていい感じに統合されて、ここでようやく、規格としてのWebDriverが登場しました。統合の[発表](https://opensource.googleblog.com/2009/05/introducing-webdriver.html)が2009年、[Selenium 2.0 としての公開](https://www.selenium.dev/blog/2011/selenium-2-0/)が2011年、[W3C 勧告](https://www.w3.org/TR/2018/REC-webdriver1-20180605/)が2018年です。
+複数のブラウザが相手なのに、覚えるAPIはWebDriverという、巨大ではあるものの1種類だけ。
 当時は画期的でした。
 
-しかし、Webの進化は異常に進みました。
+しかし、Webは異常な速さで進化しました。
 ちょっと思い出してみてください。
 
-昔、ブラウザでゲームと言えば
+昔、ブラウザでゲームをするには、
 ・Flash Player
 ・Java
 
-みたいな今でいう拡張機能を入れる必要がありました。
+のような、今でいう拡張機能を入れる必要がありました。
 「これを使うには、Flash Playerをインストール...」
 一体何回見たことやら...
 
-また、当時のYouTubeも実は動画部分をFlash Playerに依存してました（YouTube が HTML5 のプレーヤーを既定にしたのは[2015年1月](https://web.archive.org/web/20160101205917/http://youtube-eng.blogspot.com/2015/01/youtube-now-defaults-to-html5_27.html)）
+また、当時のYouTubeも、実は動画の部分をFlash Playerに依存していました。YouTube が HTML5 のプレーヤーを既定にしたのは、[2015年1月](https://web.archive.org/web/20160101205917/http://youtube-eng.blogspot.com/2015/01/youtube-now-defaults-to-html5_27.html)です。
 
 でも今のブラウザはどうです？
 ・URLを共有するだけで動画もゲームもすぐにできる/見れる
 
-理由は単純です。それらをつかさどる機能がブラウザに丸ごと次々と標準搭載されたからです
+理由は単純です。それらをつかさどる機能が、ブラウザに次々と丸ごと標準搭載されたからです。
 ・WebGL API
 ・Web Audio API
 ・WebAssembly
 ・Canvas
 ...AndMore
 
-こういった技術の結集が高速に実装され、リンク共有だけで素晴らしい体験ができました。
+こうした技術が短い間に次々と実装され、リンクを共有するだけで素晴らしい体験ができるようになりました。
 
 ...しかし、この進化に追いつけてないのが1つだけありました。
 はい、WebDriverです。
 
-WebDriverの基本は、送って応答待って回答を得るという同期スタイルです。(技術的にいうとhttpといった同期やり取り)
-Chrome チームも、WebDriver "Classic" は HTTP が土台なので、ブラウザのイベントを購読して受け取るのが難しいと[書いています](https://developer.chrome.com/blog/test-automation-evolution)。
-しかしさきほどの進化の影響でこの仕組みに限界が出てきました
-・ページは読み込み終わったのに、ページに表示されてる内容が書き換わる
-　→検索ボタンを押したら、まるごとページ読み見直しではなく、部分的に読み直す
+WebDriverの基本は、コマンドを送り、応答を待って結果を受け取る、という同期のスタイルです（技術的にいうと、HTTPによる同期のやり取り）。
+Chrome チームも、WebDriver Classic は HTTP でやり取りするので、ブラウザのイベントを購読して受け取るのが難しいと[書いています](https://developer.chrome.com/blog/test-automation-evolution)。
+しかし、さきほどの進化の影響で、この仕組みに限界が出てきました。
+・ページは読み込み終わったのに、表示されている内容が書き換わる
+　→検索ボタンを押すと、ページを丸ごと読み直すのではなく、一部だけ読み直す
 
-・inputタグの動的生成対応
-　→初期状態にはなく、ボタン押下することで初めて出現するタイプ。検索では見つからない
+・inputタグの動的生成への対応
+　→初期状態にはなく、ボタンを押して初めて現れるタイプ。初期状態で探しても見つからない
 
 ・ネットワークの監視
-　→非同期処理によるデータ内容に応じた処理
+　→非同期処理で届くデータの内容に応じた処理
 
-いずれもこれは、SPA（SinglePageApplication）サイトによる「内部で起こった出来事」挙動です。技術が発展したからこそ登場したサイトです。
+いずれも、SPA（Single Page Application）のサイトで起きる「内部で起こった出来事」です。SPAは、技術が発展したからこそ登場したサイトです。
 
-しかし実はこれら3つとも解決できる手段はあったっちゃありました。
-はい、このツールの主題であるCDPです。コンソールのメッセージやネットワークのリクエストの横取りといった低いレベルの操作ができ、WebSocket で双方向にやり取りできます（[同じ解説](https://developer.chrome.com/blog/test-automation-evolution)）。
+しかし実は、これら3つとも解決できる手段は、あったっちゃありました。
+はい、このツールの主題であるCDPです。CDPでは、コンソールのメッセージを拾ったり、ネットワークのリクエストを横取りしたりといった低いレベルの操作ができ、WebSocket で双方向にやり取りできます（[同じ解説](https://developer.chrome.com/blog/test-automation-evolution)）。
 
-元々はデバッグ用のプロトコルです。今の CDP につながるのは、2011年に WebKit の Web Inspector（開発者ツール）をブラウザの外からつなぐために[発表](https://web.archive.org/web/20110513094715/http://www.webkit.org:80/blog/1620/webkit-remote-debugging/)された「WebKit Remote Debugging Protocol」です（`Chromium --remote-debugging-port=9222` で起動する例付き。v1.0 は[2012年](https://web.archive.org/web/20120507025807/http://www.webkit.org/blog/1875/announcing-remote-debugging-protocol-v1-0/)）。意外にも、WebDriver（2007年）よりも後発です😳
-いまの CDP の定義は [Chromium のソースの中](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:third_party/blink/public/devtools_protocol/)にあります。当然、Webの進化とともに、CDPも同時に進化していきました。
-そして進化していくうえで気づいてしまいました
+CDPは、元々はデバッグ用のプロトコルです。今の CDP につながるのは、WebKit の Web Inspector（開発者ツール）をブラウザの外から使えるようにするため、2011年に[発表](https://web.archive.org/web/20110513094715/http://www.webkit.org:80/blog/1620/webkit-remote-debugging/)された「WebKit Remote Debugging Protocol」です。発表の記事には `Chromium --remote-debugging-port=9222` で起動する例が載っていて、v1.0 は[2012年](https://web.archive.org/web/20120507025807/http://www.webkit.org/blog/1875/announcing-remote-debugging-protocol-v1-0/)に出ました。意外にも、WebDriver（2007年）より後発です。
+いまの CDP の定義は、[Chromium のソースの中](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:third_party/blink/public/devtools_protocol/)にあります。当然、Webの進化とともに、CDPも進化していきました。
+そして進化していく中で、気づいてしまいました。
 >あれ？これブラウザ自動化にも使えるじゃん
 
-これが、あのPuppeteerの登場です。Chrome チームが作った Node のライブラリで（[Headless Chrome の解説](https://developer.chrome.com/blog/headless-chrome/)）、CDP は「もとは DevTools とデバッグのために作られ、Puppeteer が自動化に取り入れた」と Chrome チーム自身が[書いています](https://developer.chrome.com/blog/test-automation-evolution)。
+これが、あのPuppeteerの登場です。Puppeteer は、Chrome チームが作った Node のライブラリです（[Headless Chrome の解説](https://developer.chrome.com/blog/headless-chrome/)）。CDP について Chrome チーム自身も、「もとは DevTools とデバッグのために作られ、Puppeteer が自動化に取り入れた」と[書いています](https://developer.chrome.com/blog/test-automation-evolution)。
 
-しかし、名称の通り、あくまでもChromium(Chrome/Edge)向けのプロトコルです。Firefox も一時期、Puppeteer のために CDP の一部を実装していましたが、恒久策ではないとして WebDriver BiDi に移っています（[Chrome チームの記事](https://developer.chrome.com/blog/firefox-support-in-puppeteer-with-webdriver-bidi)。Selenium も 4.29.0 で [Firefox 向けの CDP 対応を外しました](https://www.selenium.dev/blog/2025/remove-cdp-firefox/)）。
+しかし、名前のとおり、あくまでもChromium(Chrome/Edge)向けのプロトコルです。Firefox も一時期、Puppeteer のために CDP の一部を実装していましたが、恒久的な手段ではないとして WebDriver BiDi に移っています（[Chrome チームの記事](https://developer.chrome.com/blog/firefox-support-in-puppeteer-with-webdriver-bidi)）。Selenium も、4.29.0 で [Firefox 向けの CDP 対応を外しました](https://www.selenium.dev/blog/2025/remove-cdp-firefox/)。
 このままでは、またあの
-・各ブラウザ相手1つ1つ学習してたら鬱になる
+・各ブラウザを相手に1つ1つ学習してたら鬱になる
 
-が戻ってしまいます
+が戻ってしまいます。
 
-こうして、現在のWebDriver BiDiの制定にいたりました。2019年の W3C の会議（TPAC）で[設計が話し合われ](https://github.com/w3c/webdriver-bidi/blob/f922e6af669ead51496db85f37813f39438ef171/explainer.md)、[仕様](https://w3c.github.io/webdriver-bidi/)は「WebDriver に双方向の通信を足し、ブラウザからイベントを流せるようにする」ものとして書かれています。
+こうして、現在のWebDriver BiDiの制定に至りました。2019年の W3C の会議（TPAC）で[設計が話し合われ](https://github.com/w3c/webdriver-bidi/blob/f922e6af669ead51496db85f37813f39438ef171/explainer.md)、[仕様](https://w3c.github.io/webdriver-bidi/)は、WebDriver に双方向の通信を足して、ブラウザからイベントを流せるようにするものとして書かれています。
 
 ## ChromiumをWebDriverBiDiとして話す方法
 
@@ -152,17 +150,17 @@ Chrome チームも、WebDriver "Classic" は HTTP が土台なので、ブラ�
 
 ### WebDriver.exeルート
 
-とその前に、一般的にWebDriver.exe経由でChromiumに、このWebDriverBiDiを扱うにはどうするのか？
-ざっくりフローとしてはこうです
-1. DLしたWebDriverを、「--port=9222」のようにポートを指定して起動する
-2. そのポートの`/session`に、capabilitiesに「webSocketUrl: true」を付けて送る（New Session）
-3. すると ChromeDriver は内部で、mapper（後述）用の非表示タブを立ち上げ、そこへ`session.new`を送ってWebDriverBiDiを有効にする。この`session.NewResult`は ChromeDriver の中で受け取る
-4. New Session のレスポンスの capabilities にある`webSocketUrl`に、`ws://<ホスト>/session/<セッションID>`が来るので、そこにWebSocket接続を行う
-5. あとはBiDiのルールとしてコマンドのやり取りを、WebSocket上で行う
+とその前に、一般的に、WebDriver.exe経由でChromiumをWebDriverBiDiで扱うにはどうするのか？
+ざっくりした流れは、こうです。
+1. DLしたWebDriverを、「--port=9515」のようにポートを指定して起動する
+2. そのポートの`/session`へ、capabilitiesに「webSocketUrl: true」を付けて New Session を送る
+3. すると ChromeDriver は内部で、mapper（後述）用の非表示タブを立ち上げ、そこへ`session.new`を送ってWebDriverBiDiを有効にする。その応答の`session.NewResult`は、ChromeDriver の中で受け取る
+4. New Session のレスポンスの capabilities の`webSocketUrl`に、`ws://<ホスト>/session/<セッションID>`が入って返るので、そこへ WebSocket で接続する
+5. あとはBiDiのルールに沿って、WebSocket上でコマンドをやり取りする
 
-2〜4は、[W3C の仕様](https://w3c.github.io/webdriver-bidi/#establishing)（WebSocket URL の capability を true で頼むと双方向の接続になる）と、ChromeDriver のソース（[非表示タブを作る所](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/session_commands.cc;l=411-418)、[`session.new` を送る所](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/session_commands.cc;l=464-475)、[`webSocketUrl` を返す所](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/session_commands.cc;l=288-291)）で確かめられます。なお仕様の`session.new`は、HTTP を使わずに BiDi だけでセッションを作るためのコマンドです（[仕様](https://w3c.github.io/webdriver-bidi/#command-session-new)）。
+2〜4は、W3C の仕様と ChromeDriver のソースで確かめられます。[仕様](https://w3c.github.io/webdriver-bidi/#establishing)には、WebSocket URL の capability を true で頼むと双方向の接続になる、とあります。ChromeDriver のソースで当たるのは、[非表示タブを作る所](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/session_commands.cc;l=411-418)、[`session.new` を送る所](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/session_commands.cc;l=464-475)、[`webSocketUrl` を返す所](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/session_commands.cc;l=288-291)です。なお、仕様の`session.new`は、HTTP を使わずに BiDi だけでセッションを作るためのコマンドです（[仕様](https://w3c.github.io/webdriver-bidi/#command-session-new)）。
 
-WebDriver.exeで、BiDiを扱う詳細なフローは[ここで](https://note.com/sele_chan/n/n2b21c7c26ef8)確認できます。
+WebDriver.exeでBiDiを扱う詳しい流れは、[こちらの記事](https://note.com/sele_chan/n/n2b21c7c26ef8)で確認できます。
 
 ### このツール
 
@@ -173,8 +171,8 @@ WebDriver.exeで、BiDiを扱う詳細なフローは[ここで](https://note.co
 <準備編>
 1. npm等で`mapperTab.js`を入手（[chromium-bidi](https://www.npmjs.com/package/chromium-bidi) のパッケージに入っています）
 2. 中身をExcel/Accessに保存
-　→Excelの場合は、セル内に保持できる総文字数が、[32,767 文字](https://support.microsoft.com/ja-jp/office/excel-worksheet-and-workbook-limits-c13798fc-f1d5-4e73-998d-c02268bc65ae)なので、百万字近くある`mapperTab.js`（v17.0.2 で約85万字）を、その文字数ずつ分割保存してます。
-　　Accessは、1レコードに収める「長いテキスト」型（[最大 1 GB](https://support.microsoft.com/ja-jp/access/data-types-for-access-desktop-databases)）があるので、特に難なく入れれた
+　→Excelの場合、セルに入る文字数の上限が[32,767 文字](https://support.microsoft.com/ja-jp/office/excel-worksheet-and-workbook-limits-c13798fc-f1d5-4e73-998d-c02268bc65ae)なので、百万字近くある`mapperTab.js`（v17.0.2 で約85万字）を、その文字数ずつ分割して保存してます。
+　　Accessには、1レコードに収められる「長いテキスト」型（[最大 1 GB](https://support.microsoft.com/ja-jp/access/data-types-for-access-desktop-databases)）があるので、特に苦労なく入れられた
 
 <実際に動かす>
 1. BiDiとして使用を開始する`Sub`を呼び、Chromiumのデバッグ(Port/Pipe)に接続
@@ -182,12 +180,12 @@ WebDriver.exeで、BiDiを扱う詳細なフローは[ここで](https://note.co
 　→Excelの場合は、分割したやつをJoinする。AccessはシンプルにSelect文
 
 3. 新しいタブ("Target.createTarget")を非表示("hidden:=True")で開く　※必要に応じて表示する設定も可能。以降は、3で開いたタブに対する操作となる
-4. `Target.exposeDevToolsProtocol`によるJavaScript操作によるCDP操作権を与える
+4. `Target.exposeDevToolsProtocol`で、JavaScriptからCDPを操作する権限を与える
 5. `Runtime.addBinding`で、BiDiのレスポンスを受け取る名称（`sendBidiResponse`）を設定。任意でデバッグ用の名称（`sendDebugMessage`）も設定します
 6. `Runtime.evaluate`で、`mapperTab.js`の内容を実行する
-7. 6で実行した際の初期化用関数`runMapperInstance`に、3で開いたタブIDを渡して初期化
-8. `Runtime.callFunctionOn`の引数に、BiDiコマンドとして載せてJavaScript実行（タブの中の`window.onBidiMessage`を呼ぶ）
-9. "Runtime.bindingCalled"を監視し、BiDiの結果なら、RaiseEventでBiDi用のClassへ伝達
+7. 6で定義された初期化用の関数`runMapperInstance`に、3で開いたタブのIDを渡して初期化
+8. BiDiコマンドを`Runtime.callFunctionOn`の引数に載せて、タブの中の`window.onBidiMessage`を呼ぶ
+9. `Runtime.bindingCalled`を監視し、BiDiの結果なら、RaiseEventでBiDi用のClassへ伝える
 
 ::: details 出典：各手順がソースのどこにあるか
 | 手順 | このツール（WebDriverBiDiCore.cls） | chromium-bidi v17.0.2（MapperCdpConnection.ts） | ChromeDriver |
@@ -200,7 +198,7 @@ WebDriver.exeで、BiDiを扱う詳細なフローは[ここで](https://note.co
 | 8. BiDi コマンドを渡す | [L379-L388](https://github.com/Eschamali/StarterWebScrapingKit/blob/ee538fd70e01b7258647c7cb78aca3f8d92b0ce5/src/classes/WebDriverBiDiCore.cls#L379-L388)（`Runtime.callFunctionOn`） | [L72-L83](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiServer/MapperCdpConnection.ts#L72-L83)（`Runtime.evaluate`） | [devtools_client_impl.cc L161-L187](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/chrome/devtools_client_impl.cc;l=161-187)（`Runtime.evaluate`） |
 | 9. `Runtime.bindingCalled` を受ける | [L331-L371](https://github.com/Eschamali/StarterWebScrapingKit/blob/ee538fd70e01b7258647c7cb78aca3f8d92b0ce5/src/classes/WebDriverBiDiCore.cls#L331-L371) | [L93-L102](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiServer/MapperCdpConnection.ts#L93-L102)・[L166-L169](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiServer/MapperCdpConnection.ts#L166-L169) | [devtools_client_impl.cc L89-L107](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/chrome/devtools_client_impl.cc;l=89-107) |
 
-`hidden` と `Target.exposeDevToolsProtocol` は、CDP では実験的（experimental）な機能です（[Target.pdl の定義](https://github.com/ChromeDevTools/devtools-protocol/blob/7245ec551bc9d450170193456ab3965bb7e716cb/pdl/domains/Target.pdl#L103-L175)）。タブの中の `window.cdp`・`window.sendBidiResponse`・`window.onBidiMessage`・`window.runMapperInstance` は、chromium-bidi の [bidiTab.ts](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiTab/bidiTab.ts#L28-L99) で決まっています。
+`hidden` と `Target.exposeDevToolsProtocol` は、CDP では実験的（experimental）な機能です（[Target.pdl の定義](https://github.com/ChromeDevTools/devtools-protocol/blob/7245ec551bc9d450170193456ab3965bb7e716cb/pdl/domains/Target.pdl#L103-L175)）。タブの中の `window.cdp`・`window.sendBidiResponse`・`window.onBidiMessage`・`window.runMapperInstance` は、chromium-bidi の [bidiTab.ts](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiTab/bidiTab.ts#L28-L99) で定義されています。
 
 手順8だけは、使う CDP のメソッドが違います。どれもタブの中の `window.onBidiMessage` を呼ぶ点は同じですが、chromium-bidi と ChromeDriver は `onBidiMessage("…")` という式を組み立てて `Runtime.evaluate` で評価します。このツールは、JSON のダブルクォートやエスケープで式が崩れるのを避けるため、引数として渡せる `Runtime.callFunctionOn` を使っています（[CDPContext.cls の jsEval](https://github.com/Eschamali/StarterWebScrapingKit/blob/ee538fd70e01b7258647c7cb78aca3f8d92b0ce5/src/classes/CDPContext.cls#L655-L675)）。
 :::
@@ -209,114 +207,114 @@ WebDriver.exeで、BiDiを扱う詳細なフローは[ここで](https://note.co
 BiDiを送っているはずなのに何故か内部ではCDPとして送っていることに...
 
 実は、BiDiをCDPに訳しているのは、Chromium のブラウザ本体（C++ のソース）ではありません。
-訳しているのは、BiDiをCDPに翻訳するための[TypeScriptベースのプロジェクト](https://github.com/GoogleChromeLabs/chromium-bidi)（いまの正本は Chromium のソースツリーの `third_party/chromium-bidi`）をビルドした`mapperTab.js`です。Chromium 側の説明にも、「ChromeDriver のための WebDriver BiDi の実装で、mapperTab.js にコンパイルされ、ChromeDriver が Chrome ブラウザへ送り込む」とあります（[README.chromium](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:third_party/chromium-bidi/README.chromium;l=14-16)）。
-もう一度言います。Chromium本体のccファイルではなく、jsファイルです。つまり、ビルド済みブラウザのタブで扱える言語です
+訳しているのは、[TypeScriptベースのプロジェクト](https://github.com/GoogleChromeLabs/chromium-bidi)をビルドした`mapperTab.js`です。このプロジェクト（chromium-bidi）のソースは、今は Chromium のソースツリーの `third_party/chromium-bidi` にあります。Chromium 側の説明にも、「ChromeDriver のための WebDriver BiDi の実装で、mapperTab.js にコンパイルされ、ChromeDriver が Chrome ブラウザへ送り込む」とあります（[README.chromium](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:third_party/chromium-bidi/README.chromium;l=14-16)）。
+もう一度言います。Chromium本体のccファイルではなく、jsファイルです。つまり、ビルド済みのブラウザのタブで扱える言語です。
 
 そうです。
-主役は「exe」ではなかったのです。本当の主役は`mapperTab.js`
+主役は「exe」ではなかったのです。本当の主役は`mapperTab.js`。
 exeはただ
 ・BiDi の WebSocket の口を開く
-・`mapperTab.js`をタブへ運びセットアップする
-・レスポンス内容をパススルーする
+・`mapperTab.js`をタブへ運んでセットアップする
+・レスポンスの内容をパススルーする
 
-という非常にシンプルな役目に降格しました（chromium-bidi の README も、ChromeDriver を「BiDi の WebSocket と HTTP の口を持つ C++ のサーバー」、mapper を「ブラウザの中で動き、BiDi のコマンドを CDP のコマンドに訳すもの」と[分けて説明しています](https://github.com/GoogleChromeLabs/chromium-bidi/blob/c05676b921aa0011c9e124ef91b51eb9dd259e8b/README.md?plain=1#L442-L445)）
+という、非常にシンプルな役目に降格しました。chromium-bidi の README も、ChromeDriver を「BiDi の WebSocket と HTTP の口を持つ C++ のサーバー」、mapper を「ブラウザの中で動き、BiDi のコマンドを CDP のコマンドに訳すもの」と[分けて説明しています](https://github.com/GoogleChromeLabs/chromium-bidi/blob/c05676b921aa0011c9e124ef91b51eb9dd259e8b/README.md?plain=1#L442-L445)。
 
-今回、Excelで再現したこのフローは[chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)を参考に作り上げました。参考にした Node.js 版の [`src/bidiServer/MapperCdpConnection.ts`](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiServer/MapperCdpConnection.ts) は v17.0.2 まであり、2026年9月に [main から削除されました](https://github.com/GoogleChromeLabs/chromium-bidi/commit/314cf35cfb3de63881fd735b0c3add327d2e2cb2)。
+今回Excelで再現したこのフローは、[chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)を参考に作り上げました。手本にした Node.js 版の [`src/bidiServer/MapperCdpConnection.ts`](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiServer/MapperCdpConnection.ts) は v17.0.2 まであり、2026年9月に [main から削除されました](https://github.com/GoogleChromeLabs/chromium-bidi/commit/314cf35cfb3de63881fd735b0c3add327d2e2cb2)。
 ![大まかな手順](/img/story/7.png)
 
 じゃ～WebDriver.exeは、どうなのか...
 
 実は同じフローなのです（違うのは、手順8で `Runtime.evaluate` を使う点くらい）。
-なんなら<準備編>の2が、exeの場合は、巨大な配列定数として、`mapperTab.js`がある。完全にExcelと役割として一致しているのです。
+なんなら、<準備編>の2に当たるものもexeにあります。巨大な配列定数としての`mapperTab.js`です。役割は、Excelと完全に一致しているのです。
 ChromeDriver のビルドでは、chromium-bidi の `mapperTab.js` を縮めてから、`kMapperScript` という C++ の文字配列にして埋め込んでいます（[BUILD.gn](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/BUILD.gn;l=76-104)、[embed_bidimapper_in_cpp.py](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/embed_bidimapper_in_cpp.py;l=33-45)、[cpp_source.py](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/cpp_source.py;l=63-71)）。実行時は、この `kMapperScript` をタブへ送り込みます（[session_commands.cc](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/session_commands.cc;l=440-462)）。
 
-![バイナリエディタで検索結果](/img/story/18.png)
+![バイナリエディタでの検索結果](/img/story/18.png)
 
-著作権表示と共に `<!DOCTYPE html><title>BiDi-CDP Mapper</title>...` という生々しいコードが、数万行にわたってハードコードされていた！
-縮めるときも、`Copyright`・`license` を含むコメントは残す設定です（[minify_js.js](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:ui/webui/resources/tools/minify_js.js;l=70-77)）。`<!DOCTYPE html>...` は mapper のタブに表示する画面の HTML で、chromium-bidi の [mapperTabPage.ts](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiTab/mapperTabPage.ts#L19-L21) にあります。
+著作権表示と共に、`<!DOCTYPE html><title>BiDi-CDP Mapper</title>...` という生々しいコードが、数万行にわたってハードコードされていた！
+ChromeDriver のビルドは、縮めるときも `Copyright` や `license` を含むコメントを残す設定になっています（[minify_js.js](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:ui/webui/resources/tools/minify_js.js;l=70-77)）。`<!DOCTYPE html>...` は、mapper のタブに表示する画面の HTML で、chromium-bidi の [mapperTabPage.ts](https://github.com/GoogleChromeLabs/chromium-bidi/blob/chromium-bidi-v17.0.2/src/bidiTab/mapperTabPage.ts#L19-L21) にあります。
 
 exe：配列（C++ の文字配列）として埋め込み
 Excel：複数セルとして分割配置
 Access：1レコード
-Puppeteer：npm の依存として chromium-bidi を入れ、直接呼び出す（ただし、タブに `mapperTab.js` を載せるのではなく、[Node.js の中で mapper を動かします](https://github.com/puppeteer/puppeteer/blob/a207faf527ce4305b33a6c0f9706b090c21c115e/packages/puppeteer-core/src/bidi/BidiOverCdp.ts#L59-L66)）
+Puppeteer：npm の依存として chromium-bidi を入れ、直接呼び出す（ただし、タブに `mapperTab.js` を載せず、[Node.js の中で mapper を動かす](https://github.com/puppeteer/puppeteer/blob/a207faf527ce4305b33a6c0f9706b090c21c115e/packages/puppeteer-core/src/bidi/BidiOverCdp.ts#L59-L66)）
 
 他の有名ツールもWebDriver.exeも自分で組んだVBAも、同じ chromium-bidi の mapper でChromiumをBiDi化していたのだ。
-決して無駄なことではないことに安心した瞬間だった。
+決して無駄なことではなかったと分かり、安心した瞬間だった。
 こうして、[v1.6.0](https://github.com/Eschamali/StarterWebScrapingKit/releases/tag/v1.6.0)（2026年3月）で、外部依存なしでWebDriverBiDiが話せるようになりました。
-ドライバー（ChromeDriver）を使って VBA から BiDi を扱う試みは、[note の記事](https://note.com/sele_chan/n/n2b21c7c26ef8)や [WebDriver BiDi for SeleniumVBA](https://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA) のように先にありました。ドライバーなしで話すものは、筆者が調べた範囲では見当たらなかったので、VBA 初だと思っています。
+ドライバー（ChromeDriver）を使って VBA から BiDi を扱う試みは、[note の記事](https://note.com/sele_chan/n/n2b21c7c26ef8)や [WebDriver BiDi for SeleniumVBA](https://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA) のように先にありました。ドライバーなしで話すものは、私が調べた範囲では見当たらなかったので、VBA 初だと思っています。
 
 ![完成](/img/story/12.png)
 
 ## Firefoxはどうなのか？
 
-実はこのツール、最近になってFirefoxもついに制御することに成功しました。
+実はこのツール、最近になって、ついにFirefoxの制御にも成功しました。
 
 さっき、WebDriverBiDiも話せるようになった、とお伝えしました。
-しかし、あの時はまだ、かなり密結合な状態で、あくまでも、Chromium専用のBiDiClassとして作っていました。
+しかし、あの時はまだかなり密結合な状態で、あくまでもChromium専用のBiDiClassとして作っていました。
 
-何故なら、Firefoxは、WebDriverBiDiをネイティブに扱えるからです。Firefox は `--remote-debugging-port` を付けて起動すると、本体に入っている Remote Agent が WebDriver BiDi の口を開きます（[Firefox のソース](https://github.com/mozilla-firefox/firefox/blob/d6fd7a4e69b3c2d4550582eb38d2cdbd9cbad79a/remote/components/RemoteAgent.sys.mjs#L647-L649)、[Firefox のドキュメント](https://firefox-source-docs.mozilla.org/remote/index.html)）。
-つまり、このツールの場合は、CDP系Classを経由せずに直でFirefoxに届けないと、一切話せないのです。
+何故なら、FirefoxはWebDriverBiDiをネイティブに扱えるからです。Firefox を `--remote-debugging-port` を付けて起動すると、本体に入っている Remote Agent が WebDriver BiDi の口を開きます（[Firefox のソース](https://github.com/mozilla-firefox/firefox/blob/d6fd7a4e69b3c2d4550582eb38d2cdbd9cbad79a/remote/components/RemoteAgent.sys.mjs#L647-L649)、[Firefox のドキュメント](https://firefox-source-docs.mozilla.org/remote/index.html)）。
+つまり、このツールの場合は、CDP系のClassを経由せずに直接Firefoxへ届けないと、一切話せないのです。
 
-WebDriverBiDiというクロスブラウザという規格なのに、Chromiumしか話せない...
-そんな矛盾がしばらくは続いてました。
+WebDriverBiDiはクロスブラウザの規格なのに、Chromiumしか話せない...
+そんな矛盾が、しばらく続いてました。
 
-しかし、幾度もの改修工事(RaiseEvents,CDPを真似たClass構成,徹底的な責務分離,OptionClass概念...)を経て、ついに...
-メインのコードには、数十行の追記だけで、起動済みFirefoxに限るが、ついにFirefoxもこのツールでも比較的容易に制御できるようになりました
+しかし、幾度もの改修工事(RaiseEvents、CDPを真似たClass構成、徹底的な責務分離、OptionClass概念...)を経て、ついに...
+メインのコードに数十行を追記するだけで、起動済みのFirefoxに限りますが、このツールでもFirefoxを比較的容易に制御できるようになりました。
 
-「Chromium で積み上げた設計が、本物の WebDriver BiDi にもそのまま通用した」という、ちょっとした答え合わせになりました
+「Chromium で積み上げた設計が、本物の WebDriver BiDi にもそのまま通用した」という、ちょっとした答え合わせになりました。
 
 
 ## 将来、ChromiumはWebDriverBiDiをネイティブに扱えるのか？
 
-執筆時点では少なくとも
-・Chromiumに、(Firefoxみたいに)WebDriverBiDiをネイティブに扱えるOption起動引数的な物
+執筆時点では少なくとも、
+・Chromiumに、(Firefoxのように)WebDriverBiDiをネイティブに扱える起動オプションのようなもの
 
-は存在しませんし、公式やsourceからもそのような示唆は見当たりませんでした。
-Chromium の起動引数を定義している [content_switches.cc](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:content/public/common/content_switches.cc;l=592-599) にあるリモートデバッグ用の引数は、`--remote-debugging-pipe`・`--remote-debugging-port` など CDP 用のもので、BiDi という語は出てきません（`content_features.cc`・`chrome_features.cc` も同じ）。
+は存在しませんし、公式の情報やソースからも、そのような示唆は見当たりませんでした。
+Chromium の起動引数を定義している [content_switches.cc](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:content/public/common/content_switches.cc;l=592-599) を見ても、リモートデバッグ用の引数は `--remote-debugging-pipe` や `--remote-debugging-port` などの CDP 用で、BiDi という語は出てきません。`content_features.cc` と `chrome_features.cc` も同じです。
 ただ、ChromeDriver のソースには「Mapper をタブの外へ移したら消す」という TODO があり（[chrome_launcher.cc](https://source.chromium.org/chromium/chromium/src/+/b0a44723110d6a7afa3e4ab8c462d05c2c517101:chrome/test/chromedriver/chrome_launcher.cc;l=255-263)）、mapper の置き場所を変える構想自体はあるようです。2026年9月には、chromium-bidi 側も Node.js 版のサーバーを消して、[ChromeDriver 専用になりました](https://github.com/GoogleChromeLabs/chromium-bidi/commit/314cf35cfb3de63881fd735b0c3add327d2e2cb2)。
 
-以降は私の予想になりますが。
+ここからは私の予想になりますが、
 ・一生、ネイティブ搭載はしない。`mapperTab.js`経由を強いられる
 
 と思っています。
 何故そう思うか？理由はシンプルです。
 ・代替機能がないから
 
-実はこの辺、VBAと似た概念があります。
+実はこの辺り、VBAと似た構図があります。
 
-Microsoftはここんところ、いくつかの製品のサポート終了や廃止を進めています
+Microsoftはここんところ、いくつかの製品のサポート終了や廃止を進めています。
 1. Microsoft Publisher（2026年10月にサポート終了。[告知](https://support.microsoft.com/en-US/publisher/microsoft-publisher-will-no-longer-be-supported-after-october-2026)）
 2. VBS（2023年10月に非推奨となり、段階的に削除。[告知](https://learn.microsoft.com/ja-jp/windows/whats-new/deprecated-features)）
 3. そしてもちろんIE（2022年6月にサポート終了。[告知](https://learn.microsoft.com/ja-jp/lifecycle/announcements/internet-explorer-11-end-of-support)）
 
-代表に挙げた3つはどれも代替品があります
-1. Microsoft Create、Word や PowerPointにあるテンプレート系等
+代表に挙げた3つには、どれも代替品があります。
+1. Microsoft Create、Word や PowerPoint にあるテンプレートなど
 2. ps1（Microsoft は PowerShell と JavaScript への移行を[勧めています](https://techcommunity.microsoft.com/blog/windows-itpro-blog/vbscript-deprecation-timelines-and-next-steps/4148301)）
-3. Edge（Microsoft が IE からの移行先として勧めているのは、Chromium ベースの Edge）
+3. Edge（IE からの移行先として Microsoft が勧めている、Chromium ベースの Edge）
 
 では、VBAはどうか？
 ないんです。
 
 何故か？では、下記の代替機能は他のプログラミング言語にありますか？特にExcelVBAはどうです？
-・環境構築不要(Officeインストールというインストールexeを実行で、Office開いてalt + F11でStart)
-　→他言語の場合は、追加でvscodeが要る
+・環境構築不要(Officeのインストーラーを実行すれば、Officeを開いてAlt + F11ですぐ始められる)
+　→他言語の場合は、追加でVS Codeが要る
 
 ・ワークシートがGUIエディター
-　→他言語の場合は、xaml等と言ったコードページのUI構成言語の知識を要求される
+　→他言語の場合は、XAMLなど、UIをコードで組み立てる言語の知識が求められる
 
 ・データとプログラムが一心同体(ワークシート/Accessテーブル)
-　→他言語の場合は、SQLiteやini,csvといった外部ファイル化することになり、意図せずファイル移動/削除なんかしたら、もう動かなくなることも
+　→他言語の場合は、SQLiteやini、csvといった外部ファイルに分けることになり、うっかりファイルを移動・削除なんかしたら、もう動かなくなることも
 　　責務分離としては美しいので、ここは賛否両論ありそう。
 
-・ファイル配布しやすさの異常さ
-　→他言語の場合は、ZIPとして見た目上、1ファイルとしてやる必要があり、実際に実行する際は、結局ちらばるし、Runtime(python,node.js)がなかったら詰み
-　　まぁ、Officeもなかったらそれも詰みではあるが、「会社」という括りなら、相殺される
+・ファイルの配りやすさが異常
+　→他言語の場合は、ZIPで見た目だけ1ファイルにする必要があり、実行するときは結局ファイルが散らばるし、ランタイム(Python、Node.js)がなかったら詰み
+　　まぁ、Officeがなかったらそれも詰みではあるが、「会社」という括りなら相殺される
 
 ・追加申請不要(業務遂行上必要なファイルとして情シスの検問をPASS)
-　→他言語の場合は、要申請になるし、待たされた挙句拒否されることも。
-　　まぁ、これは個人PCにとっては意味のない記述だが、「会社」という括りなら、価値あるメリット
+　→他言語の場合は申請が要るし、待たされた挙句に拒否されることも。
+　　まぁ、これは個人のPCでは意味のない話だが、「会社」という括りなら価値あるメリット
 
-どうです？この5つを全て叶えるプログラミング言語、思いつきます？🙃🙃思いつかないと思います。
+どうです？この5つを全て叶えるプログラミング言語、思いつきます？思いつかないと思います。
 
 意外かもしれませんが、
 銀行、証券、工場、官公庁……。
@@ -327,13 +325,35 @@ CDPも実は同じです。思いつきますか？CDPの代替機能。
 ないです。だってGoogle（Chromium）自身が育ててきた、プログラミング言語ならぬ、プロトコルなのですから。
 Chrome チームも、「WebDriver BiDi は CDP を置き換えない。Chromium 系のブラウザは、デバッグのために CDP を使い続ける」と[書いています](https://developer.chrome.com/blog/webdriver-bidi)。
 
-唯一近いWebDriverBiDi、でもこれはあくまでも、自動化という括りまでの制定です。
+唯一近いのがWebDriverBiDiですが、これはあくまでも、自動化という括りの中で制定されたものです。
 CDPはデバッグ兼自動化。BiDiは自動化だけ。
-CDP の[公式ページ](https://chromedevtools.github.io/devtools-protocol/)は CDP を「デバッグと自動化の対象を、デバッグと自動化のクライアントとつなぐプロトコル」と、W3C は WebDriver を「ユーザーエージェントを調べて操作するための[遠隔操作のインターフェース](https://www.w3.org/TR/2018/REC-webdriver1-20180605/)」と書いています。
+CDP の[公式ページ](https://chromedevtools.github.io/devtools-protocol/)は、CDP を「デバッグと自動化の対象を、デバッグと自動化のクライアントとつなぐプロトコル」と説明しています。W3C は WebDriver を、「ユーザーエージェントを調べて操作するための[遠隔操作のインターフェース](https://www.w3.org/TR/2018/REC-webdriver1-20180605/)」としています。
 
 どっちがカバー範囲が大きいかは明らかですね。
 ただ、それだけのことです。
 
+## 終わりに
+
+出典を調べる過程で、少し前に述べた
+>Remove after the Mapper is moved away from the tab.
+
+**Mapperをタブの外へ移したら消す。**
+
+コメントアウトにある[リンク](https://issues.chromium.org/issues/42323802)を見る限り、約2.5年前にあるようです。
+
+つまり、mapper(BiDi-CDP Mapper) の置き場所を変える構想自体は割と昔からあると言えます。  
+でも、2.5年経った今でも残念ながら、まだ存在しています。
+
+果たしていつ、置き場所が変わるか見ものですね😳  
+もし、BiDi-CDP Mapperという`mappertTab.js`という部品が、WebDriver.exeから、ブラウザにネイティブ搭載になったら...
+
+ついに、[WebDriver BiDi for SeleniumVBA](https://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA)も外部依存なしの仲間入りになるかもですね🤠
+
+でも、それは同時に...このツールの唯一無二の「外部依存なし」というレッテルが外れるという意味にもなります🥲
+
+嬉しいような悲しいような🥺
+
+はたして、タブの外へ移すの**moved away**、どこに向かうかは、Google社員のみぞ知る...
 
 ## 参考資料
 
