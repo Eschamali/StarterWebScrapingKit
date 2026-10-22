@@ -969,6 +969,9 @@ End Sub
 Private Sub TestSerializeMisc()
     Debug.Assert Serialize(Array(Empty, Nothing, Err _
                                , PosInf, NegInf, SNaN, QNaN)) = "[null,null,null,null,null,null,null]"
+    Debug.Assert Serialize(Array(New Collection, Array(1))) = "[[],[1]]"
+    Debug.Assert Serialize(Array(New Dictionary, 1)) = "[{},1]"
+    Debug.Assert Serialize(Array(New Dictionary, Array(1))) = "[{},[1]]"
 End Sub
 
 Private Sub TestSerializeSortKeys()
