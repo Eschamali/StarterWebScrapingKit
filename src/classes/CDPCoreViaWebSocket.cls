@@ -896,6 +896,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
             End If
         Else
             ' ペイロード自体が欠けてます
+            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_FRAGMENT
             printMsg Debug_, "Not all payloads have been received yet.", FromProcedureName
             EndOfData = False
         End If
