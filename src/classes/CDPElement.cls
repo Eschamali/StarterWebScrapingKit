@@ -2,18 +2,17 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "PageElement"
+Attribute VB_Name = "CDPElement"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '================================================================================================
-' Page HTML Element Class (CDP / WebDriver BiDi)
+' CDP HTML Element Class
 '------------------------------------------------------------------------------------------------
 '       JavaScript操作の基となる`objectId`を使用した便利な様々な要素操作をまとめた物です。
 '  主に`querySelector`や`Xpath`、`ID`といった検索で得た要素(objectId)に対する操作アシストを担います。
-'  `InitBiDi`で初期化した場合は、WebDriverBiDiの`script.SharedId`を`objectId`の代わりとして扱います。
-'  ※旧名`CDPElement`。CDPとWebDriverBiDiの両方に対応したため、`PageElement`へ改名しました。
+'  ※WebDriver BiDi版は、`WebDriverBiDiElement.cls`をご利用ください
 '
 ' Author(s)   :
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
@@ -40,7 +39,7 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private Const ThisClassName As String = "PageElement"    'ログのトレース用
+Private Const ThisClassName As String = "CDPElement"    'ログのトレース用
 
 Public Enum keyboardCode    'Used for .sendKey operation in the browser class and element class
     keyEnter = 13
@@ -71,19 +70,18 @@ End Enum
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'コンテキスト(タブ)制御クラスオブジェクト　※`Protocol`に応じて、どちらか一方のみ使用
-Private mainCDP     As CDPContext           'CDP用
-Private mainBiDi    As WebDriverBiDiContext 'BiDi用
+'コンテキスト(タブ)制御クラスオブジェクト
+Private main As CDPContext
 
 'JavaScript検索結果情報
 Private Type ElementInfos
-    objectId        As String       ' 検索ヒット時の`ObjectId`　※BiDiの場合は`script.SharedId`
+    objectId        As String       ' 検索ヒット時の`ObjectId`
     ResultVarType   As VbVarType    ' 検索ヒット時の返り値型(https://learn.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/vartype-function)
     SearchJS        As String       ' DOM検索で使ったJavaScript構文（ポーリング用）
     SearchArgs()    As Dictionary   ' DOM検索で使ったJavaScript構文の引数情報（ポーリング用）
 End Type
 Private CurrentElement  As ElementInfos     '`CDPContext.cls`または、このClass内で相対検索した際の検索結果情報用
-Private ParentElement   As PageElement       ' このClass内で相対検索した際の親の検索結果情報 ※デバッグ時、ツリー情報で辿れるメリットがあるので、`PageElement.cls`本体を採用
+Private ParentElement   As CDPElement       ' このClass内で相対検索した際の親の検索結果情報 ※デバッグ時、ツリー情報で辿れるメリットがあるので、`CDPElement.cls`本体を採用
 
 '簡易check系
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
@@ -94,7 +92,7 @@ Private m_LogID As String
 '各種便利なJavaScript実行オプション
 Private Type callFunctionOnParameters
     StopException    As Boolean         'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
-    RunAsync         As Boolean         '非同期実行
+    RunAsyncCDP      As Boolean         '非同期実行
     userGesture      As Boolean         '人間が押したかのように偽装するか？
 End Type
 Private RunOption As callFunctionOnParameters
@@ -117,39 +115,10 @@ Private RunOption As callFunctionOnParameters
 '            　・複数取得系(getElementsByXPath等)
 '              ・`GetShadowRoot`メソッドの使用
 '***************************************************************************************************
-Public Sub InitCDP(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
+Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
-    Set mainCDP = ThisCDPContext
+    Set main = ThisCDPContext
 
-    '検索結果の格納
-    SetSearchResult argResultVarType, objectid_, JavaScriptStr
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：`WebDriverBiDiContext.cls`で検索実行したJavaScript結果を格納します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：ThisBiDiContext        継承したい`WebDriverBiDiContext`そのもの
-'            argResultVarType       検索実行結果の`VarType` ※`script.SharedId`の場合は、`vbString`として扱います。
-'            sharedId_              検索実行結果時の`script.SharedId`
-'            JavaScriptStr          検索実行したJavaScriptコードそのもの。ポーリング用に使用します。
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：・`sharedId`は、`WebDriverBiDiContext.jsEval`でnodeを返した際に得られる物を想定しています
-'            ・`InitCDP`と同様、要素がなく、`sharedId`が返せない場合は、`sharedId_`は、`StrPtr`チェックで0になります
-'* 注意事項：・BiDiモードでは、`getIFrame`(`WebDriverBiDiMode.getTab`を使用)と`GetShadowRoots`(`GetShadowRoot`を使用)が非対応です
-'            ・`JavaScriptStr`の扱いは、`Init`と同じです
-'***************************************************************************************************
-Public Sub InitBiDi(ThisBiDiContext As WebDriverBiDiContext, argResultVarType As VbVarType, sharedId_ As String, Optional JavaScriptStr As String)
-    'コンテキスト(タブ)情報を継承
-    Set mainBiDi = ThisBiDiContext
-
-    '検索結果の格納
-    SetSearchResult argResultVarType, sharedId_, JavaScriptStr
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：`InitCDP`/`InitBiDi`共通の検索結果格納処理です
-'***************************************************************************************************
-Private Sub SetSearchResult(argResultVarType As VbVarType, objectid_ As String, JavaScriptStr As String)
     With CurrentElement
         '実行結果の型タイプ
         .ResultVarType = argResultVarType
@@ -172,7 +141,7 @@ End Sub
 '***************************************************************************************************
 '                                ■■■ パラメーター確認 ■■■
 '***************************************************************************************************
-'* 機能　　：この`PageElement.cls`が作られた際の検索JavaScript構文を返却します
+'* 機能　　：この`CDPElement.cls`が作られた際の検索JavaScript構文を返却します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：要素の割り当てが成功した場合、このJavaScript構文をブラウザのコンソールウィンドウに直接入力することもできます
 '***************************************************************************************************
@@ -181,7 +150,7 @@ Property Get UseSearchJS() As String
 End Property
 
 '***************************************************************************************************
-'* 機能　　：この`PageElement.cls`が作られた際の検索結果の`VarType`値を返します
+'* 機能　　：この`CDPElement.cls`が作られた際の検索結果の`VarType`値を返します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：基本は`vbNull`or`vbString`を想定してます
 '***************************************************************************************************
@@ -202,7 +171,6 @@ Public Sub ExposeDevTools(varName As String)
     ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", varName
     Set args(0) = arg
 
@@ -216,19 +184,11 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：このClassで保持中の`ObjectId`
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`PageElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
-'* 注意事項：・空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
-'            ・BiDiモードの場合は、`script.SharedId`が返ります(WebDriverBiDiContext - jsEval の`scriptSharedId`に流用可)
+'* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
+'* 注意事項：空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
     CurrentObjectId = CurrentElement.objectId
-End Property
-
-'***************************************************************************************************
-'* 機能　　：このClassが、どのプロトコルで要素を制御しているかを返します
-'***************************************************************************************************
-Property Get isBiDi() As Boolean
-    isBiDi = (mainCDP Is Nothing)
 End Property
 
 '***************************************************************************************************
@@ -282,14 +242,9 @@ Public Function click() As Boolean
 
    'Some fields require the browser to manually focus before allowing
    'the click action, such as the input type 'file' field.
-    If mainCDP Is Nothing Then
-        'BiDi：`Input.insertText`相当がないため、JavaScriptの`focus`で代用
-        jsEval "function(){ this.focus() }"
-    Else
-        Dim params As New Dictionary
-        params("text") = ""
-        ExecuteCDP "Input.insertText", params
-    End If
+    Dim params As New Dictionary
+    params("text") = ""
+    ExecuteCDP "Input.insertText", params
 
    'Perform click
     jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }"
@@ -322,57 +277,44 @@ Public Function sendClick() As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
 
-    'Viewport 内に収める
+    'Viewport 内に収めてから、表示中の中心座標を取得（CDP の x/y は CSS ピクセル・数値必須）
+    Dim x As Long, y As Long
     jsEval "function(){ this.scrollIntoView(false) }"
+    InViewCenter x, y
 
-    If mainCDP Is Nothing Then
-        'BiDi：要素の中心へ移動 → 左ボタン押下 → 解放　※`origin`に要素を指定すると、座標計算は不要
-        Dim pointerActions As New Collection
-        pointerActions.Add BiDiPointerMoveToThis()
-        pointerActions.Add BiDiAction("pointerDown", "button", 0)
-        pointerActions.Add BiDiAction("pointerUp", "button", 0)
-        BiDiPerformActions "pointer", pointerActions
+    '中心座標へ移動 → 左ボタン押下 → 解放　※WebDriver BiDi(`input.performActions`)と同じ流れ
+    Dim params As New Dictionary
+    params("type") = "mouseMoved"
+    params("x") = x
+    params("y") = y
+    params("button") = "none"
+    params("buttons") = 0
+    params("clickCount") = 0
+    params("pointerType") = "mouse"
+    ExecuteCDP "Input.dispatchMouseEvent", params
 
-        printMsg info_, "Executed sendClick successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
-    Else
-        'CDP：表示中の中心座標へ移動 → 左ボタン押下 → 解放　※BiDi(`input.performActions`)と同じ流れ
-        Dim x As Long, y As Long
-        CDPInViewCenter x, y
+    params.RemoveAll
+    params("type") = "mousePressed"
+    params("x") = x
+    params("y") = y
+    params("button") = "left"
+    params("buttons") = 1
+    params("clickCount") = 1
+    params("pointerType") = "mouse"
+    ExecuteCDP "Input.dispatchMouseEvent", params
 
-        Dim params As New Dictionary
-        params("type") = "mouseMoved"
-        params("x") = x
-        params("y") = y
-        params("button") = "none"
-        params("buttons") = 0
-        params("clickCount") = 0
-        params("pointerType") = "mouse"
-        ExecuteCDP "Input.dispatchMouseEvent", params
-
-        params.RemoveAll
-        params("type") = "mousePressed"
-        params("x") = x
-        params("y") = y
-        params("button") = "left"
-        params("buttons") = 1
-        params("clickCount") = 1
-        params("pointerType") = "mouse"
-        ExecuteCDP "Input.dispatchMouseEvent", params
-
-        params.RemoveAll
-        params("type") = "mouseReleased"
-        params("x") = x
-        params("y") = y
-        params("button") = "left"
-        params("buttons") = 0
-        params("clickCount") = 1
-        params("pointerType") = "mouse"
-        ExecuteCDP "Input.dispatchMouseEvent", params
-
-        printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
-    End If
+    params.RemoveAll
+    params("type") = "mouseReleased"
+    params("x") = x
+    params("y") = y
+    params("button") = "left"
+    params("buttons") = 0
+    params("clickCount") = 1
+    params("pointerType") = "mouse"
+    ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendClick = True
+    printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -390,44 +332,27 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     If checkExist Then If Not isExist Then Exit Function
 
 
-    If mainCDP Is Nothing Then
-        'BiDi：フォーカスはJavaScriptで当て、キーは`input.performActions`で押下 → 解放
-        jsEval "function(){ this.focus() }"
+    'Set focus on the node
+    Dim params As New Dictionary
+    params("objectId") = CurrentElement.objectId
+    ExecuteCDP "DOM.focus", params
 
-        Dim keyValue As String: keyValue = BiDiKeyValue(Key)
-        Dim keyActions As New Collection
-        If altKey Then keyActions.Add BiDiAction("keyDown", "value", ChrW(&HE00A))   'Alt
-        keyActions.Add BiDiAction("keyDown", "value", keyValue)
-        keyActions.Add BiDiAction("keyUp", "value", keyValue)
-        If altKey Then keyActions.Add BiDiAction("keyUp", "value", ChrW(&HE00A))     'Alt
-        BiDiPerformActions "key", keyActions
+    'Send key down event to the browser
+    params.RemoveAll
+    params("type") = "keyDown"
+    params("windowsVirtualKeyCode") = Key
+    params("altKey") = altKey
+    ExecuteCDP "Input.dispatchKeyEvent", params
 
-        printMsg info_, "Executed sendKey successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
-
-    Else
-        'CDP：Set focus on the node
-        Dim params As New Dictionary
-        params("objectId") = CurrentElement.objectId
-        ExecuteCDP "DOM.focus", params
-
-        'Send key down event to the browser
-        params.RemoveAll
-        params("type") = "keyDown"
-        params("windowsVirtualKeyCode") = Key
-        params("altKey") = altKey
-        ExecuteCDP "Input.dispatchKeyEvent", params
-
-        'Send key up event to the browser to release the key
-        params.RemoveAll
-        params("type") = "keyUp"
-        params("windowsVirtualKeyCode") = Key
-        params("altKey") = False
-        ExecuteCDP "Input.dispatchKeyEvent", params
-
-        printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
-    End If
+    'Send key up event to the browser to release the key
+    params.RemoveAll
+    params("type") = "keyUp"
+    params("windowsVirtualKeyCode") = Key
+    params("altKey") = False
+    ExecuteCDP "Input.dispatchKeyEvent", params
 
     sendKey = True
+    printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -446,41 +371,18 @@ Public Function sendString(textToSend As String) As Boolean
     'First clear the current text of the field
     jsEval "function(){ this.value = '' }"
 
-    If mainCDP Is Nothing Then
-        'BiDi：`Input.insertText`相当がないため、1文字ずつキーを押下 → 解放する(全文字を1回の`input.performActions`で送信)
-        jsEval "function(){ this.focus() }"
+    'Set focus on the node
+    Dim params As New Dictionary
+    params("objectId") = CurrentElement.objectId
+    ExecuteCDP "DOM.focus", params
 
-        Dim keyActions As New Collection
-        Dim i As Long, oneChar As String
-        i = 1
-        Do While i <= Len(textToSend)
-            '1. 1文字取り出す　※サロゲートペア(上位)の場合は、下位とセットで1文字とする
-            oneChar = Mid$(textToSend, i, 1)
-            If (AscW(oneChar) And &HFC00&) = &HD800& Then oneChar = Mid$(textToSend, i, 2)
-
-            '2. 押下 → 解放
-            keyActions.Add BiDiAction("keyDown", "value", oneChar)
-            keyActions.Add BiDiAction("keyUp", "value", oneChar)
-            i = i + Len(oneChar)
-        Loop
-        If keyActions.Count > 0 Then BiDiPerformActions "key", keyActions
-
-        printMsg info_, "Executed sendString(""" & textToSend & """) successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
-    Else
-        'CDP：Set focus on the node
-        Dim params As New Dictionary
-        params("objectId") = CurrentElement.objectId
-        ExecuteCDP "DOM.focus", params
-
-        'Sendkeys to the node
-        params.RemoveAll
-        params("text") = textToSend
-        ExecuteCDP "Input.insertText", params
-
-        printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
-    End If
+    'Sendkeys to the node
+    params.RemoveAll
+    params("text") = textToSend
+    ExecuteCDP "Input.insertText", params
 
     sendString = True
+    printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -530,7 +432,6 @@ Property Let checked(boolChecked As Boolean)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "boolean"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", CBool(boolChecked)
     Set args(0) = arg
     jsEval "function(v){ this.checked = v }", args
@@ -562,7 +463,6 @@ Property Let selected(selectedOption As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", selectedOption
     Set args(0) = arg
     jsEval "function(v){ this.selectedIndex = v }", args
@@ -612,7 +512,6 @@ Public Function getAttribute(strAttributeName As String) As String
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strAttributeName
     Set args(0) = arg
     getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
@@ -629,14 +528,8 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
 
 
     Dim args2(1) As Dictionary
-    Dim a1 As New Dictionary, a2 As New Dictionary
-    If mainCDP Is Nothing Then
-        'BiDiは`script.LocalValue`形式のため型名が必要
-        a1.Add "type", "string"
-        a2.Add "type", "string"
-    End If
-    a1.Add "value", strAttributeName:   Set args2(0) = a1
-    a2.Add "value", strValue:           Set args2(1) = a2
+    Dim a1 As New Dictionary: a1.Add "value", strAttributeName:   Set args2(0) = a1
+    Dim a2 As New Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
 End Function
@@ -685,7 +578,6 @@ Property Let value(strTextVal As String)
     'objectArgumentsで安全に値を渡す（エスケープ不要）
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strTextVal
     Set args(0) = arg
 
@@ -729,7 +621,6 @@ Property Let innerText(strTextVal As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strTextVal
     Set args(0) = arg
     jsEval "function(v){ this.innerText = v }", args
@@ -763,7 +654,6 @@ Property Let innerHTML(strTextVal As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strTextVal
     Set args(0) = arg
     jsEval "function(v){ this.innerHTML = v }", args
@@ -810,7 +700,6 @@ Public Function fireEvent(strEventName As String) As Boolean
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strEventName
     Set args(0) = arg
     jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
@@ -829,35 +718,24 @@ Public Function sendHover() As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
 
-    'Viewport 内に収める
+    'Viewport 内に収めてから、表示中の中心座標を取得（CDP の x/y は CSS ピクセル・数値必須）
+    Dim x As Long, y As Long
     jsEval "function(){ this.scrollIntoView(false) }"
+    InViewCenter x, y
 
-    If mainCDP Is Nothing Then
-        'BiDi：要素の中心へ移動するだけ（これでホバー状態になる）
-        Dim pointerActions As New Collection
-        pointerActions.Add BiDiPointerMoveToThis()
-        BiDiPerformActions "pointer", pointerActions
-
-        printMsg info_, "Executed sendHover successfully on sharedId: " & CurrentElement.objectId, FromProcedureName
-    Else
-        'CDP：表示中の中心座標へ移動するだけ（これでホバー状態になる）　※BiDi(`input.performActions`)と同じ送信内容
-        Dim x As Long, y As Long
-        CDPInViewCenter x, y
-
-        Dim params As New Dictionary
-        params("type") = "mouseMoved"
-        params("x") = x
-        params("y") = y
-        params("button") = "none"
-        params("buttons") = 0
-        params("clickCount") = 0
-        params("pointerType") = "mouse"
-        ExecuteCDP "Input.dispatchMouseEvent", params
-
-        printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
-    End If
+    '物理マウスをその要素の中心座標へ移動（これでホバー状態になる）　※WebDriver BiDi(`input.performActions`)と同じ送信内容
+    Dim params As New Dictionary
+    params("type") = "mouseMoved"
+    params("x") = x
+    params("y") = y
+    params("button") = "none"
+    params("buttons") = 0
+    params("clickCount") = 0
+    params("pointerType") = "mouse"
+    ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendHover = True
+    printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -883,13 +761,13 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：このClass自身
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：・When the element does not exist, it returns an empty PageElement
+'* 詳細説明：・When the element does not exist, it returns an empty CDPElement
 '               object with checkExist tag = False, effectively skipping
 '               all subsequent functions related to it.
 '
 '            ・わざわざ、`if X.isExist then X.focus`といったことをせず、`X.ifExist.focus`のように簡略化できます。お好みで
 '***************************************************************************************************
-Public Function ifExist() As PageElement
+Public Function ifExist() As CDPElement
     Const FromProcedureName As String = ThisClassName & ".ifExist"
 
 
@@ -902,11 +780,11 @@ End Function
 '***************************************************************************************************
 '* 機能　　：`CDPContext.cls`で検索実行したJavaScriptを再実行し、有効なObjectIDが来るまで実行し続けます
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：見つかれば、`PageElement`オブジェクトが返り、見つからない場合は、`nothing`です
+'* 返り値  ：見つかれば、`CDPElement`オブジェクトが返り、見つからない場合は、`nothing`です
 '* 引数　　：timeOutInSeconds   検索し続ける秒数
 '            raiseTimeoutError  タイムアウトしたら、エラーで止めるか？
 '***************************************************************************************************
-Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As PageElement
+Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As CDPElement
     Const FromProcedureName As String = ThisClassName & ".onExist"
 
 
@@ -925,30 +803,17 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
         '2. 親情報に応じて検索方法を分岐
         Dim resultSearch As Variant
         If ParentElement Is Nothing Then
-            '2-1. `CDPContext.cls`/`WebDriverBiDiContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
-            If mainCDP Is Nothing Then
-                resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS)
-            Else
-                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS)
-            End If
+            '2-1. `CDPContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
+            resultSearch = main.jsEval(CurrentElement.SearchJS)
         Else
             '2-1. 引数情報に応じて、分岐
             '※`IsMissing`を機能させるため
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
-            If mainCDP Is Nothing Then
-                If Not Not CurrentElement.SearchArgs Then
-                    '引数情報があるので、引数付きで実行
-                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
-                Else
-                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
-                End If
+            If Not Not CurrentElement.SearchArgs Then
+                '引数情報があるので、引数付きで実行
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
             Else
-                If Not Not CurrentElement.SearchArgs Then
-                    '引数情報があるので、引数付きで実行
-                    resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
-                Else
-                    resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
-                End If
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
             End If
         End If
 
@@ -999,11 +864,11 @@ End Function
 
 
 '***************************************************************************************************
-'             ■■■ 今のNODE(PageElement.cls)を基準にした相対検索 METHODS ■■■
+'             ■■■ 今のNODE(CDPElement.cls)を基準にした相対検索 METHODS ■■■
 '***************************************************************************************************
 '* 機能　　：現在の要素の親ノードを取得します
 '***************************************************************************************************
-Public Function getParent() As PageElement
+Public Function getParent() As CDPElement
     Const ParentSearchJS As String = "function(){ return this.parentElement }"
 
 
@@ -1025,18 +890,18 @@ Public Function getParent() As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`PageElement.cls`に格納
-    Set getParent = New PageElement
-    InitChild getParent, JsResultVarType, objectId, ParentSearchJS
+    '3. 結果を`CDPElement.cls`に格納
+    Set getParent = New CDPElement
+    getParent.Init main, JsResultVarType, objectId, ParentSearchJS
 
-    '4. 元の親`PageElement.cls`を適用
-    Set getParent.InitParentPageElement = Me
+    '4. 元の親`CDPElement.cls`を適用
+    Set getParent.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
 '* 機能　　：現在の要素の次の兄弟ノードを取得します
 '***************************************************************************************************
-Public Function getNextSibling() As PageElement
+Public Function getNextSibling() As CDPElement
     Const NextSiblingSearchJS As String = "function(){ return this.nextElementSibling }"
 
 
@@ -1058,18 +923,18 @@ Public Function getNextSibling() As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`PageElement.cls`に格納
-    Set getNextSibling = New PageElement
-    InitChild getNextSibling, JsResultVarType, objectId, NextSiblingSearchJS
+    '3. 結果を`CDPElement.cls`に格納
+    Set getNextSibling = New CDPElement
+    getNextSibling.Init main, JsResultVarType, objectId, NextSiblingSearchJS
 
-    '4. 元の親`PageElement.cls`を適用
-    Set getNextSibling.InitParentPageElement = Me
+    '4. 元の親`CDPElement.cls`を適用
+    Set getNextSibling.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
 '* 機能　　：現在の要素の前の兄弟ノードを取得します
 '***************************************************************************************************
-Public Function getPrevSibling() As PageElement
+Public Function getPrevSibling() As CDPElement
     Const PrevSiblingSearchJS As String = "function(){ return this.previousElementSibling }"
 
 
@@ -1091,18 +956,18 @@ Public Function getPrevSibling() As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`PageElement.cls`に格納
-    Set getPrevSibling = New PageElement
-    InitChild getPrevSibling, JsResultVarType, objectId, PrevSiblingSearchJS
+    '3. 結果を`CDPElement.cls`に格納
+    Set getPrevSibling = New CDPElement
+    getPrevSibling.Init main, JsResultVarType, objectId, PrevSiblingSearchJS
 
-    '4. 元の親`PageElement.cls`を適用
-    Set getPrevSibling.InitParentPageElement = Me
+    '4. 元の親`CDPElement.cls`を適用
+    Set getPrevSibling.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
 '* 機能　　：現在の要素の先頭の兄弟ノードを取得します
 '***************************************************************************************************
-Public Function getFirstChild() As PageElement
+Public Function getFirstChild() As CDPElement
     Const FirstChildSearchJS As String = "function(){ return this.firstElementChild }"
 
 
@@ -1124,12 +989,12 @@ Public Function getFirstChild() As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '3. 結果を`PageElement.cls`に格納
-    Set getFirstChild = New PageElement
-    InitChild getFirstChild, JsResultVarType, objectId, FirstChildSearchJS
+    '3. 結果を`CDPElement.cls`に格納
+    Set getFirstChild = New CDPElement
+    getFirstChild.Init main, JsResultVarType, objectId, FirstChildSearchJS
 
-    '4. 元の親`PageElement.cls`を適用
-    Set getFirstChild.InitParentPageElement = Me
+    '4. 元の親`CDPElement.cls`を適用
+    Set getFirstChild.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
@@ -1138,7 +1003,7 @@ End Function
 '* 返り値  ：子要素のコレクション
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：これにより、複数の getElementBy メソッドを連結して使用できます
-'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getChildren() As Collection
     Const ChildrenSearchJS As String = "function(){ return this.children }"
@@ -1164,18 +1029,10 @@ Public Function getChildren() As Collection
     '3. Get length via callFunctionOn
     Set getChildren = New Collection
     Dim length_ As Long, N As Long
-    If mainCDP Is Nothing Then
-        '※BiDiの`scriptSharedId`は要素専用のため、コレクション(`script.Handle`)は引数側で渡す
-        Dim collRef As Dictionary, collArgs(0) As Dictionary, bidiItemArgs(1) As Dictionary
-        Set collRef = New Dictionary: collRef.Add "handle", collOid
-        Set collArgs(0) = collRef
-        length_ = mainBiDi.jsEval("function(c){ return c.length }", , collArgs)
-    Else
-        length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
-    End If
+    length_ = main.jsEval("function(){ return this.length }", collOid)
 
     '4. Get each item's objectId via callFunctionOn
-    Dim tElement As PageElement
+    Dim tElement As CDPElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
@@ -1183,26 +1040,20 @@ Public Function getChildren() As Collection
         Set itemArg = New Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
-        If mainCDP Is Nothing Then itemArg.Add "type", "number"   'BiDiは`script.LocalValue`形式のため型名が必要
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        If mainCDP Is Nothing Then
-            Set bidiItemArgs(0) = collRef: Set bidiItemArgs(1) = itemArg
-            itemResult = mainBiDi.jsEval("function(c, n){ return c.item(n) }", , bidiItemArgs)   'nodeは`script.SharedId`で返る
-        Else
-            itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
-        End If
+        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
             itemObjectID = itemResult
 
-            '4-5. 結果を`PageElement.cls`に格納
-            Set tElement = New PageElement
-            InitChild tElement, itemResultVarType, itemObjectID
+            '4-5. 結果を`CDPElement.cls`に格納
+            Set tElement = New CDPElement
+            tElement.Init main, itemResultVarType, itemObjectID
             getChildren.Add tElement
         End If
     Next
@@ -1213,7 +1064,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：主に、`ShadowRoot`配下でのID検索で役立ちます
 '***************************************************************************************************
-Public Function getElementByID(strID As String) As PageElement
+Public Function getElementByID(strID As String) As CDPElement
     Const ElementByIDSearchJS As String = "function(id){ return this.querySelector('#' + CSS.escape(id)) }"
 
 
@@ -1229,7 +1080,6 @@ Public Function getElementByID(strID As String) As PageElement
     '1. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strID
     Set args(0) = arg
 
@@ -1243,12 +1093,12 @@ Public Function getElementByID(strID As String) As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '4. 結果を`PageElement.cls`に格納
-    Set getElementByID = New PageElement
-    InitChild getElementByID, JsResultVarType, objectId, ElementByIDSearchJS
+    '4. 結果を`CDPElement.cls`に格納
+    Set getElementByID = New CDPElement
+    getElementByID.Init main, JsResultVarType, objectId, ElementByIDSearchJS
 
-    '5. 元の親`PageElement.cls`を適用
-    Set getElementByID.InitParentPageElement(args) = Me
+    '5. 元の親`CDPElement.cls`を適用
+    Set getElementByID.InitParentCDPElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1263,7 +1113,7 @@ End Function
 '             eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
 '              of an element with attribute a1 = abc
 '***************************************************************************************************
-Public Function getElementByQuery(strQuery As String) As PageElement
+Public Function getElementByQuery(strQuery As String) As CDPElement
     Const ElementByQuerySearchJS As String = "function(sel){ return this.querySelector(sel) }"
 
 
@@ -1279,7 +1129,6 @@ Public Function getElementByQuery(strQuery As String) As PageElement
     '1. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strQuery
     Set args(0) = arg
 
@@ -1292,12 +1141,12 @@ Public Function getElementByQuery(strQuery As String) As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '4. 結果を`PageElement.cls`に格納
-    Set getElementByQuery = New PageElement
-    InitChild getElementByQuery, JsResultVarType, objectId, ElementByQuerySearchJS
+    '4. 結果を`CDPElement.cls`に格納
+    Set getElementByQuery = New CDPElement
+    getElementByQuery.Init main, JsResultVarType, objectId, ElementByQuerySearchJS
 
-    '5. 元の親`PageElement.cls`を適用
-    Set getElementByQuery.InitParentPageElement(args) = Me
+    '5. 元の親`CDPElement.cls`を適用
+    Set getElementByQuery.InitParentCDPElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1306,7 +1155,7 @@ End Function
 '* 返り値  ：子要素のコレクション。1個もない場合は、`Nothing`
 '* 引数　　：strQuery   検索したい子要素クエリセレクター
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByQuery(strQuery As String) As Collection
     Const ElementsByQuerySearchJS As String = "function(sel){ return this.querySelectorAll(sel) }"
@@ -1319,7 +1168,6 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '1. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strQuery
     Set args(0) = arg
 
@@ -1339,18 +1187,10 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '3. Get length and each item's objectId
     Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
-    If mainCDP Is Nothing Then
-        '※BiDiの`scriptSharedId`は要素専用のため、コレクション(`script.Handle`)は引数側で渡す
-        Dim collRef As Dictionary, collArgs(0) As Dictionary, bidiItemArgs(1) As Dictionary
-        Set collRef = New Dictionary: collRef.Add "handle", collOid
-        Set collArgs(0) = collRef
-        length_ = mainBiDi.jsEval("function(c){ return c.length }", , collArgs)
-    Else
-        length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
-    End If
+    length_ = main.jsEval("function(){ return this.length }", collOid)
 
     '4. 前述の実行結果の数分、ループで順次取得していく
-    Dim tElement As PageElement
+    Dim tElement As CDPElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
@@ -1358,26 +1198,20 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         Set itemArg = New Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
-        If mainCDP Is Nothing Then itemArg.Add "type", "number"   'BiDiは`script.LocalValue`形式のため型名が必要
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        If mainCDP Is Nothing Then
-            Set bidiItemArgs(0) = collRef: Set bidiItemArgs(1) = itemArg
-            itemResult = mainBiDi.jsEval("function(c, n){ return c.item(n) }", , bidiItemArgs)   'nodeは`script.SharedId`で返る
-        Else
-            itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
-        End If
+        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
             itemObjectID = itemResult
 
-            '4-5. 結果を`PageElement.cls`に格納
-            Set tElement = New PageElement
-            InitChild tElement, itemResultVarType, itemObjectID
+            '4-5. 結果を`CDPElement.cls`に格納
+            Set tElement = New CDPElement
+            tElement.Init main, itemResultVarType, itemObjectID
             getElementsByQuery.Add tElement
         End If
     Next
@@ -1388,7 +1222,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strXpath   検索したい子要素Xpath
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：The element class is init in PageElement module.
+'* 詳細説明：The element class is init in CDPElement module.
 '            The element class has useful properties and methods similar to the HTML element
 '            object in previous IE automation.
 '            XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
@@ -1399,17 +1233,17 @@ End Function
 ' eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
 ' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
-' eg.7 ".//button[@id='abc']": get first button descendant of the Shadow-root (`GetShadowRoot`で取得した`PageElement`から実行)
+' eg.7 ".//button[@id='abc']": get first button descendant of the Shadow-root (`GetShadowRoot`で取得した`CDPElement`から実行)
 '---------------------------------------------------------------------------------------
-'* 注意事項：・この`PageElement`での検索は、あくまでも「現在の要素を起点とした相対検索」です。TOP(document)からの検索は、`CDPContext.getElementByXPath`をご利用ください
+'* 注意事項：・この`CDPElement`での検索は、あくまでも「現在の要素を起点とした相対検索」です。TOP(document)からの検索は、`CDPContext.getElementByXPath`をご利用ください
 '            ・先頭が`/`や`//`の場合は、先頭に`.`を自動付与します（例：`//div` → `.//div`＝配下の子孫）
-'            ・`GetShadowRoot`で得た Shadow-root の`PageElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
 '              `.`無しの相対指定（eg.6の`div`等）は、Shadow-root内では意図通りに探せません
 '            ・Shadow-root は XPath の起点にできないため、内部では最初の子ノードを起点に、先頭へ`.`を足して`..`(＝Shadow-root)として評価しています
 '            ・複数取得版の`getElementsByXPath`も、同じ規則で Shadow-root 内の検索に対応しています
 '            ・子要素が1つもない特殊なShadowDomには対応できません。その場合は従来通り、CSSルートで我慢してください
 '***************************************************************************************************
-Public Function getElementByXPath(strXPath As String) As PageElement
+Public Function getElementByXPath(strXPath As String) As CDPElement
     Const FromProcedureName         As String = ThisClassName & ".getElementByXPath"
     Const ElementByXPathSearchJS    As String = "function(xp){" & _
                                                 "  var c = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? this.firstChild : this;" & _
@@ -1432,14 +1266,13 @@ Public Function getElementByXPath(strXPath As String) As PageElement
 
     '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
     If Left$(strXPath, 1) = "/" Then
-        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `PageElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
         strXPath = "." & strXPath
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strXPath
     Set args(0) = arg
 
@@ -1452,12 +1285,12 @@ Public Function getElementByXPath(strXPath As String) As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '6. 結果を`PageElement.cls`に格納
-    Set getElementByXPath = New PageElement
-    InitChild getElementByXPath, JsResultVarType, objectId, ElementByXPathSearchJS
+    '6. 結果を`CDPElement.cls`に格納
+    Set getElementByXPath = New CDPElement
+    getElementByXPath.Init main, JsResultVarType, objectId, ElementByXPathSearchJS
 
-    '7. 元の親`PageElement.cls`を適用
-    Set getElementByXPath.InitParentPageElement(args) = Me
+    '7. 元の親`CDPElement.cls`を適用
+    Set getElementByXPath.InitParentCDPElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1469,9 +1302,9 @@ End Function
 '* 詳細説明：syntax used for retrieving the elements, refer to Mozilla doc below:
 '             https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
 '* 注意事項：・index for accessing the collection members start at one (not zero).
-'            ・複数検索の場合、親情報を引き継がない関係上、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '            ・`getElementByXPath`と同じく、現在の要素を起点とした相対検索です。先頭が`/`や`//`の場合は、先頭に`.`を自動付与します
-'            ・`GetShadowRoot`で得た Shadow-root の`PageElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
 '              `.`無しの相対指定は、Shadow-root内では意図通りに探せません。詳細は`getElementByXPath`の注意事項を参照してください
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
@@ -1492,14 +1325,13 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
     If Left$(strXPath, 1) = "/" Then
-        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `PageElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
         strXPath = "." & strXPath
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
     Dim xpArgs(0) As Dictionary
     Dim xpArg As New Dictionary
-    If mainCDP Is Nothing Then xpArg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     xpArg.Add "value", strXPath
     Set xpArgs(0) = xpArg
 
@@ -1519,18 +1351,10 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '6. Get snapshotLength and each item's objectId
     Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
-    If mainCDP Is Nothing Then
-        '※BiDiの`scriptSharedId`は要素専用のため、コレクション(`script.Handle`)は引数側で渡す
-        Dim collRef As Dictionary, collArgs(0) As Dictionary, bidiItemArgs(1) As Dictionary
-        Set collRef = New Dictionary: collRef.Add "handle", collOid
-        Set collArgs(0) = collRef
-        length_ = mainBiDi.jsEval("function(c){ return c.snapshotLength }", , collArgs)
-    Else
-        length_ = mainCDP.jsEval("function(){ return this.snapshotLength }", collOid)
-    End If
+    length_ = main.jsEval("function(){ return this.snapshotLength }", collOid)
 
     '7. 前述の実行結果の数分、ループで順次取得していく
-    Dim tElement As PageElement
+    Dim tElement As CDPElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
@@ -1538,51 +1362,34 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         Set itemArg = New Dictionary
 
         '7-2. `callFunctionOn`に渡す引数をセット
-        If mainCDP Is Nothing Then itemArg.Add "type", "number"   'BiDiは`script.LocalValue`形式のため型名が必要
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
         '7-3. 引数付きで実行
-        If mainCDP Is Nothing Then
-            Set bidiItemArgs(0) = collRef: Set bidiItemArgs(1) = itemArg
-            itemResult = mainBiDi.jsEval("function(c, n){ return c.snapshotItem(n) }", , bidiItemArgs)   'nodeは`script.SharedId`で返る
-        Else
-            itemResult = mainCDP.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
-        End If
+        itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
 
         '7-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
             itemObjectID = itemResult
 
-            '7-5. 結果を`PageElement.cls`に格納
-            Set tElement = New PageElement
-            InitChild tElement, itemResultVarType, itemObjectID
+            '7-5. 結果を`CDPElement.cls`に格納
+            Set tElement = New CDPElement
+            tElement.Init main, itemResultVarType, itemObjectID
             getElementsByXPath.Add tElement
         End If
     Next
 End Function
 
 '***************************************************************************************************
-'* 機能　　：相対検索時の親となる`PageElement.cls`を適用します
+'* 機能　　：相対検索時の親となる`CDPElement.cls`を適用します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：相対検索の場合、検索文字列が「this. ...」という書き方になるため、検索情報となる引数が必要です
 '***************************************************************************************************
-Property Set InitParentPageElement(Optional Arguments As Variant, Parent As PageElement)
+Property Set InitParentCDPElement(Optional Arguments As Variant, Parent As CDPElement)
     Set ParentElement = Parent
     If Not IsMissing(Arguments) Then CurrentElement.SearchArgs = Arguments
 End Property
-
-'***************************************************************************************************
-'* 機能　　：相対検索で得た子要素の`PageElement.cls`を、このClassと同じプロトコルで初期化します
-'***************************************************************************************************
-Private Sub InitChild(child As PageElement, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
-    If mainCDP Is Nothing Then
-        child.InitBiDi mainBiDi, argResultVarType, objectid_, JavaScriptStr
-    Else
-        child.InitCDP mainCDP, argResultVarType, objectid_, JavaScriptStr
-    End If
-End Sub
 
 
 
@@ -1599,18 +1406,13 @@ End Sub
 '             may work. For further reference, visit w3 info:
 '              https://www.w3schools.com/jsref/prop_frame_contentdocument.asp
 '
-'* 注意事項：・iframeのURLが親サイトと1文字でも違えば（例：Yahooに貼ってあるGoogleの広告など）、このメソッドは機能しません
-'            　その場合は、`CDPBrowser - getTab`か`CDPContext - getIFrameContextID → getIFrame`からご利用ください
-'            ・BiDiモードでは使用できません。iframeは独立した`browsingContext`のため、`WebDriverBiDiMode - getTab(URL, maxDepth:=1)`で取得してください
-'              ※`contentDocument`の`script.SharedId`はiframe側の文書に属するため、親の`context`からは操作できません
+'* 注意事項：iframeのURLが親サイトと1文字でも違えば（例：Yahooに貼ってあるGoogleの広告など）、このメソッドは機能しません
+'            その場合は、`CDPBrowser - getTab`か`CDPContext - getIFrameContextID → getIFrame`からご利用ください
 '***************************************************************************************************
-Public Function getIFrame() As PageElement
+Public Function getIFrame() As CDPElement
     Const FromProcedureName As String = ThisClassName & ".getIFrame"
     Const getIFrameSearchJS As String = "function(){ return this.contentDocument }"
 
-
-    'BiDiモードでは、iframeを`browsingContext`として扱うため、ここでは対応しない
-    If mainCDP Is Nothing Then printMsg ERROR_, "`getIFrame` is not available in BiDi mode. Use `WebDriverBiDiMode.getTab(URL, maxDepth:=1)` to get the iframe as a `WebDriverBiDiContext`.", FromProcedureName, doRaiseError:=True: Exit Function
 
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
@@ -1634,31 +1436,30 @@ Public Function getIFrame() As PageElement
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '4. 結果を`PageElement.cls`に格納
-    Set getIFrame = New PageElement
-    InitChild getIFrame, JsResultVarType, objectId, getIFrameSearchJS
+    '4. 結果を`CDPElement.cls`に格納
+    Set getIFrame = New CDPElement
+    getIFrame.Init main, JsResultVarType, objectId, getIFrameSearchJS
 
-    '5. 元の親`PageElement.cls`を適用
-    Set getIFrame.InitParentPageElement = Me
+    '5. 元の親`CDPElement.cls`を適用
+    Set getIFrame.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
-'* 機能　　：現在の`ObjectID`配下のShadow-root(open/close)での、`ObjectID`の`PageElement`を取得します
+'* 機能　　：現在の`ObjectID`配下のShadow-root(open/close)での、`ObjectID`の`CDPElement`を取得します
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：Index  複数の`Shadow-root`があった際のIndex値。    ※先頭は、0始まり基準
-'* 返り値　：`PageElement`オブジェクト
+'* 返り値　：`CDPElement`オブジェクト
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：1. `getElementByXPath`等で、Shadow-root(open/close)手前の要素`PageElement`を取得します
+'* 機能説明：1. `getElementByXPath`等で、Shadow-root(open/close)手前の要素`CDPElement`を取得します
 '            2. このプロシージャを実行して、Shadow-root(open/close)の中に、入り込みます
 '            3. 再度、`getElementByQuery`等で、Shadow-root(open/close)内の要素を検索して、目的の操作を行います
 '
-'* 注意事項：・あくまでも、今の`PageElement`直下の子Shadow-Root取得のみ対応します。事前にその手前での要素を取得の上、ご利用ください。
+'* 注意事項：・あくまでも、今の`CDPElement`直下の子Shadow-Root取得のみ対応します。事前にその手前での要素を取得の上、ご利用ください。
 '            ・複数ある場合は、次項の`GetShadowRoots`をご利用ください。ただし、場所が固定されてるのがわかってる場合は、引数にて調整可能です
-'            ・BiDiモードでは、要素ごとに1つのShadow-rootのみ取得できるため、`Index`は0のみ有効です(`GetShadowRoots`も非対応)
 '            ・失敗時は、`nothing`となります。これを目印に、存在確認を行ってください
-'            ・CDPによるShadowDOM侵入の都合上、親情報を引き継がないため、返される`PageElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・CDPによるShadowDOM侵入の都合上、親情報を引き継がないため、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
-Public Function GetShadowRoot(Optional Index As Long) As PageElement
+Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoot"
 
 
@@ -1671,80 +1472,50 @@ Public Function GetShadowRoot(Optional Index As Long) As PageElement
     End If
 
 
-    '1. 経路に応じたShadowRoot情報を取得する
-    Dim shadowRootId As String  'Shadow-rootのID　※CDP:`objectId` / BiDi:`script.SharedId`
-    If mainCDP Is Nothing Then
-        'BiDi：要素自身のシリアライズ結果から、Shadow-root(open/close)の`script.SharedId`を取得
-        '1-1. BiDiでは要素ごとに1つのShadow-rootのみ取得できるため、`Index`は0のみ有効
-        If Index > 0 Then printMsg WARN_, "shadowRoots-Index out of range. In BiDi mode, only Index 0 is available.", FromProcedureName: Exit Function
+    '1. `objectId`に対して、直下のNode情報を取得
+    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
+    Set paramsCDP = New Dictionary
+    paramsCDP.Add "objectId", CurrentElement.objectId
+    paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
+    paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
+    Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
 
-        '1-2. 要素自身を、Shadow-rootを含めてシリアライズ　※`includeShadowTree:="all"`で、closedも含まれる
-        Dim serializeOption As New Dictionary
-        serializeOption.Add "maxDomDepth", 1
-        serializeOption.Add "includeShadowTree", "all"
+    '2. `shadowRoots`の存在確認
+    If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
-        Dim nodeResult As JsEvalResult
-        Set nodeResult = jsEval("function(){ return this }", returnByValue:=True, serializationOptions:=serializeOption, returnByDetails:=True)
-        If nodeResult.isException Or nodeResult.ResultType <> "node" Then printMsg WARN_, "The current `PageElement` could not be serialized as a node.", FromProcedureName: Exit Function
+    '3. 指定Index圏内か？
+    Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
+    If Nodes_shadowRoots.Count <= Index Then printMsg WARN_, "shadowRoots-Index out of range.", FromProcedureName: Exit Function
 
-        '1-3. `shadowRoot`の存在確認　※ない場合は`null`
-        Dim NodeValue As BiDiCDPJson: Set NodeValue = nodeResult.rawValue
-        Dim shadowRootNode As Variant
-        If NodeValue.ExistsKey("shadowRoot") Then CDPHelpers.SetVar(shadowRootNode) = NodeValue.Item("shadowRoot")
-        If Not IsObject(shadowRootNode) Then printMsg WARN_, "The `Shadow-Root` was not found in the current `PageElement`.", FromProcedureName: Exit Function
+    '4. 指定位置の`shadowRoots`の`backendNodeId`を取得
+    Dim shadowRootNodeId As Long
+    shadowRootNodeId = Nodes_shadowRoots.NodeIndex(Index).NumberKey("backendNodeId")
+    printMsg Debug_, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
 
-        '1-4. `script.SharedId`を取得
-        shadowRootId = shadowRootNode.StringKey("sharedId")
-        printMsg info_, "`Successfully infiltrated `Shadow-Root`. sharedId: " & shadowRootId, FromProcedureName
+    '5. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
+    paramsCDP.RemoveAll
+    paramsCDP.Add "backendNodeId", shadowRootNodeId
+    Set ResultCDP = ExecuteCDP("DOM.resolveNode", paramsCDP)
 
-    Else
-        'CDP：
-        '1-1. `objectId`に対して、直下のNode情報を取得
-        Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
-        Set paramsCDP = New Dictionary
-        paramsCDP.Add "objectId", CurrentElement.objectId
-        paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
-        paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
-        Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
+    '6. `Runtime.RemoteObject`の存在確認
+    If Not ResultCDP.ExistsKey("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
+    If Not ResultCDP.NodeKey("object").ExistsKey("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
 
-        '1-2. `shadowRoots`の存在確認
-        If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `PageElement`.", FromProcedureName: Exit Function
-        If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `PageElement`.", FromProcedureName: Exit Function
+    '7. `objectId`を取得
+    Dim shadowRootObjectID As String
+    shadowRootObjectID = ResultCDP.NodeKey("object").StringKey("objectId")
+    printMsg info_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
 
-        '1-3. 指定Index圏内か？
-        Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
-        If Nodes_shadowRoots.Count <= Index Then printMsg WARN_, "shadowRoots-Index out of range.", FromProcedureName: Exit Function
-
-        '1-4. 指定位置の`shadowRoots`の`backendNodeId`を取得
-        Dim shadowRootNodeId As Long
-        shadowRootNodeId = Nodes_shadowRoots.NodeIndex(Index).NumberKey("backendNodeId")
-        printMsg Debug_, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
-
-        '1-5. 得た`backendNodeId`を`PageElement`で使える`ObjectID`に変換
-        paramsCDP.RemoveAll
-        paramsCDP.Add "backendNodeId", shadowRootNodeId
-        Set ResultCDP = ExecuteCDP("DOM.resolveNode", paramsCDP)
-
-        '1-6. `Runtime.RemoteObject`の存在確認
-        If Not ResultCDP.ExistsKey("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
-        If Not ResultCDP.NodeKey("object").ExistsKey("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
-
-        '1-7. `objectId`を取得
-        shadowRootId = ResultCDP.NodeKey("object").StringKey("objectId")
-        printMsg info_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootId, FromProcedureName
-    End If
-
-    '2. `PageElement`に必要な情報を継承して返却
-    Set GetShadowRoot = New PageElement
-    InitChild GetShadowRoot, vbString, shadowRootId   '※前述で、存在チェックしてるので、`vbString`直代入する
+    '8. `CDPElement`に必要な情報を継承して返却
+    Set GetShadowRoot = New CDPElement
+    GetShadowRoot.Init main, vbString, shadowRootObjectID   '※前述で、`Exists`チェックしてるので、`vbString`直代入する
 End Function
 
 '***************************************************************************************************
 '* 機能　　：`GetShadowRoot`プロシージャの複数取得版です。2つ以上操作する際にどうぞ
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Collectionオブジェクト。中身は、`PageElement`オブジェクトが詰まってます
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：BiDiモードでは使用できません。要素ごとに1つのShadow-rootのみ取得できるため、`GetShadowRoot`を使用してください
+'* 返り値　：Collectionオブジェクト。中身は、`CDPElement`オブジェクトが詰まってます
 '***************************************************************************************************
 Public Function GetShadowRoots() As Collection
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoots"
@@ -1753,9 +1524,6 @@ Public Function GetShadowRoots() As Collection
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist And Not isExist Then Exit Function
 
-
-    'BiDiモードでは、要素ごとに1つのShadow-rootしか取得できないため、ここでは対応しない
-    If mainCDP Is Nothing Then printMsg ERROR_, "`GetShadowRoots` is not available in BiDi mode. Use `GetShadowRoot` instead.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '1. `objectId`に対して、直下のNode情報を取得
     Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
@@ -1766,8 +1534,8 @@ Public Function GetShadowRoots() As Collection
     Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
 
     '2. `shadowRoots`の存在確認
-    If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `PageElement`.", FromProcedureName: Exit Function
-    If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `PageElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP.ExistsKey("node") Then printMsg WARN_, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
     '3. `shadowRoots`の最初の`shadowRoots`要素のトークンIDを取得
     Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP.NodeKey("node").NodeKey("shadowRoots")
@@ -1785,7 +1553,7 @@ Public Function GetShadowRoots() As Collection
         shadowRootNodeId = Nodes_shadowRoots.TokenNumber(tId_shadowRoots, "backendNodeId")
         printMsg Debug_, "`Shadow-Root` - backendNodeId: " & shadowRootNodeId, FromProcedureName
 
-        '5-2. 得た`backendNodeId`を`PageElement`で使える`ObjectID`に変換
+        '5-2. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
         Dim ResultRemoteObject As BiDiCDPJson
         paramsCDP.RemoveAll
         paramsCDP.Add "backendNodeId", shadowRootNodeId
@@ -1799,11 +1567,11 @@ Public Function GetShadowRoots() As Collection
         shadowRootObjectID = ResultRemoteObject.StringKey("objectId")
         printMsg Debug_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
 
-        '5-5. `PageElement`に必要な情報を継承
-        Dim GetShadowRoot As PageElement: Set GetShadowRoot = New PageElement
-        InitChild GetShadowRoot, vbString, shadowRootObjectID '※前述で、`Exists`チェックしてるので、`vbString`直代入する
+        '5-5. `CDPElement`に必要な情報を継承
+        Dim GetShadowRoot As CDPElement: Set GetShadowRoot = New CDPElement
+        GetShadowRoot.Init main, vbString, shadowRootObjectID '※前述で、`Exists`チェックしてるので、`vbString`直代入する
 
-        '5-6. できあがった`PageElement`をCollectionに蓄積
+        '5-6. できあがった`CDPElement`をCollectionに蓄積
         GetShadowRoots.Add GetShadowRoot
 
         '5-7. 次の要素（隣のトークン）へ移動
@@ -1827,14 +1595,8 @@ Public Sub SetFileInputFiles(files As Collection)
     '2. パラメーターを組み立てて送信
     Dim params As New Dictionary
     params.Add "files", files
-    If mainCDP Is Nothing Then
-        'BiDi：要素は`script.SharedReference`として指定　※`context`は、`WebDriverBiDiContext.ExecuteBiDi`側で付与される
-        params.Add "element", BiDiSharedReference()
-        mainBiDi.ExecuteBiDi "input.setFiles", params
-    Else
-        params.Add "objectId", CurrentElement.objectId
-        ExecuteCDP "DOM.setFileInputFiles", params
-    End If
+    params.Add "objectId", CurrentElement.objectId
+    ExecuteCDP "DOM.setFileInputFiles", params
 
     '3. 別途ログ化
     If CDPHelpers.currentLog.seeRawSendMsgDbg Then
@@ -1850,9 +1612,8 @@ End Sub
 '                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    'ログファイル拡張子は、制御中のプロトコルに合わせる
-    Dim LogFileExtension As String
-    LogFileExtension = IIf(mainCDP Is Nothing, ".bidi.log", ".cdp.log")
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
 
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
@@ -1863,134 +1624,13 @@ End Sub
 '                             ■■■ CDPContext.cls 直通メソッド ■■■
 '***************************************************************************************************
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
-    Set ExecuteCDP = mainCDP.ExecuteCDP(methodName, params, StopCDPError)
+    Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 
-'***************************************************************************************************
-'* 機能　　：このClassの要素の「表示中の部分」の中心座標(整数・CSSピクセル)を取得します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：x, y   取得した座標を格納する変数(参照渡し)
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：WebDriver BiDiの`input.performActions`(要素基準の移動)と同じ計算方法です
-'            `getClientRects()[0]`をビューポート内に切り詰めた上で、その中心を整数で求めます
-'* 注意事項：事前に`scrollIntoView`等で、要素をビューポート内に入れておくこと
-'***************************************************************************************************
-Private Sub CDPInViewCenter(ByRef x As Long, ByRef y As Long)
-    Const InViewCenterJS As String = "function(){" & _
-                                     "  const t = this.getClientRects()[0];" & _
-                                     "  const l = Math.max(0, Math.min(t.x, t.x + t.width)), r = Math.min(window.innerWidth, Math.max(t.x, t.x + t.width));" & _
-                                     "  const u = Math.max(0, Math.min(t.y, t.y + t.height)), d = Math.min(window.innerHeight, Math.max(t.y, t.y + t.height));" & _
-                                     "  return (l + ((r - l) >> 1)) + ',' + (u + ((d - u) >> 1));" & _
-                                     "}"
-
-    Dim xy() As String
-    xy = Split(jsEval(InViewCenterJS), ",")
-    x = CLng(xy(0))
-    y = CLng(xy(1))
-End Sub
-
-
-
-'***************************************************************************************************
-'                         ■■■ WebDriverBiDiContext.cls 直通メソッド ■■■
-'***************************************************************************************************
-'* 機能　　：このClassの要素を指す`script.SharedReference`(`{"sharedId": ...}`)を返します
-'***************************************************************************************************
-Private Function BiDiSharedReference() As Dictionary
-    Set BiDiSharedReference = New Dictionary
-    BiDiSharedReference.Add "sharedId", CurrentElement.objectId
-End Function
-
-'***************************************************************************************************
-'* 機能　　：`input.performActions`の1アクション(`{"type": ..., 任意の項目: 値}`)を返します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：actionType     "pointerDown" / "keyDown" 等
-'            itemName       追加する項目名(`button` / `value`等)。省略時は`type`のみ
-'            itemValue      追加する項目の値
-'***************************************************************************************************
-Private Function BiDiAction(actionType As String, Optional itemName As String, Optional itemValue As Variant) As Dictionary
-    Set BiDiAction = New Dictionary
-    BiDiAction.Add "type", actionType
-    If LenB(itemName) Then BiDiAction.Add itemName, itemValue
-End Function
-
-'***************************************************************************************************
-'* 機能　　：このClassの要素の中心へ、マウスを移動させるアクションを返します
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：`origin`に要素を指定すると、ブラウザ側で要素の表示中心が基準になるため、座標計算は不要です
-'* 注意事項：要素が画面外の場合はエラーになるため、事前に`scrollIntoView`しておくこと
-'***************************************************************************************************
-Private Function BiDiPointerMoveToThis() As Dictionary
-    Dim pointerOrigin As New Dictionary
-    pointerOrigin.Add "type", "element"
-    pointerOrigin.Add "element", BiDiSharedReference()
-
-    Set BiDiPointerMoveToThis = BiDiAction("pointerMove")
-    BiDiPointerMoveToThis.Add "x", 0
-    BiDiPointerMoveToThis.Add "y", 0
-    BiDiPointerMoveToThis.Add "origin", pointerOrigin
-End Function
-
-'***************************************************************************************************
-'* 機能　　：1つの入力元(マウス or キーボード)として、アクション群を`input.performActions`で実行します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：sourceType     "pointer"：マウス / "key"：キーボード
-'            actions        `BiDiAction`等で作ったアクションのCollection
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：`context`は、`WebDriverBiDiContext.ExecuteBiDi`側で付与されます
-'***************************************************************************************************
-Private Sub BiDiPerformActions(sourceType As String, actions As Collection)
-    '1. 入力元を組み立て
-    Dim inputSource As New Dictionary
-    inputSource.Add "type", sourceType
-    inputSource.Add "id", "vba-" & sourceType
-    If sourceType = "pointer" Then
-        Dim pointerParameters As New Dictionary
-        pointerParameters.Add "pointerType", "mouse"
-        inputSource.Add "parameters", pointerParameters
-    End If
-    inputSource.Add "actions", actions
-
-    '2. 実行
-    Dim inputSources As New Collection
-    inputSources.Add inputSource
-    Dim params As New Dictionary
-    params.Add "actions", inputSources
-    mainBiDi.ExecuteBiDi "input.performActions", params
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：`keyboardCode`(Windows仮想キーコード)を、WebDriverのキー値に変換します
-'---------------------------------------------------------------------------------------------------
-'* 参考URL ：https://w3c.github.io/webdriver/#keyboard-actions
-'***************************************************************************************************
-Private Function BiDiKeyValue(Key As keyboardCode) As String
-    Select Case Key
-        Case keyEnter:      BiDiKeyValue = ChrW(&HE007)
-        Case keyDelete:     BiDiKeyValue = ChrW(&HE017)
-        Case keyTab:        BiDiKeyValue = ChrW(&HE004)
-        Case keyEsc:        BiDiKeyValue = ChrW(&HE00C)
-        Case keyBackspace:  BiDiKeyValue = ChrW(&HE003)
-        Case Else:          BiDiKeyValue = ChrW(Key)
-    End Select
-End Function
-
-
-
-'***************************************************************************************************
-'                             ■■■ JsEval 直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：見つけた`objectId`に対して、高度なことをしたい方向け
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：objectArguments    制御中のプロトコルに合わせた形式で組み立ててください。変換は行いません
-'                               CDP ：`CallArgument`形式(`{"value": ...}`)
-'                               BiDi：`script.LocalValue`形式(`{"type": ..., "value": ...}`)
-'            returnByValue      BiDiモードの場合は、`Ownership:= Not returnByValue`として扱います
-'            serializationOptions   プロトコルごとに形式が異なるため、制御中のプロトコルに合わせて組み立ててください
-'            generatePreview    CDPモードのみ有効です。BiDiモードでは無視されます
-'            returnByDetails    `True`で、`JsEvalResult`(JavaScript実行結果の詳細オブジェクト)として返却します。CDP/BiDi共通
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・当然、`objectId`(BiDiの場合は`script.SharedId`)は固定してます
+'* 注意事項：・当然、`objectId`は固定してます
 '            ・一部引数は、プロパティメソッドから変更する必要があります
 '            ・Class内でもこれを経由して使用しています
 '***************************************************************************************************
@@ -2007,33 +1647,42 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
     '1. `objectId`がない場合は、エラー停止
     If StrPtr(CurrentElement.objectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
-    '2. プロトコルに応じたJS実行
-    If mainCDP Is Nothing Then
-        '2-1. BiDi：nodeは`script.SharedId`、それ以外のオブジェクトは`script.Handle`で返るよう、`Ownership`を指定して実行
-        CDPHelpers.SetVar(jsEval) = mainBiDi.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
-                                        Not returnByValue, _
-                                        awaitPromise, _
-                                        RunOption.userGesture, _
-                                        serializationOptions, _
-                                        returnByDetails, _
-                                        RunOption.RunAsync, _
-                                        RunOption.StopException, _
-                                        StopApiError)
-    Else
-        '2-1. そのまま実行
-        CDPHelpers.SetVar(jsEval) = mainCDP.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
-                                        returnByValue, _
-                                        awaitPromise, _
-                                        RunOption.userGesture, _
-                                        True, _
-                                        serializationOptions, _
-                                        generatePreview, _
-                                        returnByDetails, _
-                                        RunOption.RunAsync, _
-                                        RunOption.StopException, _
-                                        StopApiError)
-    End If
+    '2. 実行
+    CDPHelpers.SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
+                                    returnByValue, _
+                                    awaitPromise, _
+                                    RunOption.userGesture, _
+                                    True, _
+                                    serializationOptions, _
+                                    generatePreview, _
+                                    returnByDetails, _
+                                    RunOption.RunAsyncCDP, _
+                                    RunOption.StopException, _
+                                    StopApiError)
 End Function
+
+'***************************************************************************************************
+'* 機能　　：このClassの要素の「表示中の部分」の中心座標(整数・CSSピクセル)を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：x, y   取得した座標を格納する変数(参照渡し)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebDriver BiDiの`input.performActions`(要素基準の移動)と同じ計算方法です
+'            `getClientRects()[0]`をビューポート内に切り詰めた上で、その中心を整数で求めます
+'* 注意事項：事前に`scrollIntoView`等で、要素をビューポート内に入れておくこと
+'***************************************************************************************************
+Private Sub InViewCenter(ByRef x As Long, ByRef y As Long)
+    Const InViewCenterJS As String = "function(){" & _
+                                     "  const t = this.getClientRects()[0];" & _
+                                     "  const l = Math.max(0, Math.min(t.x, t.x + t.width)), r = Math.min(window.innerWidth, Math.max(t.x, t.x + t.width));" & _
+                                     "  const u = Math.max(0, Math.min(t.y, t.y + t.height)), d = Math.min(window.innerHeight, Math.max(t.y, t.y + t.height));" & _
+                                     "  return (l + ((r - l) >> 1)) + ',' + (u + ((d - u) >> 1));" & _
+                                     "}"
+
+    Dim xy() As String
+    xy = Split(jsEval(InViewCenterJS), ",")
+    x = CLng(xy(0))
+    y = CLng(xy(1))
+End Sub
 
 
 
@@ -2051,8 +1700,8 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：必要な場面で使い終わったら必ず、`False`に戻すこと。面倒ごとになります
 '***************************************************************************************************
-Property Let SetOptionRunAsync(v As Boolean)
-    RunOption.RunAsync = v
+Property Let SetOptionRunAsyncCDP(v As Boolean)
+    RunOption.RunAsyncCDP = v
 End Property
 
 '***************************************************************************************************
@@ -2070,13 +1719,9 @@ End Property
 Private Sub Class_Terminate()
     '不要になった objectId をリリースします(あれば)
     '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
-    If StrPtr(CurrentElement.objectId) = 0 Then Exit Sub
-
-    'BiDi：`script.SharedId`はブラウザ側で保持されないため、解放不要
-    If mainCDP Is Nothing Then Exit Sub
-
-    'CDP：`Runtime.releaseObject`で`objectId`を解放
-    Dim paramsAPI As New Dictionary
-    paramsAPI.Add "objectId", CurrentElement.objectId
-    mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsAPI, False
+    If StrPtr(CurrentElement.objectId) Then
+        Dim paramsCDP As New Dictionary
+        paramsCDP.Add "objectId", CurrentElement.objectId
+        main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
+    End If
 End Sub

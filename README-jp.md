@@ -247,10 +247,7 @@ CDP制御のほかに、次の2つも同梱しています。
 このツールは、世界中のVBA職人が公開してくれた素晴らしいライブラリの数々を、実務で使いやすい形に統合（マッシュアップ）したものです。
 偉大な先人たちの知恵とコードに、心からの敬意と感謝を表します。
 
-* **WebSocket実装のコアロジック**
-  * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
-    * 製作者：[@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)氏
-* **CDP制御・パイプ通信の基盤**
+* **全ての始まり。CDP制御・パイプ通信の基盤**
   * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
     * 製作者：longvh211氏
 * **WinHTTP 5.1 ラッパー**
