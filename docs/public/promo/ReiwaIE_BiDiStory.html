@@ -1804,7 +1804,8 @@ function sceneInside(t) {
     if (r) {
       const [x, y, w, h] = r, s = w / 1285;
       // 青い枠で囲まれた「mapperPageSource='<!DOCTYPE html><title>BiDi-CDP Mapper</title>」の行
-      redCircle(x + (1960 - 1400 + 340) * s, y + 590 * s, 520 * s, 60 * s, PF(t, 'x4', .35, .6), { lw: 7 });
+      // （切り出した画像の座標で x 114〜1275、y 507〜564。少し余白を取って囲む）
+      redCircle(x + 695 * s, y + 536 * s, 600 * s, 58 * s, PF(t, 'x4', .35, .6), { lw: 7 });
     }
     chip('msedgedriver.exe（Edge の WebDriver）', W / 2 - 400, 820, '#94a3b8', { font: `700 24px ${FONT}` });
     stamp('FOUND', W / 2 + 470, 790, PF(t, 'x4', .5, .4), COL.mapper, { size: 72, rot: -6 });
