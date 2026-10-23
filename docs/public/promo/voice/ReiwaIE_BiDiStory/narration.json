@@ -2,7 +2,7 @@
  "movie": "ReiwaIE_BiDiStory.html",
  "speaker": "ずんだもん",
  "credit": "VOICEVOX:ずんだもん",
- "note": "text=画面の字幕 / say=VOICEVOXに読ませる文章 / at=ムービー内の開始秒。BGM と効果音は事前に合成した bgm.mp3",
+ "note": "text=画面の字幕 / say=VOICEVOXに読ませる文章 / at=ムービー内の開始秒。bgm.mp3 は曲だけで、効果音は HTML の中で鳴らす",
  "lines": [
   {
    "id": "o1",

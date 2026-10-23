@@ -68,10 +68,11 @@ const hr = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x -
 
 const L = id => TLD.lines[id];
 const S = id => TLD.scenes[id];
-const P = (t, id, d = .6, o = 0) => clamp((t - L(id).start - o) / d);
-const F = (id, f) => { const l = L(id); return l.start + (l.end - l.start) * f; };
-const PF = (t, id, f, d = .5) => clamp((t - F(id, f)) / d);
-const PT = (t, t0, d) => clamp((t - t0) / d);
+// 動き始めの時刻を、確認用の probe.py に知らせる（ふだんは何もしない）
+const P = (t, id, d = .6, o = 0) => { if (window.__PROBE) __PROBE(L(id).start + o); return clamp((t - L(id).start - o) / d); };
+const F = (id, f) => { const l = L(id), v = l.start + (l.end - l.start) * f; if (window.__PROBE) __PROBE(v); return v; };
+const PF = (t, id, f, d = .5) => { if (window.__PROBE) __PROBE(F(id, f)); return clamp((t - F(id, f)) / d); };
+const PT = (t, t0, d) => { if (window.__PROBE) __PROBE(t0); return clamp((t - t0) / d); };
 const win = (t, a, b, fi = .3, fo = .3) => clamp(Math.min((t - a) / fi, (b - t) / fo));
 // 行 a の始まりから行 b の終わり（＋次の行まで）まで見せる不透明度
 const seg = (t, a, b, fi = .35, fo = .35) => win(t, L(a).start - .2, L(b).end + .32, fi, fo);
@@ -1033,6 +1034,21 @@ function sceneSpark(t) {
 }
 
 // シーン: WebDriver の歴史
+// 絵と音（audio.js）で同じ瞬間を使う。値は行の中の位置（0..1）で、ナレーションの読み上げに合わせてある
+//   h9 : 「ファイルのアップロード」「ドメインをまたぐ移動」
+//   h12: 「COM」「XPCOMの拡張機能」「拡張機能とNPAPI」と読み始める位置
+//   h13: 「WebDriverのほうが」で近づき始め、「ええやん」で吹き出しが出る
+//   h14: 「2009年」「2011年」「2018年」
+//   h16: 「YouTubeが」で入れ替わり、「2015年」で鳴る
+//   h17: 「WebGL」「Web Audio」「WebAssembly」「Canvas」
+//   h22: 「表示の書き換え」「あとから出る入力欄」「ネットワークの監視」
+//   h28: 「Chromium向け」で Chrome と Edge、「Firefoxも」「一時は一部を実装」「BiDiへ」
+//   x5 : 「exeは配列」「Excelは複数のセル」「Accessは1レコード」、x6:「Puppeteerも」
+const SYNC = {
+  h9: [.3, .51], h12: [.05, .30, .64], h13Merge: .62, h13Eeyan: .765, h13Hack: .28,
+  h14: [.02, .24, .46], h16Yt: .42, h16Year: .69, h17: [.10, .27, .42, .61], h22: [.02, .18, .39],
+  h28: { chrome: .19, edge: .28, firefox: .41, part: .49, bidi: .8 }, x5: [.01, .31, .67], x6: .04,
+};
 const HIST_YEAR = [['h1', 2004], ['h4', 2004], ['h10', 2007], ['h14', 2009], ['h15', 2012], ['h16', 2015], ['h18', 2016], ['h23', 2011], ['h27', null], ['h30', 2019]];
 function histYear(t) {
   let y = null, prev = null, t0 = 0;
@@ -1055,8 +1071,8 @@ function sceneHist(t) {
   ruler(t, yy, {
     alpha: rA, y: 140, pins: [
       [2004, 'Selenium', COL.xl, seg(t, 'h4', 'h9')], [2007, 'WebDriver', COL.sepia, seg(t, 'h10', 'h13')],
-      [2009, '統合を発表', COL.sepia, win(t, F('h14', .05), L('h14').end + .3)], [2011, 'Selenium 2.0', COL.sepia, win(t, F('h14', .35), L('h14').end + .3)],
-      [2018, 'W3C 勧告', COL.bidi, win(t, F('h14', .66), L('h14').end + .3)], [2015, 'YouTube HTML5 既定', COL.red, seg(t, 'h16', 'h16')],
+      [2009, '統合を発表', COL.sepia, win(t, F('h14', SYNC.h14[0]), L('h14').end + .3)], [2011, 'Selenium 2.0', COL.sepia, win(t, F('h14', SYNC.h14[1]), L('h14').end + .3)],
+      [2018, 'W3C 勧告', COL.bidi, win(t, F('h14', SYNC.h14[2]), L('h14').end + .3)], [2015, 'YouTube HTML5 既定', COL.red, seg(t, 'h16', 'h16')],
       [2011, 'WebKit リモートデバッグ', COL.cdp, seg(t, 'h24', 'h25')], [2019, 'TPAC 2019', COL.bidi, segS(t, 'h30', sid)],
     ],
   });
@@ -1143,7 +1159,7 @@ function sceneHist(t) {
     txt('主役は JavaScript', W / 2, 330, { font: `900 56px ${FONT}`, align: 'center', color: '#fff', alpha: P(t, 'h9', .4) });
     ctx.fillStyle = hexA(COL.red, .5); ctx.fillRect(W / 2 - 640, 440, 1280 * E.out(PF(t, 'h9', .2, .5)), 14);
     txt('ブラウザのルールの壁', W / 2, 410, { font: `700 26px ${FONT}`, align: 'center', color: COL.red, alpha: PF(t, 'h9', .2, .5) });
-    [['ファイルのアップロード', .35], ['ドメインをまたぐ移動', .55]].forEach(([s, f], i) => {
+    [['ファイルのアップロード', SYNC.h9[0]], ['ドメインをまたぐ移動', SYNC.h9[1]]].forEach(([s, f], i) => {
       const pp = PF(t, 'h9', f, .4);
       node(W / 2 + (i ? 330 : -330), 600, 560, 120, s, '#94a3b8', { pop: pp, alpha: pp });
       mark(false, W / 2 + (i ? 330 : -330) + 250, 540, 36, pp);
@@ -1162,7 +1178,7 @@ function sceneHist(t) {
       const pp = PF(t, 'h10', .45 + i * .1, .5);
       beam([[W / 2, 345], [W / 2, 400], [x, 400], [x, 450]], COL.sepia, 3, pp);
       node(x, 510, 380, 110, b, '#cbd5e1', { pop: pp, alpha: pp, font: `900 48px ${FONT}` });
-      const q = PF(t, 'h12', .05 + i * .3, .5);
+      const q = PF(t, 'h12', SYNC.h12[i], .5);
       node(x, 690, 440, 150, m, i === 0 ? COL.sepia : i === 1 ? COL.fox : COL.cdp, { sub: d, pop: q, alpha: q, font: `900 44px ${FONT}` });
     });
     txt('ブラウザごとの違いを、中に隠して共通にする', W / 2, 840, { font: `700 34px ${FONT}`, align: 'center', color: '#e2e8f0', alpha: PF(t, 'h10', .5, .5) * (1 - P(t, 'h12', .3)) });
@@ -1172,22 +1188,22 @@ function sceneHist(t) {
   a = seg(t, 'h13', 'h13');
   if (a > 0) {
     ctx.save(); ctx.globalAlpha = a;
-    const m = E.inOut(PF(t, 'h13', .45, 1.2));
+    const m = E.inOut(PF(t, 'h13', SYNC.h13Merge, .9));
     const d = lerp(360, 120, m);
     for (const [side, n, c] of [[-1, 'Selenium', COL.xl], [1, 'WebDriver', COL.sepia]]) {
       ctx.beginPath(); ctx.arc(W / 2 + side * d, 500, 220, 0, 7);
       ctx.fillStyle = hexA(c, .14); ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 4; ctx.shadowColor = c; ctx.shadowBlur = 30; ctx.stroke(); ctx.shadowBlur = 0;
       txt(n, W / 2 + side * (d + 60), 500, { font: `900 54px ${FONT}`, align: 'center', color: '#fff' });
     }
-    txt('うちの JavaScript ハック', W / 2 - 520, 790, { font: `600 30px ${FONT}`, align: 'center', color: '#94a3b8', alpha: 1 - m });
-    bubble(W / 2 + 120, 230, 420, 110, 'ええやん', COL.sepia, { alpha: PF(t, 'h13', .6, .4), font: `900 56px ${FONT}` });
+    txt('うちの JavaScript ハック', W / 2 - 520, 790, { font: `600 30px ${FONT}`, align: 'center', color: '#94a3b8', alpha: PF(t, 'h13', SYNC.h13Hack, .4) * (1 - m) });
+    bubble(W / 2 + 120, 230, 420, 110, 'ええやん', COL.sepia, { alpha: PF(t, 'h13', SYNC.h13Eeyan, .25), font: `900 56px ${FONT}` });
     ctx.restore();
   }
   // h14: 統合 → 2.0 → 勧告
   a = seg(t, 'h14', 'h14');
   if (a > 0) {
     ctx.save(); ctx.globalAlpha = a;
-    const steps = [['2009', '統合を発表', .05, COL.sepia], ['2011', 'Selenium 2.0', .35, COL.sepia], ['2018', 'W3C 勧告', .66, COL.bidi]];
+    const steps = [['2009', '統合を発表', SYNC.h14[0], COL.sepia], ['2011', 'Selenium 2.0', SYNC.h14[1], COL.sepia], ['2018', 'W3C 勧告', SYNC.h14[2], COL.bidi]];
     steps.forEach(([y, s, f, c], i) => {
       const pp = PF(t, 'h14', f, .5);
       const x = W / 2 + (i - 1) * 560;
@@ -1213,7 +1229,7 @@ function sceneHist(t) {
   a = seg(t, 'h16', 'h16');
   if (a > 0) {
     ctx.save(); ctx.globalAlpha = a;
-    const fp = 1 - PF(t, 'h16', .55, .5);
+    const fp = 1 - PF(t, 'h16', SYNC.h16Yt, .5);
     ctx.save(); ctx.globalAlpha *= fp;
     rr(W / 2 - 520, 300, 1040, 420, 6); ctx.fillStyle = '#2b2b2b'; ctx.fill(); ctx.strokeStyle = '#6b6b6b'; ctx.lineWidth = 3; ctx.stroke();
     // パズルのピース
@@ -1223,7 +1239,7 @@ function sceneHist(t) {
     txt('このコンテンツを表示するには', W / 2, 560, { font: `700 40px ${FONT}`, align: 'center', color: '#e5e7eb' });
     txt('Flash Player が必要です', W / 2, 620, { font: `900 54px ${FONT}`, align: 'center', color: '#fbbf24' });
     ctx.restore();
-    const yp = PF(t, 'h16', .55, .6);
+    const yp = PF(t, 'h16', SYNC.h16Yt, .6);
     if (yp > 0) {
       ctx.save(); ctx.globalAlpha *= yp;
       rr(W / 2 - 200, 330, 400, 280, 60); ctx.fillStyle = '#ef4444'; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 40; ctx.fill(); ctx.shadowBlur = 0;
@@ -1239,7 +1255,7 @@ function sceneHist(t) {
     ctx.save(); ctx.globalAlpha = a;
     const tiles = [['WebGL', COL.red], ['Web Audio', COL.violet], ['WebAssembly', COL.bidi], ['Canvas', COL.xl]];
     tiles.forEach(([n, c], i) => {
-      const pp = PF(t, 'h17', .05 + i * .12, .4);
+      const pp = PF(t, 'h17', SYNC.h17[i], .4);
       const x = W / 2 + (i - 1.5) * 420;
       node(x, 500, 380, 260, n, c, { pop: pp, alpha: pp, font: `900 46px ${FONT}` });
       // それぞれの小さな絵
@@ -1303,7 +1319,7 @@ function sceneHist(t) {
     const items = ['表示の書き換え', 'あとから出る入力欄', 'ネットワークの監視'];
     const cdp = PF(t, 'h23', .45, .6);
     items.forEach((s, i) => {
-      const x = W / 2 + (i - 1) * 540, pp = PF(t, 'h22', i * .2, .4);
+      const x = W / 2 + (i - 1) * 540, pp = PF(t, 'h22', SYNC.h22[i], .4);
       panel(x - 240, 300, 480, 340, { color: cdp > 0 ? COL.cdp : '#94a3b8', alpha: pp, title: 'SPA' });
       ctx.save(); ctx.globalAlpha *= pp;
       if (i === 0) { for (let k = 0; k < 4; k++) { const on = Math.floor(t * 2) % 4 === k; ctx.fillStyle = on ? hexA(COL.bidi, .7) : 'rgba(148,163,184,.25)'; ctx.fillRect(x - 190, 380 + k * 48, 380, 34); } }
@@ -1378,16 +1394,16 @@ function sceneHist(t) {
     const dep = P(t, 'h29', .6);
     ctx.save(); ctx.globalAlpha *= 1 - dep;
     node(330, 520, 300, 160, 'CDP', COL.cdp, { font: `900 70px ${MONO}`, pop: P(t, 'h28', .4) });
-    [['Chrome', 330, true], ['Edge', 520, true], ['Firefox', 710, false]].forEach(([n, y, ok], i) => {
-      const pp = PF(t, 'h28', .1 + i * .15, .4);
+    [['Chrome', 330, true, SYNC.h28.chrome], ['Edge', 520, true, SYNC.h28.edge], ['Firefox', 710, false, SYNC.h28.firefox]].forEach(([n, y, ok, f]) => {
+      const pp = PF(t, 'h28', f, .4);
       beam([[480, 520], [900, y]], ok ? COL.cdp : '#94a3b8', 3, pp, { dash: ok ? null : [10, 10] });
       node(1080, y, 300, 110, n, ok ? COL.cdp : COL.fox, { pop: pp, alpha: pp });
       mark(ok, 1270, y - 40, 26, pp);
     });
-    const fp = PF(t, 'h28', .6, .6);
+    const fp = PF(t, 'h28', SYNC.h28.bidi, .6);
     arrow(1240, 710, 1500, 710, COL.bidi, fp);
     node(1650, 710, 240, 100, 'BiDi へ', COL.bidi, { pop: fp, alpha: fp });
-    txt('一時は一部を実装', 1080, 790, { font: `600 24px ${FONT}`, align: 'center', color: COL.fox, alpha: PF(t, 'h28', .45, .4) });
+    txt('一時は一部を実装', 1080, 790, { font: `600 24px ${FONT}`, align: 'center', color: COL.fox, alpha: PF(t, 'h28', SYNC.h28.part, .4) });
     ctx.restore();
     if (dep > 0) {
       for (let i = 0; i < 18; i++) {
@@ -1778,7 +1794,7 @@ function sceneInside(t) {
   a = seg(t, 'x5', 'x7');
   if (a > 0) {
     ctx.save(); ctx.globalAlpha = a;
-    const box = [['exe', '配列（C++ の文字配列）', COL.bidi, 'x5', .0], ['Excel', '複数のセル', COL.xl, 'x5', .3], ['Access', '1レコード', '#f87171', 'x5', .6], ['Puppeteer', 'Node.js の中で動かす', COL.cdp, 'x6', .1]];
+    const box = [['exe', '配列（C++ の文字配列）', COL.bidi, 'x5', SYNC.x5[0]], ['Excel', '複数のセル', COL.xl, 'x5', SYNC.x5[1]], ['Access', '1レコード', '#f87171', 'x5', SYNC.x5[2]], ['Puppeteer', 'Node.js の中で動かす', COL.cdp, 'x6', SYNC.x6]];
     const join = P(t, 'x7', .8);
     box.forEach(([n, d, c, id, f], i) => {
       const pp = PF(t, id, f, .4);
@@ -2809,17 +2825,657 @@ function draw(t) {
 window.FRAME_COUNT = Math.ceil(TLD.duration * TLD.fps);
 // 記事の画像を読み終えてから、描画の入口を公開する
 window.IMG_READY.then(() => { window.renderFrame = draw; });
+
+// BGM と効果音（タイミングは timeline.js から）
+// 主題は「行って、返る」ピンポン: BiDi の呼びかけ（左→右へ上がる）と CDP の返事（右→左へ下がる）
+// MP4 は全部を1本に合成する。HTML 版は BGM だけを bgm.mp3 にし、効果音はブラウザの中で鳴らす（liveSE）
+const SR = 48000;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+
+// 譜面を組み立てる。ac は OfflineAudioContext（書き出し）でも AudioContext（HTML 版の効果音）でもよい
+//   mode: 'all'（全部）/ 'music'（BGM だけ）/ 'se'（効果音だけ）
+//   off : ムービーの 0 秒が、ac の何秒にあたるか
+function buildScore(ac, dest, mode = 'all', off = 0) {
+  // 決まった乱数のノイズ
+  let seed = 7654321;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x3fffffff - 1; };
+  const noiseBuf = ac.createBuffer(1, SR * 3, SR);
+  { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rnd(); }
+  const ir = ac.createBuffer(2, SR * 4, SR);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = rnd() * Math.pow(1 - i / d.length, 3.0); }
+
+  const master = ac.createDynamicsCompressor();
+  master.threshold.value = -14; master.ratio.value = 3; master.attack.value = .01; master.release.value = .25;
+  master.connect(dest);
+  const verb = ac.createConvolver(); verb.buffer = ir;
+  const verbOut = ac.createGain(); verbOut.gain.value = .34; verb.connect(verbOut); verbOut.connect(master);
+  const music = ac.createGain(); music.gain.value = .42; music.connect(master);
+  const sfx = ac.createGain(); sfx.gain.value = .7; sfx.connect(master);
+  // 曲全体の音量の流れ（無音にしたい区間を作る）
+  const musicLv = ac.createGain(); musicLv.connect(music);
+  const lv = musicLv.gain;
+  let curLv = 1;
+  // 時刻順に呼ぶこと（前後すると音量の予定が壊れるので、ここで止める）
+  let lastLv = 0;
+  const setLv = (t, v, ramp = .4) => {
+    if (t - ramp < lastLv - 1e-6) throw new Error('setLv の順番が前後しています: ' + t.toFixed(2));
+    // 途中から鳴らすとき、もう過ぎた時刻の音量はすぐに反映する
+    const at = t + off, now = ac.currentTime;
+    if (at <= now) lv.setValueAtTime(v, now);
+    else { lv.setValueAtTime(curLv, Math.max(now, at - ramp)); lv.linearRampToValueAtTime(v, at); }
+    curLv = v; lastLv = t;
+  };
+  lv.setValueAtTime(1, Math.max(ac.currentTime, off));
+
+  const env = (g, t, a, peak, d, sus = 0, r = 0) => {
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peak, t + a);
+    if (r > 0) { g.gain.setValueAtTime(peak, t + a + d); g.gain.linearRampToValueAtTime(0, t + a + d + r); }
+    else g.gain.exponentialRampToValueAtTime(Math.max(1e-4, sus || 1e-4), t + a + d);
+  };
+  // 出力先へつなぎ、作ったノードを返す（鳴り終わったら切り離すため）。pan は -1（左）〜 1（右）
+  const out = (node, dry, wet = 0, bus = musicLv, pan = 0) => {
+    const g = ac.createGain(); g.gain.value = dry; node.connect(g);
+    const ns = [node, g];
+    let last = g;
+    if (pan) { const p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); last = p; ns.push(p); }
+    last.connect(bus);
+    if (wet > 0) { const w = ac.createGain(); w.gain.value = wet; last.connect(w); w.connect(verb); ns.push(w); }
+    return ns;
+  };
+  const done = (src, ns) => { src.onended = () => ns.forEach(n => n.disconnect()); };
+
+  // 音はすべて「時刻つきの予約」にしておき、少し先の分ずつ実体化する
+  // 予約には種類（BGM か効果音か）があり、mode に合わないものは予約しない。nt は先頭から何個の引数が時刻か
+  const EV = [];
+  let running = false;
+  const later = (fn, kindOf, nt = 1) => (...a) => {
+    // 予約を実体化している最中に呼ばれた部品は、その場で作る（時刻はずらし済み）
+    if (running) return fn(...a);
+    const kind = typeof kindOf === 'function' ? kindOf(a) : kindOf;
+    if (mode !== 'all' && kind !== mode) return;
+    EV.push([a[0], () => { running = true; try { fn(...a.map((v, i) => i < nt ? v + off : v)); } finally { running = false; } }]);
+  };
+
+  const pad = later((t0, t1, notes, o = {}) => {
+    if (t1 <= t0) return;
+    for (const n of notes) {
+      for (const det of [-7, 6]) {
+        const osc = ac.createOscillator(); osc.type = o.type || 'sawtooth'; osc.frequency.value = mtof(n); osc.detune.value = det;
+        const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.cut || 700; f.Q.value = .5;
+        if (o.cut2) { f.frequency.setValueAtTime(o.cut, t0); f.frequency.linearRampToValueAtTime(o.cut2, t1); }
+        const g = ac.createGain();
+        const a = Math.min(o.att ?? 1.5, (t1 - t0) / 2);
+        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime((o.vol || .05), t0 + a);
+        g.gain.setValueAtTime(o.vol || .05, Math.max(t0 + a, t1 - (o.rel ?? 1.2))); g.gain.linearRampToValueAtTime(0, t1);
+        osc.connect(f); f.connect(g);
+        done(osc, [f, ...out(g, 1, o.wet ?? .5, o.bus || musicLv, det < 0 ? -(o.width ?? .35) : (o.width ?? .35))]);
+        osc.start(t0); osc.stop(t1 + .05);
+      }
+    }
+  }, 'music', 2);
+  const pluck = later((t, n, o = {}) => {
+    const osc = ac.createOscillator(); osc.type = o.type || 'triangle'; osc.frequency.value = mtof(n);
+    if (o.slide) osc.frequency.exponentialRampToValueAtTime(mtof(n + o.slide), t + (o.d || .25));
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 4;
+    f.frequency.setValueAtTime(o.cut || 2400, t); f.frequency.exponentialRampToValueAtTime(300, t + (o.d || .25));
+    const g = ac.createGain(); env(g, t, .004, o.vol || .07, o.d || .25);
+    osc.connect(f); f.connect(g);
+    done(osc, [f, ...out(g, 1, o.wet ?? .35, o.bus || musicLv, o.pan || 0)]);
+    osc.start(t); osc.stop(t + (o.d || .25) + .05);
+  }, a => a[2]?.bus === sfx ? 'se' : 'music');
+  const bell = later((t, n, o = {}) => {
+    for (const [mul, v] of (o.box ? [[1, 1], [2, .25], [4.2, .08]] : [[1, 1], [2.76, .35], [5.4, .12]])) {
+      const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = mtof(n) * mul;
+      const g = ac.createGain(); env(g, t, .003, (o.vol || .05) * v, (o.d || 1.6) / (o.box ? mul : 1));
+      osc.connect(g); done(osc, out(g, 1, o.wet ?? .6, o.bus || musicLv, o.pan || 0));
+      osc.start(t); osc.stop(t + (o.d || 1.6) + .05);
+    }
+  }, a => a[2]?.music ? 'music' : 'se');
+  const kick = later((t, a = .5, bus = musicLv) => {
+    const osc = ac.createOscillator(); osc.frequency.setValueAtTime(150, t); osc.frequency.exponentialRampToValueAtTime(42, t + .14);
+    const g = ac.createGain(); env(g, t, .002, a, .38);
+    osc.connect(g); done(osc, out(g, 1, 0, bus)); osc.start(t); osc.stop(t + .45);
+  }, 'music');
+  // 長い環境音（3秒より長いもの）は BGM 側に入れる
+  const noise = later((t, d, o = {}) => {
+    const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    if (o.rate) s.playbackRate.value = o.rate;
+    const f = ac.createBiquadFilter(); f.type = o.ft || 'highpass'; f.frequency.value = o.f || 7000; f.Q.value = o.q || .7;
+    if (o.f2) { f.frequency.setValueAtTime(o.f, t); f.frequency.exponentialRampToValueAtTime(o.f2, t + d); }
+    const g = ac.createGain();
+    if (o.swell) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.vol || .05, t + d * .7); g.gain.linearRampToValueAtTime(0, t + d); }
+    else if (o.hold) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.vol || .05, t + .3); g.gain.setValueAtTime(o.vol || .05, t + d - .3); g.gain.linearRampToValueAtTime(0, t + d); }
+    else env(g, t, o.a || .002, o.vol || .05, d);
+    s.connect(f); f.connect(g); done(s, [f, ...out(g, 1, o.wet || 0, o.bus || sfx, o.pan || 0)]);
+    s.start(t, Math.abs(rnd()) * .5 + 1); s.stop(t + d + .05);
+  }, a => a[2]?.bus === musicLv || a[1] > 3 ? 'music' : 'se');
+  const hat = (t, v = .03, pan = 0) => noise(t, .05, { vol: v, bus: musicLv, pan });
+  const snare = (t, v = .1) => noise(t, .16, { ft: 'bandpass', f: 1900, q: .8, vol: v, bus: musicLv, wet: .2 });
+  const whoosh = (t, d = .9, v = .22) => noise(t, d, { ft: 'bandpass', f: 250, f2: 5000, q: 1.2, vol: v, swell: true, wet: .4 });
+  const tick = (t, v = .05, pan = 0) => noise(t, .018, { f: 3500, vol: v, pan });
+  const impact = later((t, v = .8) => {
+    const osc = ac.createOscillator(); osc.frequency.setValueAtTime(120, t); osc.frequency.exponentialRampToValueAtTime(28, t + .7);
+    const g = ac.createGain(); env(g, t, .004, v, 1.3);
+    osc.connect(g); done(osc, out(g, 1, .5, sfx)); osc.start(t); osc.stop(t + 1.4);
+    noise(t, .6, { ft: 'lowpass', f: 900, vol: v * .5, wet: .6 });
+  }, 'se');
+  const glitch = later((t, d = .3, v = .08) => {
+    let tt = t;
+    while (tt < t + d) {
+      const len = .012 + Math.abs(rnd()) * .04;
+      const osc = ac.createOscillator(); osc.type = 'square'; osc.frequency.value = 80 + Math.abs(rnd()) * 2400;
+      const g = ac.createGain(); g.gain.setValueAtTime(v, tt); g.gain.setValueAtTime(0, tt + len * .8);
+      osc.connect(g); done(osc, out(g, 1, 0, sfx, rnd() * .6)); osc.start(tt); osc.stop(tt + len);
+      tt += len * (1 + Math.abs(rnd()));
+    }
+  }, 'se');
+  const ding = (t, n = 88, v = .12, pan = 0) => bell(t, n, { vol: v, d: 1.2, pan });
+  const buzz = later((t, v = .08) => {
+    const osc = ac.createOscillator(); osc.type = 'square'; osc.frequency.value = 98;
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1200;
+    const g = ac.createGain(); env(g, t, .005, v, .28, 0, .05);
+    osc.connect(f); f.connect(g); done(osc, [f, ...out(g, 1, 0, sfx)]); osc.start(t); osc.stop(t + .4);
+  }, 'se');
+  const heartbeat = later((t, v = .5) => {
+    for (const o of [0, .22]) {
+      const osc = ac.createOscillator(); osc.frequency.setValueAtTime(70, t + o); osc.frequency.exponentialRampToValueAtTime(40, t + o + .15);
+      const g = ac.createGain(); env(g, t + o, .005, v * (o ? .7 : 1), .25);
+      osc.connect(g); done(osc, out(g, 1, 0, sfx)); osc.start(t + o); osc.stop(t + o + .3);
+    }
+  }, 'se');
+  const riser = later((t0, t1, v = .12) => {
+    noise(t0, t1 - t0, { ft: 'bandpass', f: 200, f2: 6000, q: 2, vol: v, swell: true, wet: .3 });
+    const osc = ac.createOscillator(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(110, t0); osc.frequency.exponentialRampToValueAtTime(880, t1);
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1800;
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v * .3, t1 - .05); g.gain.linearRampToValueAtTime(0, t1);
+    osc.connect(f); f.connect(g); done(osc, [f, ...out(g, 1, .3, sfx)]); osc.start(t0); osc.stop(t1 + .05);
+  }, 'se', 2);
+  // 左から右（dir=1）、または右から左（dir=-1）へ飛ぶ電子音（BiDi / CDP のメッセージ）
+  const blip = later((t, dir = 1, n = 84, o = {}) => {
+    const d = o.d || .32;
+    const osc = ac.createOscillator(); osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(mtof(n - 5 * dir), t); osc.frequency.exponentialRampToValueAtTime(mtof(n + 5 * dir), t + d);
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.vol || .07, t + .02); g.gain.linearRampToValueAtTime(0, t + d);
+    const p = ac.createStereoPanner(); p.pan.setValueAtTime(-.85 * dir, t); p.pan.linearRampToValueAtTime(.85 * dir, t + d);
+    osc.connect(g); g.connect(p); p.connect(o.bus || sfx);
+    const w = ac.createGain(); w.gain.value = .3; p.connect(w); w.connect(verb);
+    done(osc, [g, p, w]); osc.start(t); osc.stop(t + d + .05);
+  }, 'se');
+  // 低いうなり（ずれた2音でゆらぐ）
+  const drone = later((t0, t1, notes, o = {}) => {
+    for (const n of notes) {
+      const osc = ac.createOscillator(); osc.type = o.type || 'sine'; osc.frequency.value = mtof(n);
+      if (o.bend) { osc.frequency.setValueAtTime(mtof(n), t0); osc.frequency.exponentialRampToValueAtTime(mtof(n + o.bend), t1); }
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(o.vol || .06, t0 + (o.att ?? 1));
+      g.gain.setValueAtTime(o.vol || .06, Math.max(t0 + (o.att ?? 1), t1 - (o.rel ?? 1))); g.gain.linearRampToValueAtTime(0, t1);
+      osc.connect(g); done(osc, out(g, 1, o.wet ?? .4, o.bus || sfx));
+      osc.start(t0); osc.stop(t1 + .05);
+    }
+  }, 'music', 2);
+  // 巻き戻しのキュルキュル
+  const rewind = later((t0, t1) => {
+    const osc = ac.createOscillator(); osc.type = 'sawtooth';
+    const lfo = ac.createOscillator(); lfo.frequency.value = 9; const lg = ac.createGain(); lg.gain.value = 260;
+    lfo.connect(lg); lg.connect(osc.frequency);
+    osc.frequency.setValueAtTime(900, t0); osc.frequency.linearRampToValueAtTime(1700, t1);
+    const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 2;
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.05, t0 + .05); g.gain.setValueAtTime(.05, t1 - .05); g.gain.linearRampToValueAtTime(0, t1);
+    osc.connect(f); f.connect(g); done(osc, [f, lg, lfo, ...out(g, 1, .2, sfx)]);
+    osc.start(t0); osc.stop(t1 + .05); lfo.start(t0); lfo.stop(t1 + .05);
+    noise(t0, t1 - t0, { ft: 'bandpass', f: 2500, f2: 5000, q: 3, vol: .06, hold: true });
+  }, 'se', 2);
+  // ずり下がる音（テープが止まる・レッテルがはがれる）
+  const slide = later((t, d, n1, n2, o = {}) => {
+    const osc = ac.createOscillator(); osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(mtof(n1), t); osc.frequency.exponentialRampToValueAtTime(mtof(n2), t + d);
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.cut || 3000;
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.vol || .06, t + .04); g.gain.setValueAtTime(o.vol || .06, t + d * .7); g.gain.linearRampToValueAtTime(0, t + d);
+    osc.connect(f); f.connect(g); done(osc, [f, ...out(g, 1, o.wet ?? .4, o.bus || sfx, o.pan || 0)]);
+    osc.start(t); osc.stop(t + d + .05);
+  }, 'se');
+
+  // 分散和音（音符ごとに予約する）。pp は左右に振り分けるピンポン
+  function arp(t0, t1, bpm, chords, o = {}) {
+    const step = 60 / bpm / (o.div || 4), per = (o.bars || 2) * (o.div || 4) * 4;
+    const pat = o.pat || [0, 1, 2, 3, 2, 1, 0, 2, 1, 3, 2, 1, 0, 1, 2, 3];
+    let i = 0;
+    for (let t = t0; t < t1 - .05; t += step, i++) {
+      const ch = chords[Math.floor(i / per) % chords.length];
+      const n = ch[pat[i % pat.length] % ch.length] + (o.oct || 0);
+      const pan = o.pp ? (i % 2 ? .6 : -.6) : 0;
+      if (o.bell) { if (i % 2 === 0) bell(t, n + 12, { vol: o.vol || .035, d: 1.2, pan, box: o.box, music: true }); }
+      else pluck(t, n, { vol: (o.vol || .06) * (i % 4 === 0 ? 1.2 : .85), type: o.type, cut: o.cut, d: o.d, pan });
+      const beat = (o.div || 4);
+      if (o.kick && i % beat === 0) kick(t, o.kick);
+      if (o.snare && i % (beat * 2) === beat) snare(t, o.snare);
+      if (o.hat && i % 2 === 1) hat(t, o.hat, o.pp ? (i % 4 === 1 ? -.4 : .4) : 0);
+      if (i % per === 0 && o.padVol) pad(t, Math.min(t1, t + per * step), ch.map(x => x - 12), { vol: o.padVol, cut: o.padCut || 900, att: .8, rel: .6 });
+    }
+  }
+  // 主題: 呼びかけ（左→右へ上がる3音）と返事（右→左へ下がる3音）、最後に真ん中
+  const CALL = [69, 72, 76], ANS = [74, 71, 67];
+  function motif(t, step, o = {}) {
+    const sh = o.shift || 0, v = o.vol || .06, box = o.box ?? true, d = o.d || 1.8;
+    const seq = o.reverse ? [...ANS].reverse().concat([...CALL].reverse()) : CALL.concat(ANS);
+    const pans = o.reverse ? [.8, .3, -.3, -.8, -.3, .3] : [-.8, -.3, .3, .8, .3, -.3];
+    seq.forEach((n, i) => {
+      // 呼びかけは BiDi（左→右）、返事は CDP（右→左）
+      const pan = o.away ? lerp(0, .95, i / 6) : pans[i];
+      bell(t + i * step, n + sh, { vol: v * (o.away ? 1 - i * .12 : 1), d, pan, box, wet: o.away ? .6 + i * .08 : .55, music: true });
+    });
+    if (o.resolve !== false && !o.reverse) bell(t + 6 * step, 69 + sh - 12, { vol: v * 1.1, d: d * 1.6, box, music: true });
+  }
+
+  const Am = [57, 60, 64, 69], F_ = [53, 57, 60, 65], C = [60, 64, 67, 72], G = [55, 59, 62, 67], Dm = [50, 53, 57, 62], E_ = [52, 56, 59, 64];
+  const Em = [52, 55, 59, 64], Bb = [58, 62, 65, 70], Gm = [55, 58, 62, 67], A_ = [57, 61, 64, 69];
+  const D_ = [50, 54, 57, 62], Bm = [47, 50, 54, 59], G2 = [43, 47, 50, 55], A2 = [45, 49, 52, 57];
+  const Fmaj7 = [53, 57, 60, 64], Em7 = [52, 55, 59, 62], Dm7 = [50, 53, 57, 60], Cmaj7 = [48, 52, 55, 59];
+  const bpm = 104;
+
+  // ---- OPEN: フォーラムの一言 ----
+  const so = S('open');
+  drone(0, L('o4').start, [33, 40], { vol: .05, att: 3, bus: musicLv });
+  noise(L('o1').start - 1.2, 1.2, { ft: 'bandpass', f: 400, f2: 6000, q: 1.5, vol: .12, swell: true, wet: .4 });
+  impact(L('o1').start, .9); glitch(L('o1').start, .5, .07);
+  bell(L('o1').start, 57, { vol: .1, d: 5, pan: 0 });
+  // 主題をそっと（左の BiDi だけが鳴って、返事は来ない）
+  [0, 1, 2].forEach(i => bell(L('o2').start + .4 + i * .5, CALL[i], { vol: .035, d: 2.5, pan: -.8 + i * .5, box: true }));
+  pad(L('o3').start, L('o4').start + .4, [45, 52, 55, 60], { vol: .04, cut: 500, att: 1.5 });
+  impact(L('o3').start + 1.2, .5); buzz(L('o3').start + 1.2, .05);
+  whoosh(L('o4').start - .6, .8, .25);
+  impact(L('o4').start + .4, 1);
+  motif(L('o4').start + .5, .32, { vol: .07 });
+  pad(L('o4').start + .4, so.end, [45, 52, 57, 60, 64], { vol: .05, cut: 900, cut2: 2400, att: 1.5 });
+  riser(L('o4').end - .5, so.end, .1);
+
+  // ---- SPARK: 発端と決意 ----
+  const ss = S('spark');
+  whoosh(ss.start - .3, .8); impact(ss.start + .05, .5);
+  ding(F('s1', .55), 88, .1, -.4); buzz(F('s1', .7), .07);
+  arp(L('s2').start, L('s6').start - .3, bpm, [Am, F_, Dm, E_], { vol: .045, cut: 2000, kick: .26, hat: .015, padVol: .03, pp: true });
+  impact(F('s3', .3), .4); bell(F('s3', .3), 81, { vol: .07, d: 2 });
+  impact(F('s5', .72), .5); bell(F('s5', .72), 84, { vol: .08, d: 2.4 });
+  setLv(L('s6').start, 0, .5);
+  // 「将来性は BiDi が上」が頭の中で左右に跳ね返る
+  drone(L('s6').start, L('s8').start, [45, 46], { vol: .045, att: 1.5 });
+  for (let i = 0; i < 6; i++) bell(F('s6', .55) + i * .42, 76, { vol: .07 * Math.pow(.72, i), d: 1.5, pan: i % 2 ? .85 : -.85, bus: sfx });
+  for (let i = 0; i < 5; i++) bell(L('s7').start + .4 + i * .5, 74, { vol: .05 * Math.pow(.7, i), d: 1.5, pan: i % 2 ? -.85 : .85, bus: sfx });
+  heartbeat(L('s8').start + .1, .5); heartbeat(L('s8').start + 1.0, .45);
+  setLv(L('s9').start, 1, .05);
+  pad(L('s9').start, ss.end + .3, [45, 52, 57, 60, 64], { vol: .05, cut: 700, cut2: 3200, att: 2.5, rel: .5 });
+  for (let t = L('s9').start; t < F('s9', .9) - .05; t += 60 / bpm) kick(t, .3);
+  riser(L('s9').start + 1, F('s9', .9), .13);
+  impact(F('s9', .9), 1); motif(F('s9', .9), .16, { vol: .07, box: false, d: 1.4 });
+
+  // ---- HIST: 歴史（時代ごとに音色が変わる）----
+  const sh = S('hist');
+  whoosh(sh.start - .3, .8); impact(sh.start + .05, .5);
+  // h1〜h3: 時計の刻みと、セピアのオルゴール
+  for (let t = L('h1').start; t < L('h4').start - .3; t += .5) tick(t, .03, (t * 2) % 2 < 1 ? -.3 : .3);
+  arp(L('h1').start, L('h4').start - .3, 92, [C, Am, F_, G], { vol: .03, bell: true, box: true, padVol: .022, padCut: 700 });
+  blip(F('h2', .4), 1, 84); blip(F('h2', .55), 1, 84);
+  ding(F('h3', .3), 86, .07, .6); ding(F('h3', .45), 81, .07, -.6);
+  // h4〜h9: 2004年、Selenium（ちょっとレトロな矩形波）
+  whoosh(L('h4').start - .3, .6, .14);
+  arp(L('h4').start, L('h10').start - .3, 126, [C, Am, F_, G], { vol: .028, type: 'square', cut: 2600, d: .14, kick: .22, hat: .012, padVol: .018, pp: true });
+  buzz(F('h5', .3), .07);
+  glitch(F('h7', .55), .4, .09); impact(F('h7', .55), .55);
+  for (let i = 0; i < 3; i++) { pluck(F('h8', .62) + i * .3, 81, { type: 'square', vol: .05, d: .14, bus: sfx }); pluck(F('h8', .62) + i * .3 + .15, 76, { type: 'square', vol: .05, d: .14, bus: sfx }); }
+  SYNC.h9.forEach(f => buzz(F('h9', f), .06));
+  // h10〜h14: 2007年、WebDriver（落ち着いた三角波）
+  whoosh(L('h10').start - .3, .7, .16);
+  arp(L('h10').start, L('h15').start - .2, 112, [F_, C, Dm, Bb], { vol: .045, cut: 2200, kick: .25, hat: .014, padVol: .03 });
+  SYNC.h12.forEach((f, i) => ding(F('h12', f), [79, 83, 86][i], .07, [-.6, 0, .6][i]));
+  tick(F('h13', SYNC.h13Hack), .04, -.5);
+  blip(F('h13', SYNC.h13Merge), 1, 76, { d: .9 }); blip(F('h13', SYNC.h13Merge), -1, 76, { d: .9 }); ding(F('h13', SYNC.h13Eeyan), 88, .1);
+  SYNC.h14.forEach((f, i) => ding(F('h14', f), [81, 84, 88][i], .07));
+  impact(F('h14', .8), .4);
+  // h15〜h17: Web の加速、Flash の時代、今のブラウザ
+  riser(L('h15').start, L('h16').start, .12);
+  arp(L('h15').start, L('h16').start, 140, [Am, F_], { vol: .035, cut: 3000, d: .12, hat: .02 });
+  arp(L('h16').start, L('h17').start - .1, 140, [C, G, Am, F_], { vol: .03, type: 'square', cut: 3200, d: .1, kick: .25, hat: .018, pat: [0, 2, 1, 3, 0, 2, 3, 1] });
+  whoosh(F('h16', SYNC.h16Yt) - .2, .5, .1); ding(F('h16', SYNC.h16Year), 91, .1);
+  SYNC.h17.forEach((f, i) => ding(F('h17', f), [79, 83, 86, 91][i], .08, [-.6, -.2, .2, .6][i]));
+  arp(L('h17').start, L('h18').start - .2, 120, [C, G, Am, F_], { vol: .04, bell: true, padVol: .03, padCut: 1600, kick: .24, hat: .016, pp: true });
+  // h18〜h22: 取り残された WebDriver
+  setLv(L('h18').start, .35, .5);
+  slide(F('h18', .5), 1.8, 76, 64, { type: 'triangle', vol: .06 });
+  drone(L('h18').start, L('h23').start, [40, 47], { vol: .05, att: 2, bus: musicLv });
+  // 送って、待って、受け取る
+  blip(F('h20', .08), 1, 84); tick(F('h20', .2), .05); tick(F('h20', .28), .05); blip(F('h20', .4), -1, 79);
+  [.62, .7, .78].forEach(f => glitch(F('h20', f), .15, .06));
+  SYNC.h22.forEach((f, i) => pluck(F('h22', f), [72, 76, 79][i], { vol: .06, bus: sfx, pan: [-.5, 0, .5][i] }));
+  // h23〜h27: CDP の登場
+  setLv(L('h23').start, 1, .1);
+  impact(F('h23', .45), .5); bell(F('h23', .45), 77, { vol: .08, d: 3 });
+  [.55, .65, .75].forEach((f, i) => ding(F('h23', f), [84, 88, 91][i], .07));
+  arp(L('h24').start, L('h28').start - .2, 112, [F_, C, G, Am], { vol: .045, cut: 2600, kick: .28, hat: .016, padVol: .03 });
+  ding(F('h24', .82), 86, .09);
+  ding(F('h25', .55), 96, .09); ding(F('h25', .55) + .12, 100, .07);
+  motif(L('h27').start + .3, .14, { vol: .05, shift: 12, resolve: false });
+  // h28〜h29: ブラウザごとにバラバラ → 鬱
+  ding(F('h28', SYNC.h28.chrome), 86, .07, .4); ding(F('h28', SYNC.h28.edge), 88, .07, .4);
+  buzz(F('h28', SYNC.h28.firefox), .05); tick(F('h28', SYNC.h28.part), .04, .4); blip(F('h28', SYNC.h28.bidi), 1, 84, { d: .5 });
+  glitch(L('h29').start, .8, .07);
+  setLv(F('h29', .4), 0, .1);
+  impact(F('h29', .4), .5); slide(F('h29', .4), 1.2, 52, 40, { type: 'sawtooth', cut: 500, vol: .07 });
+  // h30: WebDriver BiDi の誕生（主題がはじめて最後まで鳴る）
+  setLv(L('h30').start, 1, .1);
+  pad(L('h30').start, sh.end + .3, [48, 55, 60, 64, 67], { vol: .045, cut: 1200, cut2: 3000, att: 1.2 });
+  motif(L('h30').start + .5, .3, { vol: .075 });
+  blip(F('h30', .4), 1, 84, { d: .5 }); blip(F('h30', .5), -1, 79, { d: .5 });
+  riser(F('h30', .7), sh.end, .12);
+
+  // ---- ROUTE: 定番の exe ルート ----
+  const sr = S('route');
+  whoosh(sr.start - .3, .8); impact(sr.start + .05, .55);
+  arp(L('r1').end, sr.end, bpm, [Am, G, F_, E_], { vol: .05, cut: 2400, kick: .32, snare: .07, hat: .02, padVol: .03, pp: true });
+  for (let i = 0; i < 26; i++) tick(L('r3').start + .2 + i * .055, .03);
+  blip(F('r4', .3), 1, 81, { d: .5 }); whoosh(F('r4', .3), .5, .1);
+  blip(F('r5', .45), 1, 86, { d: 1.4 }); ding(F('r5', .45) + 1.4, 88, .08, .7);
+  blip(L('r6').start, -1, 81, { d: .6 }); ding(L('r6').start + .6, 84, .08, -.7);
+  for (let i = 0; i < 6; i++) blip(F('r6', .45) + i * .4, i % 2 ? -1 : 1, 88, { vol: .035, d: .3 });
+
+  // ---- TOOL: このツール ----
+  const st = S('tool');
+  whoosh(st.start - .3, .8); impact(st.start + .05, .55);
+  buzz(F('t1', .5), .08);
+  ding(F('t2', .55), 88, .09);
+  arp(L('t2').start, L('t6').start - .2, bpm, [Am, F_, C, G], { vol: .045, cut: 2400, kick: .28, hat: .016, padVol: .028, pp: true });
+  ding(F('t3', .45), 76, .08); buzz(F('t3', .5), .05);
+  for (let i = 0; i < 26; i++) tick(L('t4').start + (i + .5) / 26 * (L('t4').end - L('t4').start) * .8, .035, -.5 + (i % 2));
+  ding(F('t5', .5), 91, .09);
+  arp(L('t6').start, L('t10').end, bpm, [Am, G, F_, E_], { vol: .05, cut: 2800, kick: .3, snare: .06, hat: .02, padVol: .03, pp: true });
+  [[L('t6').start, 1], [F('t7', .05), 1], [F('t7', .5), 1], [L('t8').start, 1], [L('t9').start, 1], [F('t9', .55), 1], [L('t10').start, 1], [F('t10', .45), -1]]
+    .forEach(([t, dir], i) => blip(t + .05, dir, 79 + i * 2, { d: .45, vol: .06 }));
+  bell(F('t9', .6), 76, { vol: .09, d: 3 }); bell(F('t9', .6) + .2, 83, { vol: .07, d: 3 });
+  riser(F('t10', .6), st.end, .1);
+
+  // ---- REVEAL: 心霊ドキュメンタリー風の VHS ----
+  const sv = S('reveal');
+  const vEnd = L('v3').end + .3, slowAt = L('v2').end + .9;
+  setLv(sv.start, 0, .05);
+  noise(sv.start, vEnd - sv.start, { ft: 'lowpass', f: 5000, vol: .02, hold: true });
+  drone(sv.start, slowAt, [33, 34], { vol: .07, att: 1.5, rel: .1 });
+  drone(sv.start + 1, slowAt, [81, 82], { vol: .012, att: 3, rel: .1 });
+  noise(L('v1').start - 1.4, 1.4, { ft: 'lowpass', f: 1200, vol: .14, swell: true, wet: .8 });
+  bell(L('v1').start, 50, { vol: .12, d: 6, bus: sfx });
+  rewind(L('v2').start + 1.2, slowAt);
+  // スロー再生: 何もかも低く、遅く
+  drone(slowAt, vEnd, [33, 34], { vol: .08, att: .3, rel: .05, bend: -5, type: 'triangle' });
+  heartbeat(slowAt + .3, .55); heartbeat(slowAt + 1.5, .55); heartbeat(slowAt + 2.7, .6);
+  const circleAt = slowAt + .55 * (vEnd - slowAt);
+  drone(circleAt, vEnd, [74, 75, 80], { vol: .02, att: (vEnd - circleAt) * .9, rel: .05, type: 'sawtooth', wet: .5 });
+  impact(vEnd, 1.1); glitch(vEnd - .2, .3, .1);
+  bell(vEnd, 45, { vol: .12, d: 4, bus: sfx });
+  // 種明かしの続き: 調べていくビート
+  setLv(L('v4').start - .1, 1, .3);
+  arp(L('v4').start, sv.end, 92, [Dm, Bb, Gm, A_], { vol: .045, cut: 1800, kick: .28, hat: .014, padVol: .03, pp: true });
+  impact(F('v4', .55), .5);
+  whoosh(F('v5', .35) - .1, .6, .12); ding(F('v5', .5), 86, .08);
+  ding(F('v6', .55), 84, .07);
+  for (let i = 0; i < 10; i++) bell(F('v7', .35) + i * .1, 84 + i * 2, { vol: .03, d: 1, pan: -.6 + i * .13 });
+  impact(F('v8', .7), .5);
+  [70, 69, 68].forEach((n, i) => slide(F('v8', .7) + .15 + i * .35, i < 2 ? .3 : .9, n, n - (i < 2 ? .3 : 1.5), { type: 'sawtooth', cut: 1100, vol: .05, wet: .2 }));
+
+  // ---- INSIDE: exe の中身 ----
+  const sx = S('inside');
+  whoosh(sx.start - .3, .8); impact(sx.start + .05, .5);
+  ding(F('x1', .55), 86, .09);
+  arp(L('x1').start, L('x3').start - .1, 100, [Dm, Am], { vol: .04, cut: 1800, kick: .25, hat: .014, padVol: .028, pp: true });
+  setLv(L('x3').start, 0, .3);
+  for (let i = 0; i < 40; i++) tick(L('x3').start + i * .05, .02, (i % 3 - 1) * .4);
+  riser(L('x3').start, F('x4', .5), .14);
+  setLv(F('x4', .5), 1, .05);
+  impact(F('x4', .5), 1); bell(F('x4', .5), 69, { vol: .1, d: 4 }); bell(F('x4', .5), 76, { vol: .08, d: 4 });
+  arp(F('x4', .5), L('x8').start - .2, bpm, [Am, F_, C, G], { vol: .045, cut: 2600, kick: .3, hat: .018, padVol: .03, pp: true });
+  [[F('x5', SYNC.x5[0]), -.7], [F('x5', SYNC.x5[1]), -.2], [F('x5', SYNC.x5[2]), .3], [F('x6', SYNC.x6), .7]].forEach(([t, p], i) => ding(t, [81, 84, 88, 91][i], .08, p));
+  motif(F('x7', .35), .16, { vol: .06 });
+  setLv(L('x8').start, .25, .3);
+  pad(L('x8').start, L('x9').start, [48, 55, 60, 64, 67], { vol: .05, cut: 1400, att: .8, bus: sfx });
+  bell(F('x8', .3), 72, { vol: .07, d: 3 }); bell(F('x8', .3) + .4, 76, { vol: .06, d: 3 }); bell(F('x8', .3) + .8, 79, { vol: .06, d: 3.5 });
+  setLv(L('x9').start, 1, .1);
+  arp(L('x9').start, L('x10').start, bpm, [C, G, Am, F_], { vol: .05, cut: 3200, kick: .34, snare: .07, hat: .022, padVol: .035, pp: true });
+  impact(F('x9', .45), .7);
+  for (let i = 0; i < 24; i++) bell(F('x9', .45) + i * .07 + Math.abs(rnd()) * .04, 88 + Math.floor(Math.abs(rnd()) * 12), { vol: .025, d: .7, pan: rnd() * .9 });
+  pad(L('x10').start, sx.end + .3, [48, 55, 60, 64, 69], { vol: .04, cut: 1200, att: 1 });
+  arp(L('x10').start, sx.end, 100, [F_, C], { vol: .03, bell: true, box: true });
+  ding(F('x10', .75), 93, .08);
+
+  // ---- FOX: Firefox ----
+  const sf = S('fox');
+  whoosh(sf.start - .3, .8); impact(sf.start + .05, .55);
+  arp(L('f1').start, L('f3').start - .2, 108, [D_, A2, Bm, G2], { vol: .045, type: 'sawtooth', cut: 2000, d: .18, kick: .3, hat: .02, padVol: .03, pp: true });
+  ding(F('f1', .4), 86, .09);
+  for (let i = 0; i < 24; i++) tick(L('f2').start + .1 + i * .055, .03);
+  [.4, .55].forEach(f => ding(F('f2', f), 90, .07));
+  blip(F('f2', .65), 1, 86, { d: .5 }); blip(F('f2', .8), -1, 81, { d: .5 });
+  // 矛盾: クロスブラウザなのに Chromium 専用
+  setLv(L('f3').start, .5, .3);
+  drone(L('f3').start, L('f4').start, [47, 53], { vol: .04, att: .8, bus: musicLv });
+  noise(F('f3', .3), .2, { ft: 'bandpass', f: 4200, q: 6, vol: .08 }); noise(F('f3', .3) + .15, .2, { ft: 'bandpass', f: 3800, q: 6, vol: .07 });
+  ding(F('f3', .25), 86, .07); buzz(F('f3', .35), .07); impact(F('f3', .55), .35);
+  setLv(L('f4').start, 1, .2);
+  arp(L('f4').start, sf.end, 108, [D_, A2, Bm, G2], { vol: .05, type: 'sawtooth', cut: 2600, d: .18, kick: .32, snare: .06, hat: .022, padVol: .032, pp: true });
+  [0, .12, .24, .36].forEach((f, i) => ding(F('f4', f), [78, 81, 85, 90][i], .06, -.6 + i * .4));
+  ding(F('f4', .55), 93, .08); impact(F('f4', .75), .6);
+  impact(F('f5', .6), .45); motif(F('f5', .6), .13, { vol: .06, shift: -3 });
+
+  // ---- FUTURE: 未来 ----
+  const su = S('future');
+  whoosh(su.start - .3, .8); impact(su.start + .05, .4);
+  arp(L('u1').start, L('u4').start - .2, 80, [Fmaj7, Em7, Dm7, Cmaj7], { vol: .035, bell: true, box: true, padVol: .03, padCut: 1000, bars: 1 });
+  for (let i = 0; i < 20; i++) tick(L('u2').start + i * .06, .025);
+  [0, .3].forEach(o => pluck(F('u2', .6) + o, 52, { type: 'square', vol: .06, cut: 900, d: .2, bus: sfx }));
+  bell(F('u3', .2), 81, { vol: .07, d: 3 }); ding(F('u3', .6), 86, .06);
+  pad(L('u4').start, L('u6').start, [41, 48, 53, 57, 60], { vol: .04, cut: 1000, att: .8 });
+  [0, .15, .3].forEach((o, i) => { ding(F('u5', o), [84, 86, 88][i], .06, -.6 + i * .6); ding(F('u5', .3 + o) + .2, [91, 93, 96][i], .05, -.6 + i * .6); });
+  setLv(L('u6').start, .15, .1);
+  impact(L('u6').start, .6); bell(L('u6').start + .1, 45, { vol: .12, d: 5, bus: sfx });
+  setLv(L('u7').start, 1, .3);
+  pad(L('u7').start, L('u9').start, [41, 48, 55, 57, 64], { vol: .04, cut: 1200, att: 1 });
+  [0, .17, .34, .51, .68].forEach((f, i) => ding(F('u7', f), [69, 72, 74, 76, 79][i], .08, [-.7, -.35, 0, .35, .7][i]));
+  bell(L('u8').start + .1, 79, { vol: .07, d: 2 }); bell(L('u8').start + .4, 84, { vol: .07, d: 3 });
+  ding(L('u9').start + .2, 81, .07, -.5); ding(F('u9', .5), 81, .07, .5);
+  arp(L('u9').start, su.end - .6, 92, [Fmaj7, G, Am, Am], { vol: .04, cut: 2000, kick: .24, hat: .015, padVol: .03, pp: true });
+  ding(F('u10', .35), 86, .07); impact(F('u10', .65), .3);
+  setLv(su.end - .8, 0, 1.2);
+
+  // ---- WHITHER: 行方（調べていく足取り）----
+  const sw = S('whither');
+  setLv(sw.start + .3, 1, .1);
+  whoosh(sw.start - .3, .8); impact(sw.start + .05, .5);
+  drone(L('w1').start, L('w4').start, [38, 45], { vol: .045, att: 1.5, bus: musicLv });
+  for (let i = 0; i < 26; i++) tick(F('w1', .05) + i * .07, .025, .3);
+  ding(F('w1', .55), 86, .08, .4);
+  // TODO の1行
+  pad(L('w2').start, L('w4').start, [50, 57, 62, 65], { vol: .035, cut: 900, att: 1.5 });
+  noise(L('w2').start, L('w3').start - L('w2').start, { ft: 'bandpass', f: 300, f2: 2500, q: 1, vol: .04, swell: true, wet: .8 });
+  bell(F('w2', .35), 86, { vol: .07, d: 4 });
+  bell(F('w3', .1), 74, { vol: .05, d: 3, box: true });
+  // コミットと2つの課題（調書をめくるビート）
+  arp(L('w4').start, L('w9').start - .2, 96, [Dm, Bb, F_, C], { vol: .042, cut: 2000, kick: .24, hat: .014, padVol: .028, pp: true });
+  ding(F('w4', .2), 88, .08);
+  [.45, .6].forEach((f, i) => noise(F('w4', f), .25, { ft: 'bandpass', f: 2200, f2: 900, q: .8, vol: .06, pan: i ? .5 : -.5 }));
+  ding(F('w5', .5), 84, .08, -.5); bell(F('w5', .5) + .15, 91, { vol: .05, d: 1.5, pan: -.5 });
+  ding(F('w6', .5), 84, .08, .5); slide(F('w6', .5), .6, 79, 91, { vol: .04, pan: .5 });
+  // 2年5か月
+  riser(L('w7').start, L('w7').start + 1.6, .08);
+  impact(F('w7', .7), .35); bell(F('w7', .7), 74, { vol: .06, d: 2 });
+  // どこへ？
+  blip(F('w8', .35), -1, 81, { d: .45 }); blip(F('w8', .45), 1, 84, { d: .45 });
+  // 候補1: Service Worker（歯車の刻みが、何もしないと止まる）
+  const swStop = F('w10', .6);
+  arp(L('w9').start, swStop, 96, [Dm, Am], { vol: .03, bell: true, box: true, padVol: .025, padCut: 900 });
+  for (let t = L('w9').start + .3; t < swStop; t += .25) tick(t, .02, .4);
+  setLv(swStop, .3, .3);
+  slide(swStop, 1.2, 64, 40, { type: 'triangle', vol: .07, wet: .3 });
+  buzz(F('w11', .3), .06); buzz(F('w11', .3) + .2, .05);
+  impact(F('w11', .68), .35);
+  // 候補2: Chromium 本体に定数で
+  setLv(L('w12').start, 1, .3);
+  arp(L('w12').start, L('w14').start - .1, 96, [Gm, Dm, A_, Dm], { vol: .045, cut: 1800, kick: .26, hat: .014, padVol: .03 });
+  whoosh(F('w12', .45) - .1, .9, .14); ding(F('w12', .45) + 1.0, 88, .07, .2);
+  [.05, .27, .49].forEach(f => buzz(F('w13', f), .06));
+  // 30KB と、約1MB
+  pluck(L('w14').start + .2, 84, { vol: .06, bus: sfx });
+  riser(F('w14', .45), F('w14', .45) + 1.2, .12);
+  impact(F('w14', .45) + 1.2, .7);
+  pad(L('w14').start, L('w15').end, [38, 45, 50, 53], { vol: .04, cut: 600, att: .6 });
+  // 全員のブラウザが大きくなる
+  for (let i = 0; i < 6; i++) slide(F('w15', .25) + i * .14, .3, 60 + i * 2, 72 + i * 2, { type: 'sine', vol: .03, pan: -.6 + i * .24 });
+  impact(F('w15', .62), .55); buzz(F('w15', .62), .06);
+  // 今の時点での結論
+  pad(L('w16').start, L('w17').start, [50, 57, 62, 65, 69], { vol: .04, cut: 1200, att: .8 });
+  ding(F('w16', .15), 86, .07, -.5); buzz(F('w16', .45), .05);
+  // 星空: 主題の呼びかけだけが鳴り、返事は来ない
+  setLv(L('w17').start, 0, .8);
+  drone(L('w17').start - .3, sw.end + .5, [81, 88], { vol: .01, att: 2, rel: 1.5 });
+  CALL.forEach((n, i) => bell(L('w17').start + .3 + i * .7, n, { vol: .05, d: 3, pan: -.7 + i * .5, box: true, bus: sfx }));
+  pad(L('w18').start - .3, sw.end + .8, [53, 57, 60, 65], { vol: .04, cut: 1400, att: 1, rel: 1.2, bus: sfx });
+  bell(L('w18').end + .2, 79, { vol: .07, d: 4, pan: .4, bus: sfx }); bell(L('w18').end + .65, 86, { vol: .06, d: 5, pan: .55, bus: sfx });
+
+  // ---- OUTRO: おわりに（夜明けへ。mapperTab.js の本当の価値）----
+  const sn2 = S('outro'), climax = F('n15', .545);
+  setLv(sn2.start + .4, 1, .1);
+  bell(sn2.start + .3, 45, { vol: .08, d: 5 });
+  bell(F('n1', .1), 93, { vol: .05, d: 3, box: true });
+  pad(L('n1').start, L('n3').start, [48, 55, 60, 64], { vol: .03, cut: 700, att: 2 });
+  // バイナリ（左でざらつく）と、テキスト（右で澄んだ和音）
+  glitch(F('n2', .1), .6, .03);
+  noise(F('n2', .05), 2.5, { ft: 'bandpass', f: 3000, q: 4, vol: .015, hold: true, pan: -.6 });
+  [60, 64, 67, 72].forEach((n, i) => bell(F('n2', .55) + i * .08, n + 12, { vol: .05, d: 3, pan: .6, box: true }));
+  // ビジョン（オルゴールの分散和音）
+  arp(L('n3').start, L('n5').start, 84, [C, G, Am, F_], { vol: .032, bell: true, box: true, padVol: .028, padCut: 1000, bars: 1, pp: true });
+  ding(F('n3', .45), 88, .06, -.3); ding(F('n3', .7), 91, .06, .3);
+  buzz(F('n4', .35), .04); impact(F('n4', .6), .3); bell(F('n4', .6), 84, { vol: .07, d: 2 });
+  // どの端末にも（左から右へ灯っていく）
+  pad(L('n5').start, L('n6').start, [53, 60, 64, 69], { vol: .03, cut: 1000, att: 1 });
+  [72, 74, 76, 79, 81].forEach((n, i) => ding(F('n5', .3 + i * .05), n + 12, .06, -.8 + i * .4));
+  for (let i = 0; i < 5; i++) noise(F('n5', .62) + i * .1, .08, { ft: 'bandpass', f: 4200, q: 6, vol: .05, pan: -.5 });
+  buzz(F('n5', .72), .05);
+  // 計画書が挙げた理由
+  [.2, .45].forEach(f => ding(F('n6', f), 86, .06));
+  [.65, .73, .81].forEach(f => buzz(F('n6', f), .035));
+  pad(L('n6').start, L('n7').start, [50, 57, 60, 65], { vol: .028, cut: 900, att: .8 });
+  // 結果として、どの OS でも（左右に跳ねる伴奏が始まる）
+  pad(L('n7').start, F('n7', .4), [45, 52, 57], { vol: .03, cut: 600, att: .5 });
+  arp(F('n7', .4), L('n10').start, 104, [C, G, Am, F_], { vol: .04, cut: 2200, kick: .2, hat: .012, padVol: .028, pp: true });
+  [0, 1, 2, 3, 4].forEach(i => blip(F('n7', .45 + i * .05), 1, 84 + i * 2, { d: .3, vol: .04 }));
+  impact(F('n7', .72), .3);
+  // セルとレコードに入る
+  for (let i = 0; i < 13; i++) tick(F('n8', .25) + i * .108, .03, -.4);
+  ding(F('n8', .7), 88, .07, .4);
+  // 流し込む
+  for (let i = 0; i < 16; i++) pluck(F('n9', .35) + i * .14, [72, 74, 76, 79, 81][i % 5] + 12, { vol: .025, d: .15, pan: -.7 + (i % 8) * .2, bus: sfx });
+  buzz(F('n9', .4), .035); blip(F('n9', .6), 1, 86, { d: .5 });
+  // 置き場所が違うだけ。どの言語でも
+  arp(L('n10').start, L('n13').start, 104, [F_, C, G, Am], { vol: .046, cut: 2600, kick: .28, hat: .016, snare: .05, padVol: .03, pp: true });
+  [.1, .22, .34].forEach((f, i) => ding(F('n10', f), [79, 83, 86][i], .06, [-.6, 0, .6][i]));
+  blip(F('n11', .15), 1, 84, { d: .5 }); blip(F('n11', .3), 1, 88, { d: .5 });
+  // お気に入りのツールに、VBA も
+  for (let i = 0; i < 16; i++) bell(F('n12', .2) + i * .05, 84 + [0, 2, 4, 7, 9][i % 5] + Math.floor(i / 5) * 12, { vol: .025, d: 1.2, pan: -.6 + i * .04, box: true });
+  motif(F('n12', .45), .18, { vol: .05 });
+  // 泥臭い、その場しのぎ
+  setLv(L('n13').start, .4, .3);
+  [55, 54, 53, 50].forEach((n, i) => slide(F('n13', .35) + i * .4, i < 3 ? .35 : .9, n, n - (i < 3 ? .4 : 2), { type: 'sawtooth', cut: 900, vol: .05, wet: .15 }));
+  for (let i = 0; i < 6; i++) noise(F('n13', .4 + i * .06), .1, { ft: 'lowpass', f: 600, vol: .08 });
+  // 当の Google も？
+  setLv(L('n14').start, .8, .3);
+  arp(L('n14').start, L('n15').start - .3, 104, [Dm, G], { vol: .035, cut: 1600, d: .12, hat: .012 });
+  impact(F('n14', .68), .35); pluck(F('n14', .68) + .1, 67, { vol: .06, slide: 7, d: .3, bus: sfx });
+  // n15: mapperTab.exe ではなく、mapperTab.js
+  setLv(L('n15').start, .25, .3);
+  riser(L('n15').start + .4, climax, .13);
+  glitch(climax - 2.3, 2.2, .03);
+  setLv(climax, 1, .05);
+  impact(climax, 1.1);
+  pad(climax, L('n16').start + .5, [48, 55, 60, 64, 67, 72], { vol: .05, cut: 2400, att: .2, rel: .8 });
+  motif(climax + .1, .2, { vol: .08, box: false, d: 1.8 });
+  for (let i = 0; i < 30; i++) bell(climax + .1 + i * .07, 88 + [0, 2, 4, 7, 9, 12][Math.floor(Math.abs(rnd()) * 6)], { vol: .02, d: .9, pan: rnd() * .9 });
+  arp(climax + 1.5, L('n16').start, 104, [C, G, Am, F_], { vol: .045, cut: 3200, kick: .32, snare: .06, hat: .02, pp: true });
+  // n16〜n17: タブの次は、どこへ。一緒に見守る（主題が、こんどは落ち着く）
+  setLv(L('n16').start, .8, .4);
+  pad(L('n16').start, sn2.end + .5, [53, 60, 64, 69], { vol: .04, cut: 1400, att: 1.2, rel: 1.5 });
+  slide(F('n16', .25), 3.4, 72, 84, { vol: .025, wet: .8 });
+  arp(L('n16').start, L('n17').start, 76, [F_, G], { vol: .03, bell: true, box: true, bars: 1 });
+  motif(L('n17').start - .2, .32, { vol: .055, d: 3 });
+  pad(L('n17').start, sn2.end + 1, [48, 55, 60, 62, 64, 67], { vol: .045, cut: 1800, att: 1, rel: 1.5 });
+
+  // ---- END: クレジット（主題がやっと落ち着く）----
+  const sn = S('end');
+  pad(sn.start, sn.end + .5, [48, 55, 60, 64, 67], { vol: .045, cut: 1600, att: 2, rel: 3 });
+  motif(sn.start + .6, .45, { vol: .045, d: 3 });
+
+  // limit（ムービーの秒）より前の予約を実体化する。skip より前のものは鳴らさずに済ませる
+  const run = (limit, skip = -Infinity) => {
+    for (const e of EV) if (!e.done && e[0] < limit) { e.done = true; if (e[0] >= skip) e[1](); }
+  };
+  return { run, EV };
+}
+
+// MP4 用（mode = 'all'）と、HTML 版の bgm.mp3 用（mode = 'music'）の書き出し
+window.renderAudio = async function (mode = 'all') {
+  const dur = TLD.duration + 1;
+  const ac = new OfflineAudioContext(2, Math.ceil(dur * SR), SR);
+  const { run } = buildScore(ac, ac.destination, mode);
+  // 区切りごとに、その少し先までの予約を実体化する
+  // （最初に全部つなぐと、鳴る前のノードまで毎回処理されて終わらない）
+  const WIN = 4;
+  run(WIN + .5);
+  for (let w = WIN; w < dur; w += WIN) ac.suspend(w).then(() => { run(w + WIN + .5); ac.resume(); });
+  const buf = await ac.startRendering();
+  const L0 = buf.getChannelData(0), R0 = buf.getChannelData(1);
+  const pcm = new Int16Array(L0.length * 2);
+  for (let i = 0; i < L0.length; i++) {
+    pcm[i * 2] = Math.max(-1, Math.min(1, L0[i])) * 32767;
+    pcm[i * 2 + 1] = Math.max(-1, Math.min(1, R0[i])) * 32767;
+  }
+  window.__PCM = new Uint8Array(pcm.buffer);
+  return { sampleRate: SR, bytes: window.__PCM.length };
+};
+
+// HTML 版の効果音: 再生位置 from から、ムービーの 0 秒 = ac の base 秒として、少し先の分ずつ鳴らす
+window.liveSE = function (ac, dest) {
+  let timer = 0, out = null;
+  return {
+    start(from, base) {
+      this.stop();
+      out = ac.createGain(); out.connect(dest);
+      const sc = buildScore(ac, out, 'se', base);
+      const step = () => sc.run(ac.currentTime - base + 1.5, from - .05);
+      step(); timer = setInterval(step, 100);
+    },
+    stop() {
+      clearInterval(timer);
+      if (!out) return;
+      const o = out, now = ac.currentTime;
+      o.gain.setValueAtTime(o.gain.value, now); o.gain.linearRampToValueAtTime(0, now + .05);
+      setTimeout(() => o.disconnect(), 300);
+      out = null;
+    },
+  };
+};
+
+window.audioChunk = function (i, size) {
+  const sub = window.__PCM.subarray(i * size, (i + 1) * size);
+  let s = '';
+  for (let k = 0; k < sub.length; k += 0x8000) s += String.fromCharCode.apply(null, sub.subarray(k, k + 0x8000));
+  return btoa(s);
+};
 </script>
 <script>
 // HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
 const VOICE_DIR = 'voice/ReiwaIE_BiDiStory/';
-const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさしじすずせぜそぞただちっつづてでとどなにねのはばぶへべほまみむめもゃやょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万上下不与並中丸主乱了予事交人今介仕付代令件任会似位体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加動務勝勧化区十半印双取受口句台史右叶合同名向含吹告味呼和品員問団囲図土地型埋基場境増壁変外夜大央奇奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改数敷文料斜新方既日明昔星映時景暗書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段気汎決法波泥注流浮海消済渡準濃点無版物王珀現理琥環生用由申画番異発登白的監盤目直相真瞬矢知矩短砂砕示社私秒秘移程種積空窓立章端筋筒答箱範築粒系約紋紙索細終経結統絵絶継続緒線縁縛縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧解言計討記設許訳試話認誕語読課調請論議象責資赤走起跡身車軸輪込近返追退送透通速進遅運違適選部郭配重鎖長閉開間降限除隔隠集離難雪青非面音頃順頭頼題風駄鬱黄！（）＋／：＝？🔍";
+const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちっつづてでとどなにねのはばびふぶへべほまみむめもゃやゆょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万三上下不与並中丸主乱了予事交人今介仕付代令件任会伴似位低体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加効動務勝勧化区十半印双反取受口句台史右叶合同名向含吹告味呼和品員問回団囲図土地型埋基場境増壁壊変外夜大央奇奏奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改散数敷文料斜新方既日明昔星映時景暗曲書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段毎気汎決法波泥注流浮海消済渡準澄濃灯点無版物王珀現理琥環生用由申画番異発登白的監盤目直相盾真着瞬矛矢知矩短砂砕確示社私秒秘移程種積空窓立章端符筋筒答箱範築粒系約紋紙索細終組経結統絵絶継続緒線縁縛縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧角解言計討記設許訳試話認誕語読課調請論譜議象責資赤走起足跡跳身車軸輪込近返追退送透途通速進遅運過違適選部郭配重量鎖長閉開間降限除隔隠集離難雪電霊青非面音頃順頭頼題類風飛駄鬱鳴黄！（）＋／：＝？🔍";
 const DUR = TLD.duration;
 const BG = .85, DUCK = .45;
 const $ = s => document.querySelector(s);
 const fmt = s => { s = Math.max(0, s); return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
 
-let ac = null, bus = null, bgGain = null, voGain = null, bgm = null;
+let ac = null, bus = null, bgGain = null, voGain = null, bgm = null, se = null;
 const VO = {};
 let srcs = [], playing = false, T = 0, base = 0, seeking = false, ready = false, dirty = true;
 
@@ -2852,6 +3508,8 @@ async function loadAll() {
   bus = ac.createGain(); bus.connect(ac.destination);
   bgGain = ac.createGain(); bgGain.gain.value = BG; bgGain.connect(bus);
   voGain = ac.createGain(); voGain.connect(bus);
+  // 効果音は bgm.mp3 に入れず、絵と同じ時刻表からブラウザの中で鳴らす（BGM と同じく、声の間は下げる）
+  se = window.liveSE(ac, bgGain);
   const get = async url => { const r = await fetch(url); if (!r.ok) throw new Error(url); return await ac.decodeAudioData(await r.arrayBuffer()); };
   try { bgm = await get(VOICE_DIR + 'bgm.mp3'); } catch (e) { console.warn('BGM なしで再生します', e); }
   step();
@@ -2859,7 +3517,7 @@ async function loadAll() {
   await Promise.all(TLD.order.map(async id => { try { VO[id] = await get(VOICE_DIR + id + '.wav'); } catch (e) { console.warn(e); } step(); }));
 }
 
-function stopAudio() { for (const s of srcs) { try { s.stop(); } catch (e) {} } srcs = []; }
+function stopAudio() { for (const s of srcs) { try { s.stop(); } catch (e) {} } srcs = []; se?.stop(); }
 function startAudio(from) {
   stopAudio();
   const now = ac.currentTime + .06;
@@ -2884,6 +3542,7 @@ function startAudio(from) {
     const s = ac.createBufferSource(); s.buffer = buf; s.connect(voGain);
     s.start(base + l.start + off, off); srcs.push(s);
   }
+  se.start(from, base);
 }
 
 const cur = () => playing ? Math.min(DUR, ac.currentTime - base) : T;
