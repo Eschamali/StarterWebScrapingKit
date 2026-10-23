@@ -440,7 +440,8 @@ function sliceGlitch(amt, seed) {
 }
 
 // VHS（種明かしの章）: ノイズ、走査のずれ、OSD
-function vhs(t, amt = 1, osd = '') {
+// clock はカウンターに出す時刻（巻き戻し中は逆に進める）
+function vhs(t, amt = 1, osd = '', clock = t) {
   if (amt <= 0) return;
   const k = Math.floor(t * 30);
   ctx.save();
@@ -464,7 +465,7 @@ function vhs(t, amt = 1, osd = '') {
   if (osd) {
     ctx.save();
     txt(osd, 80, 90, { font: `700 44px ${MONO}`, color: '#fff', alpha: amt * (Math.floor(t * 2) % 2 ? 1 : .85), stroke: 'rgba(0,0,0,.6)', sw: 6 });
-    txt('SP  0:' + String(Math.floor(t) % 60).padStart(2, '0') + ':' + String(Math.floor(t * 30) % 30).padStart(2, '0'), W - 80, 90, { font: `700 40px ${MONO}`, align: 'right', color: '#fff', alpha: amt * .9, stroke: 'rgba(0,0,0,.6)', sw: 6 });
+    txt('SP  0:' + String(Math.floor(clock) % 60).padStart(2, '0') + ':' + String(Math.floor(clock * 30) % 30).padStart(2, '0'), W - 80, 90, { font: `700 40px ${MONO}`, align: 'right', color: '#fff', alpha: amt * .9, stroke: 'rgba(0,0,0,.6)', sw: 6 });
     ctx.restore();
   }
 }
@@ -1627,19 +1628,36 @@ function sceneReveal(t) {
   if (vOn) {
     // 暗い再生画面
     ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, W, H);
-    const rew = win(t, L('v2').start + 1.2, L('v2').end + .9, .1, .1);
-    const slow = t > L('v2').end + .9;
+    const rewAt = L('v2').start + 1.2, slowAt = L('v2').end + .9;
+    const rew = win(t, rewAt, slowAt, .1, .1);
+    const inRew = t >= rewAt && t <= slowAt, slow = t > slowAt;
     // 再生している「さっきの映像」: VBA → 隠しタブへ BiDi を送る場面
-    const k = slow ? clamp((t - (L('v2').end + .9)) / (vEnd - (L('v2').end + .9))) : ((t - S(sid).start) * .35) % 1;
-    const pts = [[260, 520], [1660, 520]];
+    const loopK = x => ((x - S(sid).start) * .35) % 1;
+    const k = slow ? clamp((t - slowAt) / (vEnd - slowAt)) : loopK(t);
+    // 巻き戻し: 再生していた位置から逆向きに速く3周戻り、スロー再生の始まり（.15）にぴったり着く
+    const k0 = loopK(rewAt), vRew = (k0 - .15 + 3) / (slowAt - rewAt);
+    const rewPos = x => ((k0 - vRew * (x - rewAt)) % 1 + 1) % 1;
+    // カウンター: 再生は等速、巻き戻しは逆に速く、スローはゆっくり
+    const clock = t < rewAt ? t : inRew ? rewAt - (t - rewAt) * 3 : rewAt - (slowAt - rewAt) * 3 + (t - slowAt) * .3;
+    ctx.save();
+    // 巻き戻し中は、絵全体が横に小刻みに揺れる
+    if (inRew) ctx.translate((hr(Math.floor(t * 30)) - .5) * 14 * rew, 0);
     ctx.save(); ctx.globalAlpha = .9; ctx.filter = 'grayscale(.4) contrast(1.1)';
     node(260, 520, 300, 150, 'VBA', COL.xl, { font: `900 56px ${FONT}` });
     browser(1380, 360, 480, 320, { color: COL.cdp, label: '隠しタブ', tabs: [{ label: 'BiDi-CDP Mapper', w: 240, color: COL.mapper, ghost: true }] });
     beam([[420, 520], [1380, 520]], '#94a3b8', 2, 1, { alpha: .5 });
     ctx.filter = 'none';
     // パケットの中身: 外から見ると BiDi、よく見ると CDP の封筒
-    const pos = slow ? lerp(.15, .5, E.inOut(k)) : k;
+    const pos = slow ? lerp(.15, .5, E.inOut(k)) : inRew ? rewPos(t) : k;
     const [px, py] = along([[420, 520], [1380, 520]], pos);
+    // 巻き戻し中は、右（来た方向）へ残像を引く
+    if (inRew) {
+      for (let i = 4; i >= 1; i--) {
+        const [gx] = along([[420, 520], [1380, 520]], Math.min(1, pos + i * .03));
+        ctx.save(); ctx.globalAlpha *= .5 * (1 - i / 5) * rew;
+        rr(gx - 70, py - 18, 140, 36, 9); ctx.fillStyle = COL.bidi; ctx.fill(); ctx.restore();
+      }
+    }
     const zoom = slow ? E.inOut(clamp((k - .45) / .4)) : 0;
     ctx.save(); ctx.translate(px, py); ctx.scale(1 + zoom * 1.6, 1 + zoom * 1.6);
     if (zoom > 0) {
@@ -1649,6 +1667,7 @@ function sceneReveal(t) {
     }
     rr(-70, -18, 140, 36, 9); ctx.fillStyle = COL.bidi; ctx.fill();
     txt('BiDi', 0, 1, { font: `800 22px ${MONO}`, align: 'center', color: '#020617' });
+    ctx.restore();
     ctx.restore();
     ctx.restore();
     if (slow) redCircle(px, py, 360 * (.4 + zoom * .6), 150 * (.4 + zoom * .6), clamp((k - .55) / .3));
@@ -1665,8 +1684,8 @@ function sceneReveal(t) {
     const s3 = win(t, L('v3').start, vEnd, .4, .3);
     txt('BiDi を送っているはずが……', W / 2, 200, { font: `700 56px ${SERIF}`, align: 'center', color: '#f1f5f9', alpha: s3, stroke: '#000', sw: 8 });
     txt('中身は、CDP', W / 2, 290, { font: `900 84px ${SERIF}`, align: 'center', color: '#ff2a3d', alpha: s3 * PF(t, 'v3', .55, .4), stroke: '#000', sw: 10 });
-    const osd = rew > 0 ? '◀◀ REW' : slow ? '▶ SLOW' : '▶ PLAY';
-    vhs(t, 1, osd);
+    const osd = inRew ? '◀◀ REW' : slow ? '▶ SLOW' : '▶ PLAY';
+    vhs(t, 1 + rew * .8, osd, clock);
     return;
   }
   // VHS を抜けて、種明かし
@@ -3470,7 +3489,7 @@ window.audioChunk = function (i, size) {
 <script>
 // HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
 const VOICE_DIR = 'voice/ReiwaIE_BiDiStory/';
-const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちっつづてでとどなにねのはばびふぶへべほまみむめもゃやゆょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万三上下不与並中丸主乱了予事交人今介仕付代令件任会伴伸似位低体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加効動務勝勧化区十半印双反取受口句台史右叶合同名向含吹告味呼和品員問回団囲図土地型埋基場境増壁壊変外夜大央奇奏奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改散数敷文料斜新方既日明昔星映時景暗曲書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段毎気汎決法波泥注流浮海消済渡準澄濃灯点無版物王珀現理琥環生用由申画番異発登白的監盤目直相盾真着瞬矛矢知矩短砂砕確示社私秒秘移程種積空窓立章端符筋筒答箱範築粒系約紋紙索細終組経結統絵絶継続緒線縁縛縦縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧角解言計討記設許訳試話認誕語説読課調請論譜議象責資赤走起足跡跳身車軸輪込近返追退送透途通速進遅運過違適選部郭配重量鎖長閉開間降限除隔隠集離難雪電霊青非面音頃順頭頼題類風飛駄鬱鳴黄！（）＋／：＝？🔍";
+const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちっつづてでとどなにねのはばびぴふぶへべほまみむめもゃやゆょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万三上下不与並中丸主乱了予事交人今介仕付代令件任会伴伸似位低体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加効動務勝勧化区十半印双反取受口句台史右叶合同名向含吹告周味呼和品員問回団囲図土地型埋基場境増壁壊変外夜大央奇奏奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改散数敷文料斜新方既日明昔星映時景暗曲書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段毎気汎決法波泥注流浮海消済渡準澄濃灯点無版物王珀現理琥環生用由申画番異発登白的監盤目直相盾真着瞬矛矢知矩短砂砕確示社私秒秘移程種積空窓立章端符等筋筒答箱範築粒系約紋紙索細終組経結統絵絶継続緒線縁縛縦縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧角解言計討記設許訳試話認誕語説読課調請論譜議象責資赤走起足跡跳身車軸輪込近返追退送逆透途通速進遅運過違適選部郭配重量鎖長閉開間降限除隔隠集離難雪電霊青非面音頃順頭頼題類風飛駄鬱鳴黄！（）＋／：＝？🔍";
 const DUR = TLD.duration;
 const BG = .85, DUCK = .45;
 const $ = s => document.querySelector(s);
