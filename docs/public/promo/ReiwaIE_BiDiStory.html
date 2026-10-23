@@ -795,8 +795,8 @@ function sceneOpen(t) {
     glitchText('「CDPは、BiDiほど将来性がない」', W / 2, 690, { font: `900 96px ${SERIF}`, align: 'center', color: '#fff', glow: COL.cdp, blur: 30, alpha: a1 * pp }, clamp(1 - (t - L('o1').start) / .8), t);
   }
   const a2 = seg(t, 'o2', 'o3');
-  chip('2026.03.03', W / 2 - 330, 790, '#94a3b8', { alpha: a2 * P(t, 'o2', .4), font: `700 26px ${MONO}` });
-  chip('GitHub Discussions #164 · SeleniumVBA', W / 2 + 130, 790, '#94a3b8', { alpha: a2 * P(t, 'o2', .4, .3), font: `700 26px ${MONO}` });
+  chip('2026.03.03', W / 2 - 330, 820, '#94a3b8', { alpha: a2 * P(t, 'o2', .4), font: `700 26px ${MONO}` });
+  chip('GitHub Discussions #164 · SeleniumVBA', W / 2 + 130, 820, '#94a3b8', { alpha: a2 * P(t, 'o2', .4, .3), font: `700 26px ${MONO}` });
   const a3 = seg(t, 'o3', 'o3');
   if (a3 > 0) {
     txt('インストールが許されない会社なら', W / 2, 640, { font: `700 56px ${SERIF}`, align: 'center', color: '#e2e8f0', alpha: a3 * P(t, 'o3', .5) });
