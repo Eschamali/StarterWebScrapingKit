@@ -43,6 +43,15 @@ const W = 1920, H = 1080;
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 const TLD = window.TL;
+// 描く倍率。HTML 版は表示の大きさに合わせて Canvas の画素数を変え、座標は 1920×1080 のまま SC 倍して描く（MP4 は 1）
+let SC = 1;
+// 光のぼかし（shadowBlur）は座標の倍率がかからないので、ここで SC 倍する
+{
+  const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur');
+  Object.defineProperty(ctx, 'shadowBlur', { get() { return d.get.call(this) / SC; }, set(v) { d.set.call(this, v * SC); } });
+}
+// Canvas の絵の一部を写し取って、ずらして描き直す（写し取る側は画素の座標なので SC 倍する）
+const grab = (sy, sh, dx, dy) => ctx.drawImage(cv, 0, sy * SC, W * SC, sh * SC, dx, dy, W, sh);
 
 const FONT = "'Noto Sans JP','Yu Gothic UI','Meiryo',sans-serif";
 const SERIF = "'Noto Serif JP','Yu Mincho','YuMincho','Hiragino Mincho ProN',serif";
@@ -120,7 +129,7 @@ function glitchText(s, x, y, o = {}, amt = 1, seed = 0) {
       if (hr(k * 13 + i) < .5) continue;
       const sy = y - 80 + hr(k * 31 + i) * 160, sh = 6 + hr(k * 17 + i) * 22;
       const dx = (hr(k * 7 + i) - .5) * 120 * amt;
-      ctx.drawImage(cv, 0, sy, W, sh, dx, sy, W, sh);
+      grab(sy, sh, dx, sy);
     }
   }
 }
@@ -432,7 +441,7 @@ function sliceGlitch(amt, seed) {
     if (hr(k * 3 + i) > .25 + amt * .6) continue;
     const y = hr(k * 11 + i) * H, h = 8 + hr(k * 5 + i) * 70;
     const dx = (hr(k * 19 + i) - .5) * 160 * amt;
-    ctx.drawImage(cv, 0, y, W, h, dx, y, W, h);
+    grab(y, h, dx, y);
   }
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .12 * amt;
   ctx.fillStyle = '#ff004c'; ctx.fillRect((hr(k) - .5) * 30, 0, W, H);
@@ -449,7 +458,7 @@ function vhs(t, amt = 1, osd = '', clock = t) {
   const by = ((t * 140) % (H + 300)) - 150;
   for (let i = 0; i < 3; i++) {
     const y = by + i * 18, h = 6 + hr(k + i) * 10;
-    ctx.drawImage(cv, 0, y, W, h, (hr(k * 3 + i) - .5) * 40 * amt, y, W, h);
+    grab(y, h, (hr(k * 3 + i) - .5) * 40 * amt, y);
   }
   // 砂嵐
   ctx.globalAlpha = .07 * amt;
@@ -596,7 +605,10 @@ function shakeAt(t) {
 // 記事の画像（assets.js の data URI を読み込んだもの）
 const IMG = {};
 window.IMG_READY = Promise.all(Object.entries(window.IMGSRC).map(([k, src]) => {
-  const im = new Image(); im.src = src; IMG[k] = im; return im.decode().catch(() => console.warn('画像なしで描きます', src));
+  // decode() は、ページが描かれていない間（裏のタブなど）は終わらないことがあるので、load を待つ
+  const im = new Image(); IMG[k] = im;
+  const ok = new Promise((res, rej) => { im.onload = res; im.onerror = () => rej(new Error(src)); });
+  im.src = src; return ok.catch(() => console.warn('画像なしで描きます', src));
 }));
 
 // 画像の一部（sx,sy,sw,sh）を、中心 cx,cy・幅 w で描く
@@ -1925,7 +1937,7 @@ function sceneFox(t) {
     node(1300, 640, 380, 120, 'Firefox', COL.fox, { alpha: PF(t, 'f3', .3, .4), dash: [8, 8] });
     mark(false, 1520, 600, 30, PF(t, 'f3', .35, .4));
     arrow(700, 420, 1100, 420, COL.cdp, PF(t, 'f3', .2, .4));
-    stamp('クロスブラウザの規格なのに？', W / 2, 840, PF(t, 'f3', .55, .4), COL.red, { size: 44, rot: -2 });
+    stamp('クロスブラウザの規格なのに？', W / 2, 790, PF(t, 'f3', .55, .4), COL.red, { size: 44, rot: -2 });
     ctx.restore();
   }
   a = seg(t, 'f4', 'f4');
@@ -2643,10 +2655,12 @@ function sceneOutro(t) {
   if (a > 0) {
     ctx.save(); ctx.globalAlpha = a;
     const vba = seg(t, 'n12', 'n12');
+    // 「VBA も」が始まったら戻らない（場面のフェードアウト中に、消したものが再び出ないように）
+    const vbaOn = PT(t, L('n12').start - .2, .35);
     const hubX = 900, hubY = 500;
     const SRC = [['Excel / Access', 'ファイルの中に入れる', COL.xl, 270], ['Node.js / Python など', 'ファイルとして置く', COL.bidi, 500], ['Puppeteer', 'npm パッケージとして取り込む', COL.cdp, 730]];
     SRC.forEach(([s, sub, c, y], i) => {
-      const p = PF(t, 'n10', .1 + i * .12, .5), dim = i ? 1 - .6 * vba : 1;
+      const p = PF(t, 'n10', .1 + i * .12, .5), dim = i ? 1 - .6 * vbaOn : 1;
       beam([[560, y], [hubX - 80, hubY]], c, 3, p, { alpha: .8 * dim });
       node(330, y, 460, 130, s, c, { sub, pop: p, alpha: p * dim, font: `900 38px ${FONT}`, subFont: `700 22px ${FONT}` });
     });
@@ -2658,7 +2672,7 @@ function sceneOutro(t) {
     browser(1300, 330, 500, 330, { color: COL.cdp, label: 'Chromium', alpha: n11, tabs: [{ label: 'BiDi-CDP Mapper', w: 240, color: COL.mapper, ghost: true }] });
     beam([[hubX + 80, hubY], [1300, hubY]], COL.bidi, 4, PF(t, 'n11', .15, .5));
     packets([[hubX + 80, hubY], [1300, hubY]], t, COL.bidi, { n: 2, speed: .6, label: 'BiDi', alpha: PF(t, 'n11', .3, .4) });
-    const ex = PF(t, 'n11', .45, .4) * (1 - vba);
+    const ex = PF(t, 'n11', .45, .4) * (1 - vbaOn);
     fileIcon(1100, 790, 80, '', '#94a3b8', { ext: 'EXE', alpha: ex });
     mark(false, 1150, 750, 24, ex);
     txt('exe を介さない', 1200, 790, { font: `800 34px ${FONT}`, color: '#cbd5e1', alpha: ex });
@@ -2813,7 +2827,7 @@ function sceneAt(t) {
 }
 
 function draw(t) {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(SC, 0, 0, SC, 0, 0);
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0; ctx.filter = 'none';
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   const id = sceneAt(t);
@@ -3490,7 +3504,7 @@ window.audioChunk = function (i, size) {
 <script>
 // HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
 const VOICE_DIR = 'voice/ReiwaIE_BiDiStory/';
-const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちっつづてでとどなにねのはばびぴふぶへべほまみむめもゃやゆょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万三上下不与並中丸主乱了予事交人今介仕付代令件任会伴伸似位低体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加効動務勝勧化区十半印双反取受口句台史右叶合同名向含吹告周味呼和品員問回団囲図土地型埋基場境増壁壊変外夜大央奇奏奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改散数敷文料斜新方既日明昔星映時景暗曲書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段毎気汎決法波泥注流浮海消済渡準澄濃灯点無版物王珀現理琥環生用由申画番異発登白的監盤目直相盾真着瞬矛矢知矩短砂砕確示社私秒秘移程種積空窓立章端符等筋筒答箱範築粒系約紋紙索細終組経結統絵絶継続緒線縁縛縦縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧角解言計討記設許訳試話認誕語説読課調請論譜議象責資赤走起足跡跳身車軸輪込近返追退送逆透途通速進遅運過違適選部郭配重量鎖長閉開間降限除隔隠集離難雪電霊青非面音頃順頭頼題類風飛駄鬱鳴黄！（）＋／：＝？🔍";
+const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちっつづてでとどなにねのはばびぴふぶへべほぼまみむめもゃやゆょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万三上下不与並中丸主乱了予事交人今介仕付代令件任会伴伸似位低体何余作使例依価保修個倍候値停側備像元先光入全公共典兼内再写冠処出分切列初判別刻削前力加効動務勝勧化区十半印双反取受口句台史右叶合同名向含吹告周味呼和品員問回団囲図土地型埋基場境増壁壊変外夜大央奇奏奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改散数敷文料斜新方既日明昔星映時景暗曲書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段毎気汎決法波泥注流浮海消済渡準澄濃灯点無版物率王珀現理琥環生用由申画番異発登白的監盤目直相盾真着瞬矛矢知矩短砂砕確示社私秒秘移程種積空窓立章端符等筋筒答箱範築粒系約紋紙素索細終組経結統絵絶継続緒線縁縛縦縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧角解言計討記設許訳試話認誕語説読課調請論譜議象責資赤走起足跡跳身車軸輪込近返追退送逆透途通速進遅運過違適選部郭配重量鎖長閉開間降限除隔隠集離難雪電霊青非面音頃順頭頼題類風飛駄鬱鳴黄！（）＋／：＝？🔍";
 const DUR = TLD.duration;
 const BG = .85, DUCK = .45;
 const $ = s => document.querySelector(s);
@@ -3498,7 +3512,7 @@ const fmt = s => { s = Math.max(0, s); return `${Math.floor(s / 60)}:${String(Ma
 
 let ac = null, bus = null, bgGain = null, voGain = null, bgm = null, se = null;
 const VO = {};
-let srcs = [], playing = false, T = 0, base = 0, seeking = false, ready = false, dirty = true;
+let srcs = [], playing = false, T = 0, base = 0, seeking = false, ready = false, dirty = true, cover = null;
 
 // セリフが続く区間をまとめて、BGM を下げる区間にする
 const DUCKS = [];
@@ -3508,8 +3522,13 @@ for (const id of TLD.order) {
 }
 
 function fit() {
-  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  // innerWidth はスマートフォンで縮小表示されると変わってしまうので、画面の実際の幅（clientWidth）で測る
+  const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
+  const s = Math.min(vw / 1920, vh / 1080);
   cv.style.width = 1920 * s + 'px'; cv.style.height = 1080 * s + 'px';
+  // 表示の大きさに合わせて Canvas の画素数も変える（16:9 のまま。高 DPI では細かく、なめらかに動くよう上限は横 2560）
+  const pw = Math.min(2560, Math.max(640, Math.round(1920 * s * (devicePixelRatio || 1))));
+  if (cv.width !== pw) { cv.width = pw; cv.height = Math.round(pw * 9 / 16); SC = pw / 1920; dirty = true; }
 }
 addEventListener('resize', fit); fit();
 
@@ -3569,6 +3588,7 @@ function startAudio(from) {
 const cur = () => playing ? Math.min(DUR, ac.currentTime - base) : T;
 async function play(fromStart) {
   if (!ready) return;
+  cover = null;
   await ac.resume();
   if (fromStart || T >= DUR - .05) T = 0;
   startAudio(T);
@@ -3576,12 +3596,12 @@ async function play(fromStart) {
 }
 function pause() { T = cur(); stopAudio(); playing = false; $('#bPlay').textContent = '▶'; dirty = true; showCtl(); }
 const toggle = () => playing ? pause() : play();
-function seekTo(t) { T = Math.max(0, Math.min(DUR, t)); if (playing) startAudio(T); dirty = true; }
+function seekTo(t) { cover = null; T = Math.max(0, Math.min(DUR, t)); if (playing) startAudio(T); dirty = true; }
 
 function loop() {
   const t = cur();
   if (playing || dirty) {
-    renderFrame(t);
+    renderFrame(cover ?? t);
     $('#tm').textContent = `${fmt(t)} / ${fmt(DUR)}`;
     if (!seeking) $('#seek').value = t;
     dirty = false;
@@ -3616,7 +3636,7 @@ addEventListener('keydown', e => {
 loadAll().then(() => {
   ready = true;
   // 再生前は、タイトルの場面を表紙として見せる
-  T = 0; renderFrame(F('o4', .62)); dirty = false;
+  T = 0; cover = F('o4', .62); renderFrame(cover); dirty = false;
   const st = $('#start');
   st.classList.remove('loading');
   $('#startLbl').textContent = `▶ 再生（${Math.floor(DUR / 60)}分${Math.round(DUR % 60)}秒）`;
