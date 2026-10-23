@@ -596,10 +596,11 @@ End Property
 '* 返り値　：成功論理値
 '* 引数　　：FolderPath     フォルダパス
 '            FileName       JSファイル名
+'            Version        バージョン番号(分かれば。入れる際は数字始まりで)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：読み取ったファイルと、Excelテーブルに挿入した文字列との一致確認も行っていきます
 '***************************************************************************************************
-Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName) As Boolean
+Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName, Optional Version As String = "Local") As Boolean
     Const FromProcedureName As String = ThisClassName & ".UpdateFromLocalFile"
 
 
@@ -623,7 +624,7 @@ Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As S
 
         'ローカルファイルで更新した旨を記録
         '※ミスの場合は、空欄にする
-        .VersionMapperTabJS = IIf(UpdateFromLocalFile, " Local", "")
+        .VersionMapperTabJS = IIf(UpdateFromLocalFile, " " & Version, "")
     End With
 End Function
 
