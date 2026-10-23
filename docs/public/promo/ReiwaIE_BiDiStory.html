@@ -815,6 +815,73 @@ function sceneOpen(t) {
   }
 }
 
+// 業務 PC のアプリのアイコン（ロゴそのものではなく、色と形で見分けがつく程度の絵）
+function appIcon(kind, cx, cy, s, a = 1) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(cx, cy); ctx.scale(s / 100, s / 100);
+  const tile = (c1, c2) => {
+    const g = ctx.createLinearGradient(-50, -50, 50, 50); g.addColorStop(0, c1); g.addColorStop(1, c2);
+    rr(-50, -50, 100, 100, 18); ctx.fillStyle = g; ctx.fill();
+  };
+  const plate = (c, letter) => {
+    rr(-58, -30, 60, 60, 8); ctx.fillStyle = c; ctx.fill();
+    txt(letter, -28, 2, { font: `900 44px ${FONT}`, align: 'center', color: '#fff' });
+  };
+  if (kind === 'excel') {
+    tile('#21a366', '#107c41');
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    for (let i = 0; i < 4; i++) ctx.fillRect(8, -34 + i * 20, 34, 10);
+    plate('#0b5c30', 'X');
+  } else if (kind === 'outlook') {
+    tile('#28a8ea', '#0f6cbd');
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; rr(4, -20, 40, 42, 6); ctx.fill();
+    ctx.strokeStyle = '#0f6cbd'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(6, -16); ctx.lineTo(24, 2); ctx.lineTo(42, -16); ctx.stroke();
+    plate('#0a4f8f', 'O');
+  } else if (kind === 'teams') {
+    tile('#7b83eb', '#4b53bc');
+    ctx.fillStyle = 'rgba(255,255,255,.65)';
+    ctx.beginPath(); ctx.arc(26, -22, 12, 0, 7); ctx.fill();
+    rr(8, -6, 36, 36, 10); ctx.fill();
+    plate('#3d3f99', 'T');
+  } else {
+    // ブラウザ（波の形の丸）
+    const g = ctx.createLinearGradient(-50, -50, 40, 50); g.addColorStop(0, '#1fa0e0'); g.addColorStop(.6, '#0c59a4'); g.addColorStop(1, '#114a8b');
+    ctx.beginPath(); ctx.arc(0, 0, 50, 0, 7); ctx.fillStyle = g; ctx.fill();
+    const g2 = ctx.createLinearGradient(-50, 20, 30, 50); g2.addColorStop(0, '#35c1f1'); g2.addColorStop(1, '#5ad25a');
+    ctx.beginPath(); ctx.arc(0, 0, 50, Math.PI * .15, Math.PI * 1.05); ctx.arc(-6, 14, 30, Math.PI * 1.05, Math.PI * .15, true); ctx.closePath(); ctx.fillStyle = g2; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6, -4, 24, 16, -.2, 0, 7); ctx.fillStyle = '#0b3d75'; ctx.fill();
+  }
+  ctx.restore();
+}
+
+// デスクトップのモニター。画面の内側の矩形 [x, y, w, h] を返す
+function monitor(cx, top, w, h, label, a = 1) {
+  ctx.save(); ctx.globalAlpha *= a;
+  const x = cx - w / 2, b = 22;
+  // スタンド
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath(); ctx.moveTo(cx - 60, top + h); ctx.lineTo(cx + 60, top + h); ctx.lineTo(cx + 40, top + h + 70); ctx.lineTo(cx - 40, top + h + 70); ctx.closePath(); ctx.fill();
+  rr(cx - 170, top + h + 66, 340, 22, 11); ctx.fillStyle = '#334155'; ctx.fill();
+  // 縁
+  rr(x, top, w, h, 18); ctx.fillStyle = '#111827'; ctx.fill();
+  ctx.strokeStyle = 'rgba(148,163,184,.7)'; ctx.lineWidth = 2; ctx.shadowColor = '#94a3b8'; ctx.shadowBlur = 16; ctx.stroke(); ctx.shadowBlur = 0;
+  // 画面（壁紙）
+  const sx = x + b, sy = top + b, sw = w - b * 2, sh = h - b * 2 - 18;
+  const g = ctx.createLinearGradient(sx, sy, sx + sw, sy + sh);
+  g.addColorStop(0, '#0b1d3a'); g.addColorStop(.55, '#123a6b'); g.addColorStop(1, '#0a2a4a');
+  ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh);
+  ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath(); ctx.ellipse(sx + sw * (.62 + i * .08), sy + sh * (.55 - i * .05), sw * (.5 - i * .1), sh * (.35 - i * .06), -.35, 0, 7);
+    ctx.fillStyle = `rgba(96,165,250,${.07 + i * .04})`; ctx.fill();
+  }
+  ctx.restore();
+  // 下の縁の名札
+  txt(label, cx, top + h - 20, { font: `700 18px ${FONT}`, align: 'center', color: '#64748b' });
+  ctx.restore();
+  return [sx, sy, sw, sh];
+}
+
 // シーン: 発端
 function sceneSpark(t) {
   const sid = 'spark';
@@ -860,20 +927,29 @@ function sceneSpark(t) {
   if (a > 0) {
     const p = E.out(P(t, 's3', .6));
     ctx.save(); ctx.globalAlpha = a;
-    const mx = W / 2, my = 440;
-    panel(mx - 520, my - 260, 1040, 520, { color: '#94a3b8', fill: '#0a1020' });
-    txt('業務PC', mx - 480, my - 220, { font: `700 26px ${FONT}`, color: '#94a3b8' });
-    ctx.fillStyle = 'rgba(30,41,59,.95)'; ctx.fillRect(mx - 518, my + 190, 1036, 68);
-    const icons = [['Excel', COL.xl], ['Edge', COL.bidi], ['Outlook', '#64748b'], ['Teams', '#64748b']];
-    icons.forEach(([n, c], i) => {
-      const ix = mx - 420 + i * 120;
-      rr(ix - 40, my + 200, 80, 48, 10); ctx.fillStyle = hexA(c, .3); ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.stroke();
-      txt(n, ix, my + 225, { font: `700 18px ${FONT}`, align: 'center', color: '#fff' });
+    const mx = W / 2;
+    const [sx, sy, sw, sh] = monitor(mx, 150, 1100, 610, '業務PC');
+    // タスクバーと、最初から入っているアプリ
+    const ty = sy + sh - 34;
+    ctx.fillStyle = 'rgba(15,23,42,.85)'; ctx.fillRect(sx, sy + sh - 68, sw, 68);
+    txt('9:00', sx + sw - 30, ty, { font: `600 20px ${FONT}`, align: 'right', color: '#cbd5e1' });
+    const apps = [['excel', 'Excel'], ['edge', 'Edge'], ['outlook', 'Outlook'], ['teams', 'Teams']];
+    const ix = i => mx + (i - 1.5) * 90;
+    apps.forEach(([k, n], i) => {
+      const q = PF(t, 's3', .02 + i * .05, .4);
+      appIcon(k, ix(i), ty, 50, q);
+      // 起動中の印（下の短い線）
+      if (i < 2) { ctx.fillStyle = hexA('#e2e8f0', q * .8); rr(ix(i) - 9, ty + 29, 18, 4, 2); ctx.fill(); }
+      txt(n, ix(i), ty - 50, { font: `700 20px ${FONT}`, align: 'center', color: '#e2e8f0', alpha: q * (1 - PF(t, 's3', .55, .4)) });
     });
-    stamp('最初から入ってる', mx + 200, my - 40, PF(t, 's3', .3, .6), COL.bidi, { size: 64 });
+    // Edge は最初から入っている
+    const ep = PF(t, 's3', .25, .5);
+    ctx.save(); ctx.globalAlpha *= ep; ctx.strokeStyle = COL.bidi; ctx.lineWidth = 4; ctx.shadowColor = COL.bidi; ctx.shadowBlur = 24;
+    rr(ix(1) - 38, ty - 38, 76, 76, 16); ctx.stroke(); ctx.restore();
+    stamp('最初から入ってる', mx + 200, 360, PF(t, 's3', .3, .6), COL.bidi, { size: 64 });
     const pp = PF(t, 's3', .6, .6);
-    beam([[mx - 420, my + 190], [mx - 420, my + 100], [mx - 300, my + 100], [mx - 300, my + 190]], COL.cdp, 4, pp);
-    txt('CDP', mx - 360, my + 76, { font: `800 30px ${MONO}`, align: 'center', color: COL.cdp, alpha: pp });
+    beam([[ix(0), ty - 40], [ix(0), ty - 110], [ix(1), ty - 110], [ix(1), ty - 40]], COL.cdp, 4, pp);
+    txt('CDP', (ix(0) + ix(1)) / 2, ty - 136, { font: `800 30px ${MONO}`, align: 'center', color: COL.cdp, alpha: pp });
     ctx.restore();
   }
   // s4: 批判されても推し進めた
@@ -2734,7 +2810,7 @@ window.IMG_READY.then(() => { window.renderFrame = draw; });
 <script>
 // HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
 const VOICE_DIR = 'voice/ReiwaIE_BiDiStory/';
-const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさしじすずせぜそぞただちっつづてでとどなにねのはばぶへべほまみむめもゃやょよらりるれろわをんァアィイウェエォオカキクグケゲコサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万上下不与並中丸主乱了予事交人今介仕付代令件任会似位体何余作使例依価保修個候値停備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加動務勝勧化区十半印双取受口句台史右叶合同名向含吹告味呼和品員問団囲図土型埋基場境増壁変外夜大央奇奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改数文料斜新方既日明昔星映時景暗書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段気汎決法泥注流浮海消済渡準点無版物王珀現理琥環生用由申画番異発登白的監盤目直相真瞬矢知砂砕示社私秒秘移種積空窓立章端筋筒答箱範築粒系約紋紙索細終経結統絵絶継続緒線縛縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧解言計討記設許訳試話認誕語読課調請論議象責資赤走起跡身車軸輪込近返追退送透通速進遅運違適選部郭配重鎖長閉開間降限除隠集離難雪青非面音頃順頭頼題風駄鬱黄！（）＋／：＝？🔍";
+const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさしじすずせぜそぞただちっつづてでとどなにねのはばぶへべほまみむめもゃやょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万上下不与並中丸主乱了予事交人今介仕付代令件任会似位体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加動務勝勧化区十半印双取受口句台史右叶合同名向含吹告味呼和品員問団囲図土型埋基場境増壁変外夜大央奇奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改数文料斜新方既日明昔星映時景暗書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段気汎決法波泥注流浮海消済渡準点無版物王珀現理琥環生用由申画番異発登白的監盤目直相真瞬矢知矩短砂砕示社私秒秘移程種積空窓立章端筋筒答箱範築粒系約紋紙索細終経結統絵絶継続緒線縁縛縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧解言計討記設許訳試話認誕語読課調請論議象責資赤走起跡身車軸輪込近返追退送透通速進遅運違適選部郭配重鎖長閉開間降限除隠集離難雪青非面音頃順頭頼題風駄鬱黄！（）＋／：＝？🔍";
 const DUR = TLD.duration;
 const BG = .85, DUCK = .45;
 const $ = s => document.querySelector(s);
