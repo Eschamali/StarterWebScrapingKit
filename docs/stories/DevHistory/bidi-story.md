@@ -4,6 +4,9 @@ description: WebDriver なしでWebDriverBiDiが扱えるとわかった経緯�
 
 # なぜ外部依存なしで、ChromiumにWebDriverBiDiが扱えるとわかったのか
 
+まずは映像で、ひと通り見てください。
+
+<PromoMovie src="/promo/ReiwaIE_BiDiStory.html" title="令和のIE 技術秘話 ― BiDi Story" />
 
 ![海外フォーラムでの議論](/img/story/1.png)
 すべては[この議論](https://github.com/GCuser99/SeleniumVBA/discussions/164#discussioncomment-15988897)から始まりました。
@@ -332,28 +335,143 @@ CDP の[公式ページ](https://chromedevtools.github.io/devtools-protocol/)は
 どっちがカバー範囲が大きいかは明らかですね。
 ただ、それだけのことです。
 
-## 終わりに
+## `BiDi-CDP Mapper`(mapperTab.js)の未来予想
 
-出典を調べる過程で、少し前に述べた
->Remove after the Mapper is moved away from the tab.
+この技術資料を執筆しているときに、とある[コメント](https://source.chromium.org/chromium/chromium/src/+/main:chrome/test/chromedriver/chrome_launcher.cc;l=259)が目に留まった。
+> Remove after the Mapper is moved away from the tab.
 
-**Mapperをタブの外へ移したら消す。**
+Mapper がタブから別の場所へ移動されたら、このコードは削除すること
 
-コメントアウトにある[リンク](https://issues.chromium.org/issues/42323802)を見る限り、約2.5年前にあるようです。
+このコメントは、2024年5月3日の[コミット](https://chromium.googlesource.com/chromium/src/+/f6f5874c8ec33cf232b4fd7aa921fd3ed0e0e7a5)で追加されたものです。
 
-つまり、mapper(BiDi-CDP Mapper) の置き場所を変える構想自体は割と昔からあると言えます。  
-でも、2.5年経った今でも残念ながら、まだ存在しています。
+コメントが挙げているのは[4762](https://crbug.com/chromedriver/4762)だけだが、実は[1つ前の4761](https://crbug.com/chromedriver/4761)もこの`BiDi-CDP Mapper`の件を扱っていた。
+（このコメントを追加したコミットの説明文では、「Mapper がタブの外で動くようになったら、このスイッチは外せる」という一文に、4762 ではなく 4761 が添えられています）
+要約すると
+・[4762](https://issues.chromium.org/issues/42323802)「BiDi Mapper tab bring throttled when in background」：バックグラウンドタブだと`BiDi-CDP Mapper`が抑制（スロットリング）され、パフォーマンス低下に
+　→専用起動引数`disable-background-timer-throttling`で対処（2024年5月に Fixed）
 
-果たしていつ、置き場所が変わるか見ものですね😳  
-もし、BiDi-CDP Mapperという`mappertTab.js`という部品が、WebDriver.exeから、ブラウザにネイティブ搭載になったら...
+・[4761](https://issues.chromium.org/issues/42323801)「Hide the BiDiMapper tab in the browser」：`BiDi-CDP Mapper`の非表示方法の模索
+　→2025年4月、CDP の`Target.createTarget`に`hidden`が追加され（[crbug 378635448](https://issues.chromium.org/issues/378635448)、[コミット](https://chromium.googlesource.com/chromium/src/+/b6d823369f5ba7439e36b99aa6eb9ef981ae1c3e)）、ChromeDriver も`hidden: true`のターゲットで Mapper を動かすようになった（[コミット](https://chromium.googlesource.com/chromium/src/+/753acf9df872f629667c329dcfaf73677e8d9f93)）
+　（4761 自体は 2025年5月に、非公開の別 Issue の重複として閉じられています）
 
-ついに、[WebDriver BiDi for SeleniumVBA](https://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA)も外部依存なしの仲間入りになるかもですね🤠
+`BiDi-CDP Mapper`に対する格闘が見て取れます。
+そして、追加から約2年5か月経った今（2026年10月）でも、このTODOコメントは残ったままです。
 
-でも、それは同時に...このツールの唯一無二の「外部依存なし」というレッテルが外れるという意味にもなります🥲
+ちなみに、2025年11月には同じ`disable-background-timer-throttling`が、BiDi かどうかに関係なく ChromeDriver の全セッション共通の起動引数にも入りました（[コミット](https://chromium.googlesource.com/chromium/src/+/23902d9051098fbc6a3a669fc0988c6899f38b65)、[chromium-bidi#3894](https://github.com/GoogleChromeLabs/chromium-bidi/issues/3894)）。TODO の付いた BiDi 用の分岐は、それとは別に今も残っています。
 
-嬉しいような悲しいような🥺
+では、Mapper は一体どこへ移動するのか。考察する。
 
-はたして、タブの外へ移すの**moved away**、どこに向かうかは、Google社員のみぞ知る...
+### 移行先の候補
+
+#### Service Worker
+まず移行先の候補だが、ないわけではない。
+実は、2021年4月15日付の「[WebDriver BiDi in Chrome Context implementation plan](https://docs.google.com/document/d/1VfQ9tv0wPSnb5TI-MOobjoQ5CXLnJJx9F_PxOMQc8kY)」（実装計画書）に、Mapper を画面から見えなくする方法の1つとして、Service Worker で動かす案が上がっていた。
+（この計画書での推奨は「当面は隠さず、見えるタブで動かす」で、Service Worker 案は「要検討」扱い。その前の[下書き版](https://docs.google.com/document/d/1RLIna4f_tZzufieLUA7KTqfp96G46tedKOlWMdRS1BE)では「長期の解として推奨」とされていました）
+
+ユーザーがいじれない領域で稼働するので相性抜群と思いきや、動いていない時には消えてしまう問題があった。
+計画書でも短所として「生かし続けるための追加の手間が要るかもしれない」「ワーカーをどう開いたままにするか」が挙がっています。Chrome は何もしていない Service Worker を止めます（例えば拡張機能の Service Worker は、[30秒何もしないと止められます](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)）。
+
+つまり Service Worker で動かしていたら、例えば VBA で Sleep とかすると`BiDi-CDP Mapper`も消えかねない、ということなのだ...
+
+仮に何とか Sleep させないような仕組みのパッチを当てたとしても、今度は「Target.exposeDevToolsProtocol」のてこ入れが必要になる。
+[Target.exposeDevToolsProtocol](https://chromedevtools.github.io/devtools-protocol/tot/Target/#method-exposeDevToolsProtocol)は、対象のメインフレームの`window[bindingName]`に通信用のオブジェクトを差し込む仕組みで、現時点では page ターゲット（タブ。hidden ターゲットも含む）専用です。WebContents を持たないターゲットには「RemoteDebuggingBinding can be granted only to page targets」というエラーで失敗します（[target_handler.cc](https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/protocol/target_handler.cc) の`TargetHandler::ExposeDevToolsProtocol`）。
+ここもてこ入れすることになるのだ。
+
+修正量は未知数だが、さきほど挙げた「Target.createTarget - hidden:=True ×専用起動引数で対処」のほうが、修正量としては多分少ないんだろうな～と見た。
+（実際、2025年4月以降の ChromeDriver はこの形で動いています）
+
+#### Chromium の C++ ソース（.cc）に`mapperTab.js`の中身を定数として置く
+
+以前お伝えした通り、WebDriver.exe ルートでは、exe の中にある定数をそのままブラウザに投げて`BiDi-CDP Mapper`を起動しています。
+（ChromeDriver のビルドでは、[BUILD.gn](https://source.chromium.org/chromium/chromium/src/+/main:chrome/test/chromedriver/BUILD.gn) の`minify_bidimapper`と`embed_bidimapper_in_cpp`で、`mapperTab.js`を縮めてから C++ の定数として埋め込んでいます）
+
+じゃ～その定数をWebDriver.exeじゃなくて、Chrome本体（Chromiumソース）に丸ごと移せばいいじゃん？と思いますよね。でもダメなんです。
+
+実はこの案、2022年1月の設計文書「[CDP-BiDi Mapper code lifecycle](https://docs.google.com/document/d/1_UTBlOa5GCdf075ni4hDVgBSHkgeblfP_g_hwxqRhjg)」で「Hardcode in Chrome」（Mapper のソース文字列を Chrome 自体と一緒にコンパイルし、CDP コマンドで起動する案）として検討済みです。そこで挙がった難点は次の3つです。
+
+・バイナリサイズ：「約30KB増え、それが妨げになりうる」
+・承認の難しさ：「そのような CDP コマンドを正当化して承認を得るのは危うく、できたとしても長くかかりうる」
+・依存の向き：「Mapper の考えを CDP に持ち込むと依存の向きが逆になり、CDP が Mapper を知ることになる」
+
+結果、2022年の推奨は「Mapper は ChromeDriver・Puppeteer 側に定数として持たせる」でした。
+
+バイナリサイズの話でいうと、これはうちも初めて気づいたのですが、Chromium には[バイナリサイズを見張る仕組み](https://chromium.googlesource.com/chromium/src/+/main/docs/speed/binary_size/binary_size_explainer.md)があります。例えば[android-binary-size トライボット](https://chromium.googlesource.com/chromium/src/+/main/docs/speed/binary_size/android_binary_size_trybot.md)は、1コミットで Android の APK が 16KB（arm32）を超えて増えるとチェックに引っかかります（減らせない場合は、増える理由をコミットに書いて通す運用です）。
+
+そして、設計文書の見積もりは約30KBでしたが、今の`mapperTab.js`は約1MBあります（このリポジトリ同梱版で 868,468 バイト、npm の最新版 157.0.8103-20 で 1,016,727 バイト）。当然、埋め込めばその分ブラウザのサイズも膨れ上がります。
+しかも`mapperTab.js`は、自動化（テスト）でしか使わないコードです。一般の利用者が使わないコードのために、全員が使うブラウザを大きくするのは筋が悪い、というのは想像しやすいと思います。
+
+あとは、Mapper が CDP と W3C-WebDriverBiDi の両方の破壊的変更の影響を受けること（設計文書の「Version pinning」の節）も、この定数配置の壁になっています。
+
+なお2026年8月、chromium-bidi のソース自体は Chromium のリポジトリ（[third_party/chromium-bidi](https://chromium.googlesource.com/chromium/src/+/main/third_party/chromium-bidi)）に引っ越し、ChromeDriver はそのソースから`mapperTab.js`をビルドして埋め込むようになりました（[コミット](https://chromium.googlesource.com/chromium/src/+/034e431ee2b07ebc99818691019052a161bea2ed)）。ソースの置き場所は Chromium になりましたが、Mapper をブラウザに送り込むのは今も ChromeDriver です。「Chromium のソースに移す」と「ブラウザ本体に埋め込む」は別物、というわけです。
+
+### Firefoxの場合は？
+
+Firefoxは、WebDriver BiDi をブラウザ本体の中に実装している。その BiDi のモジュールは`.sys.mjs`、つまり JavaScript で書かれていて（[MessageHandler](https://firefox-source-docs.mozilla.org/remote/messagehandler/index.html)という枠組みの上で動く）、コンパイルの要る部分は C++ と Rust（[Building the Remote Agent](https://firefox-source-docs.mozilla.org/remote/Building.html)）。高速な C++/Rust と、拡張しやすい JS のハイブリッド運用といったところだ。しかも`.sys.mjs`はビルドし直さずに変更できる。
+一方Chromium系は、高速を売りにしているのでコアはほぼ C++。`mapperTab.js`を定数として置こうとすると、おのずと C++ の文字列定数一択になる（実際 ChromeDriver でも C++ の定数にしている）。するとどうなると思う？
+
+W3C-WebDriverBiDiに更新→定数置き換え→そのたびにビルド時間という待ち時間発生→タイムパフォーマンス低下
+結果：`mapperTab.js`は、WebDriver.exe専用として埋め込み。WebDriver.exe自体はそこまでのソース量ではないので、ビルド時間もかからない→タイパ良い　ってこと
+（※このビルド時間の話は筆者の推測です。設計文書が挙げている理由は、上の節のバイナリサイズ・承認の難しさ・依存の向きです）
+
+### 結論
+
+Chromium 側は、`BiDi-CDP Mapper`の稼働場所をタブから移動しようとは考えている。
+でも現時点では、その最適な場所が存在しない。
+
+これが執筆時点での結論と考えています。
+
+とは言え、「稼働場所をタブから移動しよう」という思想がある以上、いつかタブではないどこかで`BiDi-CDP Mapper`が動くことには変わりありません。
+2022年の設計文書でも、長期案として「Chrome Component」が「長期の解の良い候補になりうるが、もっと調べる必要がある」とされ、承認者の1人は「Chrome に同梱・固定するほうが長期の選択肢としては魅力的」とコメントしています。
+
+明日なのか数か月、数年後なのか、はたまた一生タブに居続けるのか...
+
+真相は、Google社員のみぞ知る...
+
+
+## おわりに
+
+ただ、1つだけ言えるのは、Chromium系をBiDiで動かすのに必要なのが、exeというバイナリファイルではなく、JavaScriptというテキストファイルだったことです。
+
+Chrome for Developers のブログ記事「[WebDriver BiDi - クロスブラウザ自動化の未来](https://developer.chrome.com/blog/webdriver-bidi?hl=ja)」（Jecelyn Yeen・Maksim Sadym）に、次の説明と図があります（強調は筆者）。
+
+> WebDriver BiDi のビジョンは、**お気に入りのツール**を使用してテストを作成したり、任意のブラウザまたはドライバでテストを自動化したりすることで、柔軟性を最大限に高めることです。
+
+このビジョンの一文には、Puppeteer といったGoogle製ツールの名前は出てきません。汎用的に制御できる仕組みを提供しなければ、という意思があったのだと思います。
+
+そしてその**汎用**を担うのが、どのPC/スマートフォン/OSにも必ず入っているブラウザと、その中で動かせるスクリプト言語である JavaScript です。
+（ブラウザで動く言語には、2019年に W3C 勧告となった[WebAssembly](https://www.w3.org/press-releases/2019/wasm/)もありますが、ここで言いたいのはテキストのまま扱えるスクリプトとしての JavaScript です）
+WebDriver.exeといったコンパイル済み実行形式バイナリだと、OS依存になってしまいます。
+
+では、なぜ Chromium系をBiDiで動かすコアは JavaScript になったのか。2021年の実装計画書が挙げている理由は「Mapper を C++ で実装せずに済み、JavaScript の力で非同期のコードを書ける」ことでした。ほかの案は、次の理由で退けられています。
+
+・ChromeDriver に実装する案：「ChromeDriver の大幅な改修が要る」
+・Chromium に実装する案：「Chromium のバイナリが大きく増えうる」「ブラウザプロセスで信頼できないデータを C++ で扱う安全上の懸念」
+・Rust で実装する案：「Chromium の基盤がまだ Rust に対応していない」
+
+OS に依存しないから、という理由は計画書には書かれていません。それでも結果として、OS を問わず同じ JavaScript を使い回せる形になったのだと思います。
+
+JavaScriptは、ただのテキストファイルです。だから、Excelのセルに埋め込めました。Accessなら、レコードに入れられました。
+JavaScriptは基本、ブラウザ専用言語です。だから、exeみたいに一旦デスクトップに展開する必要がなく、埋め込んだJavaScriptテキストをブラウザに直接入れるだけで、BiDiを扱えました。
+
+このフローは別に、VBAに限りません。
+違うのは、`mapperTab.js`の置き場所だけです。
+Office系ならそのファイル内に入れられるし、CUI系言語（Node.js、Python等）なら単純にファイルにしてデスクトップに置けば済みます。
+実際、Puppeteer は Mapper（chromium-bidi）を npm パッケージとして取り込み、Node.js 側で動かす仕組みも持っています（[BidiOverCdp.ts](https://github.com/puppeteer/puppeteer/blob/main/packages/puppeteer-core/src/bidi/BidiOverCdp.ts)）。
+
+そして、
+・クロスプラットフォーム対応プログラミング言語×クロスプラットフォーム対応の`mapperTab.js`
+→`mapperTab.js`がWebDriver.exe依存だったら、実質クロスプラットフォームになれない
+
+こうなっていたからこそ、より**お気に入りのツール**を使用して自動化しやすくなったのではないでしょうか？
+そしてその**お気に入りのツール**には、奇跡的にVBAも含まれていました。
+
+また、「任意のブラウザまたはドライバ」と書いてあるあたり、WebDriver.exe依存じみた書き方にはなっていません。
+mapperTab.jsの注入/起動方法さえ分かれば、わざわざWebDriver.exeを介さなくても、どのプログラミング言語でもChromium系に直接BiDiを送れます。VBAも例外ではないのです。
+
+CDP⇔BiDi翻訳という仕組みを、最初は「なんて泥臭いその場凌ぎなんだ」と思っていましたが、今となっては、mapperTab.**exe**(WebDriver.exe)ではなく、mapperTab.**js**として登場してよかったと思っています。
+（ちなみに、Puppeteer で BiDi サーバーを作る案の[設計文書](https://docs.google.com/document/d/1FAaZ4RS1fatr5aPJJNW-PkZREHv5tfJOb6ao_j9dI2Y)では、JS の Mapper は中期の解で、長期的には C++ や Rust などに置き換える想定でした。当の Google も、最初はその場凌ぎのつもりだったのかもしれません）
+
+`BiDi-CDP Mapper`、タブの次はどこに向かうのか、一緒に行方を見守りましょう。
 
 ## 参考資料
 
@@ -464,6 +582,26 @@ CDP の[公式ページ](https://chromedevtools.github.io/devtools-protocol/)は
 * [このツールの WebDriverBiDiCore.cls](https://github.com/Eschamali/StarterWebScrapingKit/blob/ee538fd70e01b7258647c7cb78aca3f8d92b0ce5/src/classes/WebDriverBiDiCore.cls#L109-L134)（`newTabForBiDi`・`StartBiDiCDPMapper`・`RunCDP`）
 
 * [v1.6.0 のリリース](https://github.com/Eschamali/StarterWebScrapingKit/releases/tag/v1.6.0)（2026年3月15日）
+
+- Chromium: [chrome_launcher.cc](https://source.chromium.org/chromium/chromium/src/+/main:chrome/test/chromedriver/chrome_launcher.cc)（TODO コメント、2026年10月時点の main）
+- Chromium コミット: [f6f5874](https://chromium.googlesource.com/chromium/src/+/f6f5874c8ec33cf232b4fd7aa921fd3ed0e0e7a5)「Do not throttle background tabs in BiDi mode」（2024-05-03）
+- Chromium コミット: [b6d8233](https://chromium.googlesource.com/chromium/src/+/b6d823369f5ba7439e36b99aa6eb9ef981ae1c3e)「Create hidden targets via CDP `Target.CreateTarget`」（2025-04-02）
+- Chromium コミット: [753acf9](https://chromium.googlesource.com/chromium/src/+/753acf9df872f629667c329dcfaf73677e8d9f93)「Reland "ChromeDriver runs BiDi Mapper in a hidden target"」（2025-04-09）
+- Chromium コミット: [23902d9](https://chromium.googlesource.com/chromium/src/+/23902d9051098fbc6a3a669fc0988c6899f38b65)「Disable backgrounding occluded windows for ChromeDriver sessions」（2025-11-06）
+- Chromium コミット: [034e431](https://chromium.googlesource.com/chromium/src/+/034e431ee2b07ebc99818691019052a161bea2ed)「Integrate chromium-bidi into chromedriver」（2026-08-24）
+- Issue: [chromedriver/4761](https://issues.chromium.org/issues/42323801)、[chromedriver/4762](https://issues.chromium.org/issues/42323802)、[378635448](https://issues.chromium.org/issues/378635448)
+- 設計文書: [WebDriver BiDi in Chrome Context implementation plan](https://docs.google.com/document/d/1VfQ9tv0wPSnb5TI-MOobjoQ5CXLnJJx9F_PxOMQc8kY)（Maksim Sadym、2021-04-15）
+- 設計文書: [Draft: WebDriver BiDi in Chrome Page/Extension implementation plan](https://docs.google.com/document/d/1RLIna4f_tZzufieLUA7KTqfp96G46tedKOlWMdRS1BE)
+- 設計文書: [CDP-BiDi Mapper code lifecycle](https://docs.google.com/document/d/1_UTBlOa5GCdf075ni4hDVgBSHkgeblfP_g_hwxqRhjg)（Maksim Sadym、2022-01-03）
+- 設計文書: [WebDriver BiDi Server using Puppeteer](https://docs.google.com/document/d/1FAaZ4RS1fatr5aPJJNW-PkZREHv5tfJOb6ao_j9dI2Y)
+- 設計文書の一覧: [ChromeDriver documentation](https://developer.chrome.com/docs/chromedriver/documentation)
+- CDP: [Target ドメイン](https://chromedevtools.github.io/devtools-protocol/tot/Target/)（`createTarget`の`hidden`、`exposeDevToolsProtocol`）
+- Chromium: [Binary Size Explainer](https://chromium.googlesource.com/chromium/src/+/main/docs/speed/binary_size/binary_size_explainer.md)、[Trybot: android-binary-size](https://chromium.googlesource.com/chromium/src/+/main/docs/speed/binary_size/android_binary_size_trybot.md)
+- Chrome for Developers: [The extension service worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
+- Chrome for Developers: [WebDriver BiDi - クロスブラウザ自動化の未来](https://developer.chrome.com/blog/webdriver-bidi?hl=ja)（Jecelyn Yeen・Maksim Sadym）
+- Firefox Source Docs: [Building the Remote Agent](https://firefox-source-docs.mozilla.org/remote/Building.html)、[MessageHandler](https://firefox-source-docs.mozilla.org/remote/messagehandler/index.html)
+- Puppeteer: [BidiOverCdp.ts](https://github.com/puppeteer/puppeteer/blob/main/packages/puppeteer-core/src/bidi/BidiOverCdp.ts)
+- W3C: [WebAssembly becomes a W3C Recommendation](https://www.w3.org/press-releases/2019/wasm/)（2019-12-05）
 
 ## 次に読む
 
