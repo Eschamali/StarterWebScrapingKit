@@ -344,12 +344,14 @@ function stamp(s, x, y, p, color, o = {}) {
   const font = o.font || `900 ${o.size || 96}px ${FONT}`;
   ctx.font = font;
   const w = ctx.measureText(s).width + 60, h = (o.size || 96) * 1.35;
+  // 背景と同じ色味の上に押すときは、濃い下地を敷いて読みやすくする
+  if (o.fill) { rr(-w / 2, -h / 2, w, h, 12); ctx.fillStyle = o.fill; ctx.fill(); }
   if (o.box !== false) {
     ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.shadowColor = color; ctx.shadowBlur = 30;
     rr(-w / 2, -h / 2, w, h, 12); ctx.stroke();
   }
   ctx.shadowColor = color; ctx.shadowBlur = 30;
-  ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = o.tc || color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(s, 0, 4);
   ctx.restore();
 }
@@ -946,7 +948,7 @@ function sceneSpark(t) {
     const ep = PF(t, 's3', .25, .5);
     ctx.save(); ctx.globalAlpha *= ep; ctx.strokeStyle = COL.bidi; ctx.lineWidth = 4; ctx.shadowColor = COL.bidi; ctx.shadowBlur = 24;
     rr(ix(1) - 38, ty - 38, 76, 76, 16); ctx.stroke(); ctx.restore();
-    stamp('最初から入ってる', mx + 200, 360, PF(t, 's3', .3, .6), COL.bidi, { size: 64 });
+    stamp('最初から入ってる', mx + 200, 360, PF(t, 's3', .3, .6), COL.bidi, { size: 64, fill: 'rgba(3,8,24,.9)', tc: '#e0f2fe' });
     const pp = PF(t, 's3', .6, .6);
     beam([[ix(0), ty - 40], [ix(0), ty - 110], [ix(1), ty - 110], [ix(1), ty - 40]], COL.cdp, 4, pp);
     txt('CDP', (ix(0) + ix(1)) / 2, ty - 136, { font: `800 30px ${MONO}`, align: 'center', color: COL.cdp, alpha: pp });
@@ -2810,7 +2812,7 @@ window.IMG_READY.then(() => { window.renderFrame = draw; });
 <script>
 // HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
 const VOICE_DIR = 'voice/ReiwaIE_BiDiStory/';
-const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさしじすずせぜそぞただちっつづてでとどなにねのはばぶへべほまみむめもゃやょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万上下不与並中丸主乱了予事交人今介仕付代令件任会似位体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加動務勝勧化区十半印双取受口句台史右叶合同名向含吹告味呼和品員問団囲図土型埋基場境増壁変外夜大央奇奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改数文料斜新方既日明昔星映時景暗書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段気汎決法波泥注流浮海消済渡準点無版物王珀現理琥環生用由申画番異発登白的監盤目直相真瞬矢知矩短砂砕示社私秒秘移程種積空窓立章端筋筒答箱範築粒系約紋紙索細終経結統絵絶継続緒線縁縛縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧解言計討記設許訳試話認誕語読課調請論議象責資赤走起跡身車軸輪込近返追退送透通速進遅運違適選部郭配重鎖長閉開間降限除隠集離難雪青非面音頃順頭頼題風駄鬱黄！（）＋／：＝？🔍";
+const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさしじすずせぜそぞただちっつづてでとどなにねのはばぶへべほまみむめもゃやょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万上下不与並中丸主乱了予事交人今介仕付代令件任会似位体何余作使例依価保修個候値停側備像元先光入全公共典兼内再冠処出分切列初判別刻削前力加動務勝勧化区十半印双取受口句台史右叶合同名向含吹告味呼和品員問団囲図土地型埋基場境増壁変外夜大央奇奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改数敷文料斜新方既日明昔星映時景暗書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段気汎決法波泥注流浮海消済渡準濃点無版物王珀現理琥環生用由申画番異発登白的監盤目直相真瞬矢知矩短砂砕示社私秒秘移程種積空窓立章端筋筒答箱範築粒系約紋紙索細終経結統絵絶継続緒線縁縛縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧解言計討記設許訳試話認誕語読課調請論議象責資赤走起跡身車軸輪込近返追退送透通速進遅運違適選部郭配重鎖長閉開間降限除隠集離難雪青非面音頃順頭頼題風駄鬱黄！（）＋／：＝？🔍";
 const DUR = TLD.duration;
 const BG = .85, DUCK = .45;
 const $ = s => document.querySelector(s);
