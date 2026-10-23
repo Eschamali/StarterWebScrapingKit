@@ -3526,11 +3526,14 @@ function fit() {
   const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
   const s = Math.min(vw / 1920, vh / 1080);
   cv.style.width = 1920 * s + 'px'; cv.style.height = 1080 * s + 'px';
-  // 表示の大きさに合わせて Canvas の画素数も変える（16:9 のまま。高 DPI では細かく、なめらかに動くよう上限は横 2560）
-  const pw = Math.min(2560, Math.max(640, Math.round(1920 * s * (devicePixelRatio || 1))));
+  // Canvas の画素数: ふだんは 1920×1080。全画面のときだけ画面の画素数に合わせる（16:9 のまま、1080p 未満にはしない、上限は横 3840）
+  const full = document.fullscreenElement || document.webkitFullscreenElement;
+  const pw = full ? Math.min(3840, Math.max(1920, Math.round(1920 * s * (devicePixelRatio || 1)))) : 1920;
   if (cv.width !== pw) { cv.width = pw; cv.height = Math.round(pw * 9 / 16); SC = pw / 1920; dirty = true; }
 }
-addEventListener('resize', fit); fit();
+// 全画面の出入りと、resize が届かない変わり方（埋め込み先の枠の変化など）も見張る
+addEventListener('resize', fit); addEventListener('fullscreenchange', fit); addEventListener('webkitfullscreenchange', fit);
+new ResizeObserver(() => fit()).observe(document.documentElement); fit();
 
 async function loadAll() {
   const total = TLD.order.length + 2;
