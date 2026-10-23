@@ -11,6 +11,7 @@ promo/
 ├─ ReiwaIE_CoreCompare.html
 ├─ ReiwaIE_VbaCompare.html
 ├─ ReiwaIE_DebugRoute.html
+├─ ReiwaIE_BiDiStory.html
 └─ voice/
    ├─ README.md            … このファイル
    ├─ ReiwaIE_60s/         … ReiwaIE_60s.html の声
@@ -25,9 +26,13 @@ promo/
    ├─ ReiwaIE_VbaCompare/  … ReiwaIE_VbaCompare.html の声
    │  ├─ narration.json
    │  └─ O1.wav, O2.wav, …
-   └─ ReiwaIE_DebugRoute/  … ReiwaIE_DebugRoute.html の声と BGM
+   ├─ ReiwaIE_DebugRoute/  … ReiwaIE_DebugRoute.html の声と BGM
+   │  ├─ narration.json
+   │  ├─ o1.wav, p1.wav, …
+   │  └─ bgm.mp3
+   └─ ReiwaIE_BiDiStory/   … ReiwaIE_BiDiStory.html の声と BGM
       ├─ narration.json
-      ├─ o1.wav, p1.wav, …
+      ├─ o1.wav, s1.wav, …
       └─ bgm.mp3
 ```
 
@@ -45,7 +50,8 @@ promo/
   ```
 
 - 声が読み込めなかった場合、ムービーはナレーションなし（BGM・効果音・字幕のみ）で再生されます
-- `ReiwaIE_DebugRoute` だけは作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて、BGM と効果音を事前に合成した `bgm.mp3` を置いています
+- `ReiwaIE_DebugRoute` と `ReiwaIE_BiDiStory` は作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて、BGM と効果音を事前に合成した `bgm.mp3` を置いています
+  - `ReiwaIE_BiDiStory.html` は、記事の画像を `img/story/` から相対パス（`../img/story/1.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMGSRC` も直してください
 
 ## narration.json の書き方
 
