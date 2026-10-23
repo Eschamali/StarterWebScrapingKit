@@ -164,8 +164,12 @@ function node(cx, cy, w, h, label, c, o = {}) {
   ctx.translate(cx, cy); ctx.scale(k, k); ctx.translate(-cx, -cy);
   panel(cx - w / 2, cy - h / 2, w, h, { color: c, alpha: a, fill: o.fill, blur: o.blur, dash: o.dash, lw: o.lw });
   if (o.sub) {
-    txt(label, cx, cy - (o.subGap || 18), { font: o.font || `800 34px ${FONT}`, align: 'center', color: o.tc || '#fff', alpha: a });
-    txt(o.sub, cx, cy + (o.subGap || 18) + 6, { font: o.subFont || `500 22px ${MONO}`, align: 'center', color: c, alpha: a });
+    // 上の文字が大きいほど、下の小さな文字との間を空ける（重ならないように）
+    const font = o.font || `800 34px ${FONT}`, subFont = o.subFont || `500 22px ${MONO}`;
+    const px = f => +(/(\d+)px/.exec(f) || [0, 22])[1];
+    const gap = o.subGap || Math.max(18, Math.round((px(font) * .6 + px(subFont) * .5) / 2 + 4));
+    txt(label, cx, cy - gap, { font, align: 'center', color: o.tc || '#fff', alpha: a });
+    txt(o.sub, cx, cy + gap + 6, { font: subFont, align: 'center', color: c, alpha: a });
   } else {
     txt(label, cx, cy + 2, { font: o.font || `800 34px ${FONT}`, align: 'center', color: o.tc || '#fff', alpha: a });
   }
@@ -2400,7 +2404,7 @@ function sceneOutro(t) {
       const pp = P(t, 'n4', .5);
       node(W / 2 - 360, 730, 440, 120, 'Puppeteer', '#94a3b8', { sub: 'Google 製', dash: [8, 6], alpha: pp * (1 - .5 * PF(t, 'n4', .4, .5)), font: `800 40px ${FONT}` });
       const sp = PF(t, 'n4', .35, .4);
-      ctx.strokeStyle = COL.red; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(W / 2 - 590, 730); ctx.lineTo(W / 2 - 590 + 460 * sp, 730); ctx.stroke();
+      ctx.strokeStyle = COL.red; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(W / 2 - 590, 708); ctx.lineTo(W / 2 - 590 + 460 * sp, 708); ctx.stroke();
       txt('名前は出てこない', W / 2 + 40, 730, { font: `800 40px ${FONT}`, color: '#e2e8f0', alpha: PF(t, 'n4', .4, .4) });
       stamp('汎用', W / 2 + 560, 720, PF(t, 'n4', .6, .4), COL.js, { size: 80, rot: -8 });
       ctx.restore();
