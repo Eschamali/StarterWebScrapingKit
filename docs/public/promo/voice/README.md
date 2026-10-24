@@ -24,9 +24,10 @@ promo/
    │  ├─ narration.json
    │  ├─ op1.wav, tr1.wav, …
    │  └─ bgm.mp3
-   ├─ ReiwaIE_VbaCompare/  … ReiwaIE_VbaCompare.html の声
+   ├─ ReiwaIE_VbaCompare/  … ReiwaIE_VbaCompare.html の声と BGM
    │  ├─ narration.json
-   │  └─ O1.wav, O2.wav, …
+   │  ├─ op1.wav, ln1.wav, …
+   │  └─ bgm.mp3
    ├─ ReiwaIE_DebugRoute/  … ReiwaIE_DebugRoute.html の声と BGM
    │  ├─ narration.json
    │  ├─ o1.wav, p1.wav, …
@@ -52,9 +53,9 @@ promo/
   ```
 
 - 声が読み込めなかった場合、ムービーはナレーションなし（BGM・効果音・字幕のみ）で再生されます
-- `ReiwaIE_DebugRoute`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare` は作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて `bgm.mp3` を置いています
+- `ReiwaIE_DebugRoute`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare` は作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて `bgm.mp3` を置いています
   - `ReiwaIE_DebugRoute` の `bgm.mp3` は、BGM と効果音を事前に合成したものです
-  - `ReiwaIE_BiDiStory` と `ReiwaIE_CoreCompare` の `bgm.mp3` は曲だけです。効果音は mp3 に入れず、HTML の中で Web Audio API を使って鳴らしています。絵と同じ時刻表から鳴らすので、効果音の時刻を直したときは HTML を作り直すだけで済みます
+  - `ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare` の `bgm.mp3` は曲だけです。効果音は mp3 に入れず、HTML の中で Web Audio API を使って鳴らしています。絵と同じ時刻表から鳴らすので、効果音の時刻を直したときは HTML を作り直すだけで済みます
   - `ReiwaIE_BiDiStory.html` は、記事の画像を `img/story/` から相対パス（`../img/story/1.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMGSRC` も直してください
 
 ## narration.json の書き方
@@ -103,7 +104,7 @@ VOICEVOX を起動しておくと、`http://127.0.0.1:50021` で ENGINE の API 
 1. `POST /audio_query?text=<say>&speaker=<スタイルID>` で合成用のクエリ(JSON)を受け取る
 2. 受け取った JSON の `speedScale` / `pitchScale` / `intonationScale` を `narration.json` の値で上書きし、`POST /synthesis?speaker=<スタイルID>` に送る。返ってきた音声を `<id>.wav` として保存する
 
-`ReiwaIE_History`・`ReiwaIE_VbaCompare` では、間延びを防ぐため `prePhonemeLength = 0.05`、`postPhonemeLength = 0.1` にしています。
+`ReiwaIE_History` では、間延びを防ぐため `prePhonemeLength = 0.05`、`postPhonemeLength = 0.1` にしています。`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare` は `prePhonemeLength = 0.05`、`postPhonemeLength = 0.12` です。
 
 > [!WARNING]
-> `ReiwaIE_History.html`・`ReiwaIE_VbaCompare.html` は、各 wav の長さ（秒）を HTML 内の `VO` テーブルに持っていて、そこからシーンの尺を決めています。wav を作り直したときは、`VO` テーブルの `d`（秒）も更新してください。
+> `ReiwaIE_History.html` は、各 wav の長さ（秒）を HTML 内の `VO` テーブルに持っていて、そこからシーンの尺を決めています。wav を作り直したときは、`VO` テーブルの `d`（秒）も更新してください。
