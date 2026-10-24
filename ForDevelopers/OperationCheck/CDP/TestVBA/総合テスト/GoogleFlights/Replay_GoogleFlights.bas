@@ -34,7 +34,7 @@ Option Explicit
 '   ・目的地: valueLen=5、選択候補 aria-label="Paris, France" から "Paris" と判断
 '   違っていればここを直してください。
 '---------------------------------------------------------------------------------------------------
-Private Const START_URL      As String = "https://www.google.com/travel/flights"
+Private Const START_URL      As String = "https://www.google.com/travel/flights?hl=en-US"
 Private Const ORIGIN_TEXT    As String = "Sapporo"
 Private Const ORIGIN_OPTION  As String = "Sapporo"
 Private Const DEST_TEXT      As String = "Paris"
