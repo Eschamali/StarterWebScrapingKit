@@ -1618,6 +1618,7 @@ Public Function serialize(ByRef jsonData As Variant _
             Next i
             '
             With levels(Depth)
+                .isDict = False
                 .incIndex = 1
                 If totalElem = 0 Then
                     .ub = -1

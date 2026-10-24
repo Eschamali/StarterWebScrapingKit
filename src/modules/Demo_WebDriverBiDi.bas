@@ -646,7 +646,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：ローカルファイル(オフライン) or NPM(jsdelivr-オンライン)経由による2パターンを提供します
+'* 注意事項：`chromium-bidi`のrelease仕様変更に伴い、更新はローカル経由のみとします
 '***************************************************************************************************
 Private Sub WebDriverBiDiUpdateViaLocalFile()
     '1. ファイルパスを、ダイアログで指定
@@ -675,25 +675,12 @@ Private Sub WebDriverBiDiUpdateViaLocalFile()
     FileName = tmp(SplitNum): tmp(SplitNum) = ""
     FolderName = Join(tmp, "\")
 
-    '4. 更新処理
+    '4. バージョン番号があれば指定を促す
+    Dim Version As String
+    Version = InputBox("記録するバージョン番号を入力して下さい", "chromium-bidi mapperTab.js", "Local")
+    If LenB(Version) = 0 Then Version = "Local"  '空欄時は、既定値にする。キャンセルの区別はしない
+
+    '5. 更新処理
     Dim UpdateBiDi As New WebDriverBiDiCore
-    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
-End Sub
-
-Private Sub WebDriverBiDiUpdateViaNPM()
-    Dim UpdateBiDi As New WebDriverBiDiCore
-    With ShLibrary01_JS
-        '1. 現在のバージョン確認
-        Dim mapperTab_npmVersion    As String: mapperTab_npmVersion = UpdateBiDi.UpdateCheckNPMVersion
-        Dim mapperTab_WorkSheetV    As String: mapperTab_WorkSheetV = ShLibrary01_JS.VersionMapperTabJS
-        If mapperTab_npmVersion = mapperTab_WorkSheetV Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です(" & mapperTab_WorkSheetV & ")": Exit Sub
-
-        '2. npmで更新
-        Dim UpdateSuccess As Boolean: UpdateSuccess = UpdateBiDi.UpdateFromNPMFile
-        If UpdateSuccess Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetV & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。Excelに埋め込んだJavaScript文字列とnpm経由での一致が確認できませんでした。", vbCritical, "failure"
-
-        '3. バージョンをワークシートに記録
-        '※ミスの場合は、空欄にする
-        ShLibrary01_JS.VersionMapperTabJS = IIf(UpdateSuccess, mapperTab_npmVersion, vbNullString)
-    End With
+    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName, Version) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
 End Sub
