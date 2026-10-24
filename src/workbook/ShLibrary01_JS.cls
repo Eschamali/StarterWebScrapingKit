@@ -59,7 +59,7 @@ Property Get TableMapperTabJS() As String
 End Property
 Property Let TableMapperTabJS(JavaScriptStr As String)
     '1セルごとの格納文字数上限
-    Const LimitCellCharacter As Long = 32767
+    Const LimitCellCharacter As Long = 32767 - 1    '`PrefixCharacter`を利用した強制文字列挿入を行うのでその分、減算
 
 
     '1. 分割数を確認
@@ -71,7 +71,9 @@ Property Let TableMapperTabJS(JavaScriptStr As String)
     '3. 分割して格納する
     Dim i As Long
     For i = 0 To NumberOfSplit
-        JsCodeChunk(i, 0) = Mid(JavaScriptStr, LimitCellCharacter * i + 1, LimitCellCharacter)
+        '文字列としての`PrefixCharacter`方式でセルに挿入するのでその属性「'」も足して格納
+        '※こうしないと、分割した32,767文字のかたまりが偶然`=`で始まると、Excelがそれを数式として解釈しようとして「メモリが不足しています」という辻褄の合わない理不尽エラーに遭遇するため
+        JsCodeChunk(i, 0) = "'" & Mid(JavaScriptStr, LimitCellCharacter * i + 1, LimitCellCharacter)
     Next
 
     '4. `mapperTab.js`専用テーブル制御へ
@@ -86,10 +88,7 @@ Property Let TableMapperTabJS(JavaScriptStr As String)
             Dim TargetRange As Range
             Set TargetRange = .ListColumns(1).Range(2).Resize(NumberOfSplit + 1, 1)  '※こっちは、1始まりなので、「+1」という補正が必要
 
-            '4-3. 挿入前に書式を「文字列(@)」に設定して、自動整形を防止
-            TargetRange.NumberFormatLocal = "@"
-
-            '4-4. 挿入
+            '4-3. 挿入 ※事前に、`PrefixCharacter`による強制文字列設定により、ここはシンプルな代入でOK
             TargetRange.value = JsCodeChunk
         End With
     End With

@@ -653,10 +653,11 @@ End Property
 '* 返り値　：成功論理値
 '* 引数　　：FolderPath     フォルダパス
 '            FileName       JSファイル名
+'            Version        バージョン番号(分かれば。入れる際は数字始まりで)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：読み取ったファイルと、Excelテーブルに挿入した文字列との一致確認も行っていきます
 '***************************************************************************************************
-Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName) As Boolean
+Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName, Optional Version As String = "Local") As Boolean
     Const FromProcedureName As String = ThisClassName & ".UpdateFromLocalFile"
 
 
@@ -680,136 +681,8 @@ Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As S
 
         'ローカルファイルで更新した旨を記録
         '※ミスの場合は、空欄にする
-        .VersionMapperTabJS = IIf(UpdateFromLocalFile, " Local", "")
+        .VersionMapperTabJS = IIf(UpdateFromLocalFile, " " & Version, "")
     End With
-End Function
-
-'***************************************************************************************************
-'* 機能　　：インターネット経由で、JSコードを取得します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：成功論理値
-'* 引数　　：Version        バージョン指定する場合は、指定してください。デフォルトは最新です
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：`https://www.jsdelivr.com/`というオープンソースファイル向けの無料のCDN(コンテンツ配信ネットワーク)を利用して、
-'            `chromium-bidi`の`mapperTab.js`を更新させます
-'
-'* 注意事項：chromium-bidi v17 以降は、ビルドシステムが GN (Generate Ninja) に移行しました。
-'
-'            その影響で､npm に公開されるファイル構成が大きく変更され､
-'            従来の「lib/iife/mapperTab.js」ではなく、
-'            GN が生成するビルド成果物のディレクトリ
-'                out/Default/gen/src/
-'            配下に mapperTab.js が配置されるようになりました。
-'
-'            ＜背景＞
-'            ・v16 までは rollup ベースの IIFE ビルドが npm にそのまま含まれていた
-'            ・v17 で GN ベースのビルドに統合され、出力ディレクトリが再編成された
-'            ・そのため jsDelivr 経由で取得するパスも変更が必要になった
-'
-'            ＜注意＞
-'            ・v16 以前と v17 以降で mapperTab.js の場所が異なるため、
-'            　必要に応じて URL を切り替えてください。
-'            ・将来のバージョンでさらに構成が変わる可能性があります。
-'            　（GN 移行期のため、ディレクトリ構造が安定していない可能性あり）
-'
-'            ＜旧構成（v16 以前）＞
-'               npm/chromium-bidi@{Version}/lib/iife/mapperTab.js
-'
-'            ＜新構成（v17 以降）＞
-'               npm/chromium-bidi@{Version}/out/Default/gen/src/mapperTab.js
-'
-'            この変更はライブラリの不具合ではなく､公式ビルドシステムの移行による仕様変更です｡
-'***************************************************************************************************
-Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Boolean
-    'リクエストパラメーターを設定する
-    Dim HttpRequestInfos As WebRequest: Set HttpRequestInfos = New WebRequest
-    With HttpRequestInfos
-        'GET
-        .Method = vbWebHttpGet
-
-        'レスポンスのデータ形式を指定
-        .ResponseFormat = vbWebFormatPlainText
-
-        '`chromium-bidi`のnpmパスパラメーターを指定(ホスト名に続くURL)
-'        .Resource = "npm/" & npmName & "@{Version}/lib/iife/" & MapperJSName   '※v16.0.1以下を使いたい場合はこちらをご利用ください。文字列同士では数値の大小の比較ができないため、ユーザー側の明示的な切り替えが必要です。
-        .Resource = "npm/" & npmName & "@{Version}/out/Default/gen/src/" & MapperJSName
-        .AddUrlSegment "Version", Version
-    End With
-
-    'リクエストして、結果を返す
-    With RequestToJsDelivr(HttpRequestInfos, True)
-        '200確認
-        If .StatusCode = vbWebStatusOk Then
-            'テーブルに置く作業
-            ShLibrary01_JS.TableMapperTabJS = .Content
-
-            '正しく置けてるか確認
-            UpdateFromNPMFile = (.Content = ShLibrary01_JS.TableMapperTabJS)
-
-            'ミスの場合はテーブルの中身を削除
-            If Not (UpdateFromNPMFile) Then ShLibrary01_JS.DeleteMapperTabJS
-
-        Else
-            MsgBox "npm経由による`" & MapperJSName & "`の取得に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .Content, vbCritical, "ErrorCode:" & .StatusCode
-            UpdateFromNPMFile = False
-        End If
-    End With
-End Function
-
-'***************************************************************************************************
-'* 機能　　：インターネット経由で、現在のJSコードバージョンを確認します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：現在の最新バージョン
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：`https://www.jsdelivr.com/`というオープンソースファイル向けの無料のCDN(コンテンツ配信ネットワーク)を利用して、
-'            `chromium-bidi`の`mapperTab.js`を更新させます
-'***************************************************************************************************
-Public Function UpdateCheckNPMVersion() As String
-    Dim ResultResponse As WebResponse
-
-    'リクエストパラメーターを設定する
-    Dim HttpRequestInfos As WebRequest: Set HttpRequestInfos = New WebRequest
-    With HttpRequestInfos
-        'GET
-        .Method = vbWebHttpGet
-
-        'レスポンスのデータ形式を指定
-        .ResponseFormat = vbWebFormatJson
-
-        '`chromium-bidi`のnpmパスパラメーターを指定(ホスト名に続くURL)
-        .Resource = "v1/package/npm/" & npmName
-    End With
-
-    'リクエストして、結果を返す
-    With RequestToJsDelivr(HttpRequestInfos, False)
-        '200確認
-        If .StatusCode = vbWebStatusOk Then
-            UpdateCheckNPMVersion = .Data("tags")("latest")
-        Else
-            MsgBox "npm経由による`" & MapperJSName & "`のバージョン確認に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .Content, vbCritical, "ErrorCode:" & .StatusCode
-        End If
-    End With
-End Function
-
-'***************************************************************************************************
-'* 機能　　：jsDelivr関連のホスト設定です
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスオブジェクト - WebResponse   ここに結果が格納されます
-'* 引数　　：クラスオブジェクト - WebRequest    事前に設定したリクエストパラメーター一式
-'            GetContents                        `True` :ファイルそのもの用のホストととして
-'                                               `False`:バージョン確認用のホストととして
-'***************************************************************************************************
-Private Function RequestToJsDelivr(HttpRequestInfos As WebRequest, GetContents As Boolean) As WebResponse
-    'エンドポイント通信の設定
-    Dim EndPointAPI As New WebClient
-    With EndPointAPI
-        'ホスト名URL
-        '実際のファイルか、バージョン確認かの切り替えをします
-        .BaseUrl = IIf(GetContents, "https://cdn.jsdelivr.net/", "https://data.jsdelivr.com/")
-    End With
-
-    'リクエスト設定とホスト設定を使ってリクエストし、結果を返します
-    Set RequestToJsDelivr = EndPointAPI.Execute(HttpRequestInfos)
 End Function
 
 
