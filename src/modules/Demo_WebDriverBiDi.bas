@@ -646,7 +646,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：ローカルファイル(オフライン) or NPM(jsdelivr-オンライン)経由による2パターンを提供します
+'* 注意事項：`chromium-bidi`のrelease仕様変更に伴い、更新はローカル経由のみとします
 '***************************************************************************************************
 Private Sub WebDriverBiDiUpdateViaLocalFile()
     '1. ファイルパスを、ダイアログで指定
@@ -675,7 +675,12 @@ Private Sub WebDriverBiDiUpdateViaLocalFile()
     FileName = tmp(SplitNum): tmp(SplitNum) = ""
     FolderName = Join(tmp, "\")
 
-    '4. 更新処理
+    '4. バージョン番号があれば指定を促す
+    Dim Version As String
+    Version = InputBox("記録するバージョン番号を入力して下さい", "chromium-bidi mapperTab.js", "Local")
+    If LenB(Version) = 0 Then Version = "Local"  '空欄時は、既定値にする。キャンセルの区別はしない
+
+    '5. 更新処理
     Dim UpdateBiDi As New WebDriverBiDiCore
-    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
+    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName, Version) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
 End Sub
