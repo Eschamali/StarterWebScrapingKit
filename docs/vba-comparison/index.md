@@ -14,7 +14,7 @@ description: VBA 単体で CDP を制御する3プロジェクト（StarterWebSc
 | --- | --- | --- |
 | **StarterWebScrapingKit** | Eschamali / longvh211 / Daniel Polak | Excel ブック1つで完結する統合スターターキット |
 | **[VBAChromeDevProtocol](https://github.com/PerditionC/VBAChromeDevProtocol)** | PerditionC | CDP 全ドメインを自動生成で網羅した低レイヤーラッパー |
-| **[vba-cdp-webdriver](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)** | 24000 / kabkabkab 系 | Selenium 風 API を持つ軽量な派生版 |
+| **[vba-cdp-webdriver](https://github.com/totqkke/vba-cdp-webdriver)** | totqkke | kabkabkab 氏の作品を機能強化した、Selenium 風 API を持つ軽量な派生版 |
 
 README の自己紹介からして性格が違います。VBAChromeDevProtocol は「a VBA version of Puppeteer/Selenium」と名乗りつつ、こう書いています。
 
@@ -38,7 +38,7 @@ flowchart TB
   chris --> perd["PerditionC<br/>VBAChromeDevProtocol"]
   chris --> longv["longvh211<br/>Chromium-Automation-with-CDP-for-VBA"]
   perd -.->|サンプルを参考| longv
-  kab --> vcw["vba-cdp-webdriver"]
+  kab --> vcw["totqkke<br/>vba-cdp-webdriver (2026)"]
   longv --> swsk["StarterWebScrapingKit"]
   kab -->|WebSocket コアロジック| swsk
 ```
