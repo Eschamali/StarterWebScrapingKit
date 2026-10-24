@@ -290,7 +290,7 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 
 | 必要な機能 | Node | StarterWebScrapingKit |
 | --- | --- | --- |
-| WebSocket | `ws` パッケージ | `CDPCoreViaWebSocket`（1,416行、WinSock から自作） |
+| WebSocket | `ws` パッケージ | `CDPCoreViaWebSocket`（1,499行、WinSock から自作） |
 | JSON | `JSON.parse` / `stringify`（ネイティブ） | `BiDiCDPJson`（2,998行、自作パーサ） |
 | UTF-8 変換 | `Buffer` | `CharacterCodeConversion`（279行） |
 | 非同期 I/O | libuv | `PeekNamedPipe` / `ioctlsocket` を直接呼ぶ |

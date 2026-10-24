@@ -209,7 +209,7 @@ frame(0) = &H80 Or opcode
 ::: warning 現状の実装上の割り切り
 フレーム解析の核心部分は動いていますが、`ws` パッケージが長年かけて作り込んできた**周辺仕様は意図的に省略されています**。
 
-- **Ping / Pong**（opcode `0x9` / `0xA`）は、切断に気付くために VBA から Ping を送り、返ってきた Pong を読み捨てるところまで。サーバーから届いた Ping に Pong を返す処理は無い
+- **Ping / Pong**（opcode `0x9` / `0xA`）は、切断に気付くための片方向の仕組みまで。受信のない状態が一定回数（8,192 回）続くと VBA から Ping を送り、返ってきた Pong は受け取ったことをフラグ（`IsComePong`）に記録するだけで、CDP の受信には流さない。サーバーから届いた Ping に Pong を返す処理は無い
 - **ハンドシェイク検証**は `InStr(response, "HTTP/1.1 101") > 0` というステータス行の確認のみで、`Sec-WebSocket-Accept` ヘッダー（送った `Sec-WebSocket-Key` を SHA-1 ＋ Base64 したもの）の照合は行っていない
 - `Sec-WebSocket-Key` 自体も RFC 6455 の例文値を固定で送っている
 - `permessage-deflate` などの拡張ネゴシエーションは非対応

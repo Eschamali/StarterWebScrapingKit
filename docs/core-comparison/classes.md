@@ -37,9 +37,9 @@ description: Browser / Page / Element の三層モデルは3者共通。では�
 | --- | ---: | --- |
 | `BiDiCDPJson` | 2,998 | JSON パーサ／ビュー |
 | `CDPContext` | 2,964 | 1タブ分の操作 |
-| `CDPCore` | 1,868 | Pipe 送受信 |
+| `CDPCore` | 1,869 | Pipe 送受信 |
 | `CDPElement` | 1,727 | 要素操作 |
-| `CDPCoreViaWebSocket` | 1,416 | WebSocket 送受信 |
+| `CDPCoreViaWebSocket` | 1,499 | WebSocket 送受信 |
 | `CDPBrowser` | 1,249 | プロセス起動・タブ管理 |
 
 Puppeteer の `cdp/` にある `FrameManager` / `NetworkManager` / `TargetManager` / `LifecycleWatcher` / `IsolatedWorld` / `ExecutionContext` といった中間層が、キットでは `CDPContext` の内部に畳み込まれている、と考えると近いです。

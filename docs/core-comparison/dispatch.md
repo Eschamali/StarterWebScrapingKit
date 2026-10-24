@@ -92,9 +92,9 @@ if (object.sessionId) {
 }
 ```
 
-### StarterWebScrapingKit ―― 判定順は同じ、出口が4本
+### StarterWebScrapingKit ―― 材料は同じ、出口が4本
 
-`CDPCore.cls` の `BrowserReceivedDataCheck` も、同じ材料（`method` / `sessionId` / `id`）で同じ判定をしています。
+`CDPCore.cls` の `BrowserReceivedDataCheck` も、同じ材料（`method` / `sessionId` / `id`）で同じ判定をしています。違うのは見る順番です。Playwright と Puppeteer はまず `sessionId` で宛先のセッションを決めますが、こちらはまず `method` の有無でイベントか応答かを分けます。
 
 ```vb
 '--------- 1. ブラウザからのイベントか？ ---------

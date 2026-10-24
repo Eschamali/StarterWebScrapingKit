@@ -80,7 +80,8 @@ Playwright も Puppeteer も「ID を Map に登録して、応答が来たら�
 Public Function ExecuteCDPAsync(methodName As String, Optional params As Dictionary, _
                                 Optional StopApiError As Boolean = True) As Long
     ' ブラウザへ送信し、実行時の commandID をそのまま返す（整理券の発行）
-    ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand, brTab.sessionID)
+    ExecuteCDPAsync = PipeCore.ReadyRunCDP(methodName, params, brTab.sessionID)
+    ' ...（送信エラーの確認とログ出力）
 End Function
 ```
 
@@ -115,7 +116,7 @@ Promise は「解決したら自動で続きが動く」のに対し、整理券
 VBA でループを回し続けると、Excel の UI がフリーズします。それを避けるため、受信ループには `DoEvents` が仕込まれています。
 
 ```vb
-Private Const RunDoEventsCount As Long = 2 ^ 10   '長いループ中に`DoEvents`を挟む回数
+Private Const RunDoEventsCount As Integer = 2 ^ 10   '長いTake○○ループ中に`DoEvents`を挟む間隔値
 
 ' ...
 '一定の回数ごとに`DoEvents`を呼ぶ。※初回ループは、必ず呼ぶ

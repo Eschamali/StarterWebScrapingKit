@@ -133,7 +133,7 @@ WebSocket では、1件のメッセージの前にフレームヘッダーを付
 
 Chromium の DevTools 用の WebSocket サーバーは、自分から切断要求（`0x8`）を送りません。たとえば、ブラウザ側の受信の上限（100MB）を超えるコマンドを送ると、ブラウザは TCP の接続をそのまま閉じます（`net/server/http_server.cc`）。このとき `ioctlsocket(FIONREAD)` は「受信 0 バイト」を成功として返すので、VBA 側は切断に気付けず、結果を待ち続けてタイムアウトになっていました（[#3](https://github.com/Eschamali/StarterWebScrapingKit/issues/3)）。
 
-そこで、受信 0 のループが一定回数（8,192 回）続いたら、Ping（`0x9`）を送るようにしています（`SendPing`）。接続が切れていれば、この Ping の `send` がエラー（`10054` など）になるので、タイムアウトを待たずに止まります。返ってきた Pong（`0xA`）は、CDP の受信には流さずに読み捨てます。`RaiseEvent readWebSocketCDP` で `CDPCore` に渡すのは、テキスト（`0x1`）とその続き（`0x0`）のフレームだけです。
+そこで、受信 0 のループが一定回数（8,192 回）続いたら、Ping（`0x9`）を送るようにしています（`SendPing`）。接続が切れていれば、この Ping の `send` がエラー（`10054` など）になるので、タイムアウトを待たずに止まります。返ってきた Pong（`0xA`）は CDP の受信には流さず、「最後に送った Ping に Pong が返ってきたか」をフラグ（`IsComePong`）に記録します。`RaiseEvent readWebSocketCDP` で `CDPCore` に渡すのは、テキスト（`0x1`）とその続き（`0x0`）のフレームだけです。
 
 ::: info ブラウザを普通に閉じたとき
 ウィンドウを手で閉じるなど、ブラウザが普通に接続を閉じた場合は、1回目の Ping の `send` が成功することがあります。そのときは、気付くのが Ping 1回分遅れます。
