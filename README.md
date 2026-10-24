@@ -319,6 +319,7 @@ API リファレンス、アーキテクチャ、開発秘話などは GitHub Pa
 | [Selenium](https://www.selenium.dev/) | 各種 | W3C WebDriver の本家 |
 | [TinySeleniumVBA](https://github.com/uezo/TinySeleniumVBA) | VBA | 軽量。VBAから WebDriver を直接叩く方式の先駆け |
 | [SeleniumVBA](https://github.com/GCuser99/SeleniumVBA) | VBA | 高機能。VBAでの実務利用ならまずこちら |
+| [WebDriver-BiDi-for-SeleniumVBA](https://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA) | VBA | SeleniumVBAの基盤にWebDriverBiDiプロトコル制御を拡張した物。<br>特に、SPAサイトへの攻略に重宝します |
 
 本リポジトリは、あくまで「最後の橋渡しを外したらどうなるか」を確かめるための**研究リポジトリ**という立ち位置です。
 
