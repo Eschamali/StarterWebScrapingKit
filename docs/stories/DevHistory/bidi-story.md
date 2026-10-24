@@ -175,6 +175,7 @@ WebDriver.exeでBiDiを扱う詳しい流れは、[こちらの記事](https://n
 1. npm等で`mapperTab.js`を入手（[chromium-bidi](https://www.npmjs.com/package/chromium-bidi) のパッケージに入っています）
 2. 中身をExcel/Accessに保存
 　→Excelの場合、セルに入る文字数の上限が[32,767 文字](https://support.microsoft.com/ja-jp/office/excel-worksheet-and-workbook-limits-c13798fc-f1d5-4e73-998d-c02268bc65ae)なので、百万字近くある`mapperTab.js`（v17.0.2 で約85万字）を、その文字数ずつ分割して保存してます。
+　　なお、分割したかたまりが偶然 `=` で始まると、Excel が数式として読もうとして「メモリが不足しています」という、つじつまの合わないエラーになることがありました。今は、各かたまりの先頭に `'` を付けて、文字列として入れています
 　　Accessには、1レコードに収められる「長いテキスト」型（[最大 1 GB](https://support.microsoft.com/ja-jp/access/data-types-for-access-desktop-databases)）があるので、特に苦労なく入れられた
 
 <実際に動かす>

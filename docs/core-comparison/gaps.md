@@ -322,7 +322,7 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 | CDP メソッド名の型付け | スキーマからの `Enum` 生成 |
 | Handle の明示的解放 | `Runtime.releaseObject` の呼び出し設計 |
 | CDP / BiDi の抽象化 | `Implements` による共通インターフェース |
-| WebSocket の堅牢化 | Ping/Pong 応答、ハンドシェイク検証の厳密化 |
+| WebSocket の堅牢化 | サーバーからの Ping への応答、ハンドシェイク検証の厳密化 |
 | Firefox 対応 | コアへの小規模な追記（`ex-Firefox` ブランチで実証済み） |
 | 受信ポンプの自動化 | VBA-SafeTimer の組み込み（拡張機能で実証済み。条件付き） |
 

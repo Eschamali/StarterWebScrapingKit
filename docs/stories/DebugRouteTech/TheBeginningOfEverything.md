@@ -65,6 +65,16 @@ SxS は「Side-by-Side」のことで、通常版と並べて同じ PC に入れ
 
 ここまで押さえれば、自動で探すロジックは一通り作れます。ユーザー自身がインストール場所を変えない限り、このロジックで見つかります。
 
+### このツールが探す順番
+
+Stable / Beta / Dev は、次の順に探し、最初に見つかった場所を使います。Canary は、ユーザー単位（`%LOCALAPPDATA%`）だけを見ます（`CDPHost.cls` の `getBrowserPath`）。
+
+1. `%ProgramFiles(x86)%`（マシン単位。以前から入れている Chrome や、Edge）
+2. `%ProgramW6432%`（マシン単位。最近入れた 64bit 版の Chrome）
+3. `%LOCALAPPDATA%`（ユーザー単位。管理者権限が無かった、UAC で「いいえ」を選んだ、Edge のポリシーでユーザー単位にした、などの場合）
+
+2番目に `%ProgramFiles%` ではなく `%ProgramW6432%` を使っているのは、32bit 版の Excel から `%ProgramFiles%` を読むと、`C:\Program Files (x86)` が返ってくるためです。`%ProgramW6432%` なら、Excel が 32bit でも 64bit でも `C:\Program Files` が返ります。この変数が取れない環境では、`%ProgramFiles%` を使います。
+
 ::: info 自分でビルドした Chromium の場合
 Chromium のインストーラー（`mini_installer.exe`）を直接実行した場合は、既定がユーザー単位（`%LOCALAPPDATA%`）で、`--system-level` を付けたときだけマシン単位になります（`chrome/installer/mini_installer/README.md`）。このツールの自動探索は製品版を対象にしているので、汎用の Chromium は設定ワークシートでパスを指定してください。
 :::

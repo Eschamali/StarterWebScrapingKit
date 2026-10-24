@@ -101,7 +101,7 @@ t2.OpenBrowserAndConnectTab BrowserCapabilities    ' 初期状態（シートの
 | `Set_CustomChromiumPath` | `String` | ブラウザexeパス | ブラウザ exe のフルパス（ポータブル版など）。空なら `Set_UseBrowserPreset` に従って自動判定 |
 | `Set_UseBrowserPreset` | `Long` | ブラウザタイプ | 使用するブラウザの種類（後述の「`Set_UseBrowserPreset` の値」を参照） |
 | `Set_UserDataDirName` | `String` | ユーザーデータフォルダ名 | `--user-data-dir` に付けるフォルダ名。ドライブ付きの絶対パスも指定可能。**接続情報を記録する識別名称**としても使われます |
-| `Set_AdditionalBrowserArguments` | `String` | 追加の起動引数 | 追加の起動引数 |
+| `Set_AdditionalBrowserArguments` | `String` | 追加の起動引数 | 追加の起動引数。BiDi で起動するときは、後ろに `--disable-background-timer-throttling` が自動で付きます（後述） |
 | `Set_UseWebSocket` | `Boolean` | WebSocketモード | `True` で Port（`--remote-debugging-port`）、`False` で Pipe（`--remote-debugging-pipe`） |
 | `Set_StartWindowMode` | `WinState` | 表示ウィンドウモード | 起動時のウィンドウ表示状態（[`WinState`](./CDPContext#winstate)） |
 | `Set_StartURL` | `String` | （既定は空） | 起動直後に開く URL |
@@ -109,6 +109,10 @@ t2.OpenBrowserAndConnectTab BrowserCapabilities    ' 初期状態（シートの
 ### WebDriver BiDi
 
 BiDi（[`WebDriverBiDiContext`](/api/bidi/WebDriverBiDiContext) / [`WebDriverBiDiMode`](/api/bidi/WebDriverBiDiMode)）で起動するときだけ使われます。
+
+::: info BiDi で起動するときに自動で付く起動引数
+BiDi で起動するときは、`Set_AdditionalBrowserArguments` の後ろに `--disable-background-timer-throttling` を自動で付けます。BiDi-CDP Mapper（`mapperTab.js`）は非表示のタブの中で動くので、裏のタブとしてタイマーを間引かれると、BiDi の処理が遅くなるためです。ChromeDriver も、BiDi のセッションではこの引数を付けてブラウザを起動しています（[Chromium のコミット](https://chromium.googlesource.com/chromium/src/+/f6f5874c8ec33cf232b4fd7aa921fd3ed0e0e7a5)）。
+:::
 
 | プロパティ | 型 | 既定値の取得元 | 意味 |
 | --- | --- | --- | --- |
