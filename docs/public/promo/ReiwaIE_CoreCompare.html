@@ -161,7 +161,7 @@ function ink(pts, p, c = COL.ink, o = {}) {
   if (o.dash) ctx.setLineDash(o.dash);
   ctx.strokeStyle = c; ctx.lineWidth = o.w || 2.5; ctx.shadowColor = c; ctx.shadowBlur = o.blur ?? 8;
   ctx.stroke();
-  if (p < 1 && o.nib !== false) {
+  if (p < .999 && o.nib !== false) {
     ctx.setLineDash([]);
     ctx.fillStyle = '#fff'; ctx.shadowBlur = 22;
     ctx.beginPath(); ctx.arc(head[0], head[1], (o.w || 2.5) + 2.5, 0, 7); ctx.fill();
@@ -286,7 +286,7 @@ function box(cx, cy, w, h, label, c = COL.ink, o = {}) {
   rr(x, y, w, h, o.r ?? 6); ctx.fillStyle = o.fill || 'rgba(5,18,38,.9)'; ctx.fill();
   if (o.glow) { ctx.shadowColor = c; ctx.shadowBlur = 30 * o.glow; ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.stroke(); }
   ctx.restore();
-  inkRect(x, y, w, h, p, c, { w: o.lw || 2, dash: o.dash, blur: o.blur ?? 6, nib: p < 1 });
+  inkRect(x, y, w, h, p, c, { w: o.lw || 2, dash: o.dash, blur: o.blur ?? 6, nib: p < .999 });
   // 角の飾り（製図の目印）
   if (o.ticks !== false) {
     ctx.save(); ctx.globalAlpha *= fa * .8; ctx.strokeStyle = c; ctx.lineWidth = 1.2;
@@ -889,7 +889,7 @@ function sceneOpen(t) {
       ctx.restore();
     });
     ink([[1500, 476], [1500, 696]], clamp(mp * 1.6 - .5), COL.ink, { w: 3 });
-    txt('同じ材料', 1530, 586, { font: `800 30px ${FONT}`, color: COL.ink, alpha: clamp(mp * 2 - 1.2) });
+    txt('同じ材料', 1530, 586, { font: `800 30px ${FONT}`, color: COL.ink, alpha: clamp(mp * 2.4 - 1.2) });
     stamp('SOURCE CHECK', 1580, 300, PK(t, 'checked', .5), COL.green, { size: 50, rot: -8 });
     ctx.restore();
   }
@@ -1676,7 +1676,7 @@ function dispatchThree(t, a) {
     const nodes = [
       ['m', 'method ?', 520, 450, 0], ['s', 'sessionId ?', 920, 310, .25], ['i', 'id ?', 920, 590, .4], ['r', '記録した ID ?', 1220, 590, .6],
     ];
-    nodes.forEach(([k, s, x, y, d]) => diamond(x, y, k === 'r' ? 260 : 220, 110, s, COL.kit, clamp(judge * 1.8 - d * 1.6)));
+    nodes.forEach(([k, s, x, y, d]) => diamond(x, y, k === 'r' ? 260 : 220, 110, s, COL.kit, clamp(judge * 2 - d * 1.6)));
     inkArrow([[630, 450], [700, 450], [700, 310], [810, 310]], clamp(judge * 2 - .4), COL.kit, { w: 2.2 });
     inkArrow([[630, 450], [700, 450], [700, 590], [810, 590]], clamp(judge * 2 - .7), COL.kit, { w: 2.2 });
     inkArrow([[1030, 590], [1090, 590]], clamp(judge * 2 - 1), COL.kit, { w: 2.2 });
@@ -1684,7 +1684,7 @@ function dispatchThree(t, a) {
     const exits = [['CDPContextEvent', 'タブ宛てイベント', 1480, 250, [[1030, 310], [1100, 310], [1100, 250], [1300, 250]]], ['CDPBrowserEvent', 'ブラウザ宛てイベント', 1480, 380, [[920, 365], [920, 380], [1300, 380]]],
       ['CDPContextID', 'タブ宛て応答', 1600, 520, [[1350, 590], [1400, 590], [1400, 520], [1440, 520]]], ['CDPBrowserID', 'ブラウザ宛て応答', 1600, 680, [[1220, 645], [1220, 680], [1440, 680]]]];
     exits.forEach(([ev, note, x, y, pts], i) => {
-      const p = clamp(judge * 2 - 1 - i * .1);
+      const p = clamp(judge * 2.6 - 1.1 - i * .1);
       inkArrow(pts, p, COL.kit, { w: 2.2 });
       box(x, y, i < 2 ? 340 : 300, 84, ev, COL.kit, { p, sub: note, font: `800 22px ${MONO}`, subFont: `600 17px ${FONT}`, subGap: 14, glow: exit * (.6 + .4 * Math.sin((t - K('kitExit')) * 6 + i)) });
     });
@@ -2382,7 +2382,7 @@ function classAbstract(t, a) {
   };
   tree(380, 'Puppeteer', COL.pp, 'api/Page.ts', '抽象クラス', [['Page.ts', 'cdp/'], ['Page.ts', 'bidi/']], tr);
   tree(960, 'Playwright', COL.pw, 'server/page.ts', '共通の実装', [['crPage.ts', 'chromium/'], ['ffPage.ts', 'firefox/'], ['wkPage.ts', 'webkit/']], clamp(tr * 1.2 - .2));
-  const ok = clamp(tr * 1.5 - .8);
+  const ok = clamp(tr * 2 - .8);
   [380, 960].forEach(x => { mark('ok', x - 120, 570, 20, ok); txt('1つの型で扱える', x + 10, 570, { font: `700 22px ${FONT}`, align: 'center', color: COL.green, alpha: ok }); });
   // キット: 共通の基底がない
   const nb = PK(t, 'cNoBase', .6);
@@ -2390,7 +2390,7 @@ function classAbstract(t, a) {
   txt('キット', kx, 170, { font: `900 30px ${FONT}`, align: 'center', color: COL.kit, alpha: clamp(tr * 2 - .5) });
   box(kx, 270, 340, 90, '共通の型', COL.red, { p: nb, dash: [8, 6], sub: 'なし', font: `800 24px ${FONT}` });
   mark('ng', kx + 170, 225, 22, nb);
-  const kp = clamp(tr * 1.4 - .6);
+  const kp = clamp(tr * 1.8 - .6);
   box(kx - 140, 450, 250, 90, 'CDPContext', COL.kit, { p: kp, font: `700 22px ${MONO}` });
   box(kx + 140, 450, 280, 90, 'WebDriverBiDi', COL.sky, { p: kp, sub: 'Context', font: `700 20px ${MONO}`, subFont: `700 20px ${MONO}`, subGap: 12 });
   txt('並列（別の型）', kx, 570, { font: `700 22px ${FONT}`, align: 'center', color: COL.faint, alpha: kp });
@@ -2613,11 +2613,11 @@ function gapTypes(t, a) {
       box(x, 430, i === 3 ? 290 : 200, 66, s, COL.pp, { p, font: `700 ${i === 3 ? 19 : 20}px ${MONO}` });
     });
     [['TargetCloseError', 480], ['ConnectionClosedError', 760]].forEach(([s, x], i) => {
-      const p = clamp(tr * 2 - 1.2 - i * .15);
+      const p = clamp(tr * 2.7 - 1.35 - i * .15);
       ink([[610, 463], [610, 520], [x, 520], [x, 555]], p, COL.pp, { w: 2 });
       box(x, 590, i ? 300 : 240, 66, s, COL.pp, { p, font: `700 20px ${MONO}` });
     });
-    txt('型で分岐して、回復処理を書ける', 500, 700, { font: `700 24px ${FONT}`, align: 'center', color: COL.pp, alpha: clamp(tr * 2 - 1.4) });
+    txt('型で分岐して、回復処理を書ける', 500, 700, { font: `700 24px ${FONT}`, align: 'center', color: COL.pp, alpha: clamp(tr * 2.5 - 1.5) });
     // キット: 数値の3種類
     const en = PK(t, 'gEnum', .8);
     txt('キット', 1420, 160, { font: `900 32px ${FONT}`, align: 'center', color: COL.kit, alpha: en });
