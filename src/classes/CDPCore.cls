@@ -1299,7 +1299,7 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 
         '返り値チェック
         If intRes > 0 Then
-            '破棄モードかの判定 ※ログメッセージ分岐のみ
+            '破棄モードかの判定
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
                 printMsg Trace_, "Discarding data in WebSocket...", FromProcedureName
