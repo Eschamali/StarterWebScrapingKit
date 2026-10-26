@@ -34,7 +34,11 @@ Public Sub RunCustomsDiscoveryWithKit()
     Debug.Print Format$(Now, "yyyy-mm-dd hh:nn:ss"); " | START | "; START_URL
 
     ' Uses the browser profile/options on the Kit's settings sheet.
-    Set mainContext = ShSetting01_StartBrowser.StartCDPModeContext(START_URL)
+    Dim ExEventCore As CDPCore
+    Set ExEventCore = BrowserCapabilities.ClsGet_CDPCore
+    BrowserCapabilities.Set_StartURL = START_URL
+    Set mainContext = New CDPContext
+    mainContext.OpenBrowserAndConnectTab BrowserCapabilities
     Set root = mainContext.ThisCDPBrowser
 
     stage = "Select Import radio"
@@ -63,7 +67,7 @@ Public Sub RunCustomsDiscoveryWithKit()
     ' Same attach flow as CDPBrowser.getTab, but with an exact targetId.
     root.EnableDiscoverTargets = True
     Set popup = New CDPContext
-    popup.Init root, root.ExEventCore
+    popup.Init root, ExEventCore
     popup.CurrentSessionID = sessionId
     Debug.Print "[OK] Popup attached, targetId="; popupId
 

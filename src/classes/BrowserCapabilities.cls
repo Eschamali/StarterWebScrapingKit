@@ -145,7 +145,17 @@ Property Get Set_UserDataDirName() As String
 End Property
 
 Property Get Set_AdditionalBrowserArguments() As String
-    Set_AdditionalBrowserArguments = m_AddArguments
+    '1. もし、WebDriverBiDi(BiDi-CDP Mapper)を利用するモードなら、専用のパッチ引数を追加する
+    '※https://chromium.googlesource.com/chromium/src/+/f6f5874c8ec33cf232b4fd7aa921fd3ed0e0e7a5　に準拠
+    Dim tmp As String
+    If m_WebDriverBiDiCore Is Nothing Then
+        tmp = m_AddArguments
+    Else
+        tmp = m_AddArguments & " --disable-background-timer-throttling"
+    End If
+
+    '2. 追加起動引数を返却
+    Set_AdditionalBrowserArguments = tmp
 End Property
 
 Property Get Set_UseBrowserPreset() As Long

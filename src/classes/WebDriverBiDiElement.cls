@@ -1393,7 +1393,7 @@ Public Function GetShadowRoot() As WebDriverBiDiElement
     If nodeResult.isException Or nodeResult.ResultType <> "node" Then printMsg WARN_, "The current `WebDriverBiDiElement` could not be serialized as a node.", FromProcedureName: Exit Function
 
     '2. `shadowRoot`の存在確認　※ない場合は`null`
-    Dim NodeValue As BiDiCDPJson: Set NodeValue = nodeResult.rawValue
+    Dim NodeValue As BiDiCDPJConv: Set NodeValue = nodeResult.rawValue
     Dim shadowRootNode As Variant
     If NodeValue.ExistsKey("shadowRoot") Then CDPHelpers.SetVar(shadowRootNode) = NodeValue.Item("shadowRoot")
     If Not IsObject(shadowRootNode) Then printMsg WARN_, "The `Shadow-Root` was not found in the current `WebDriverBiDiElement`.", FromProcedureName: Exit Function
@@ -1454,7 +1454,7 @@ End Sub
 '***************************************************************************************************
 '* 注意事項：`context`は、`WebDriverBiDiContext.ExecuteBiDi`側で付与されます
 '***************************************************************************************************
-Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJConv
     Set ExecuteBiDi = main.ExecuteBiDi(methodName, params, StopBiDiError)
 End Function
 
