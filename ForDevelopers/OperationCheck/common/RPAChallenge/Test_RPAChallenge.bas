@@ -1,76 +1,254 @@
 Attribute VB_Name = "Test_RPAChallenge"
 '==============================================================================================================
-'                         ã‹ã®æœ‰åãª`RPA Challenge`ã§ã®å‹•ä½œç¢ºèªã‚’è¡Œã„ã¾ã™
+'             ‚©‚Ì—L–¼‚È`RPA Challenge`‚Å‚Ì“®ìŠm”F‚ğs‚¢‚Ü‚·BCDP/WebDriverBiDi —¼‘Î‰‚Å‚·
 '--------------------------------------------------------------------------------------------------------------
-'               ã‚„ã‚Šå–ã‚Šã‚’æœ€å°é™ã«æŠ‘ãˆã‚‹ãŸã‚ã€1å›ã®JavaScriptå®Ÿè¡Œã«åã‚ã‚‹å½¢ã§å–ã‚Šã¾ã™
-'                       ãªãŠã€ãƒ–ãƒ©ã‚¦ã‚¶ã¯æ—¢ã«èµ·å‹•ä¸­ã®çŠ¶æ…‹ã§ã‚ã‚‹ã¨ã—ã¾ã™ã€‚
+'      ‚â‚èæ‚è‚ğÅ¬ŒÀ‚É—}‚¦‚é‚½‚ßA1‰ñ‚ÌJavaScriptÀs‚Éû‚ß‚éŒ`‚Åæ‚è‚Ü‚·B–‘O‚É“š‚¦—p‚ÌJavaScript‚ğ–„‚ß‚ñ‚Å‚­‚¾‚³‚¢
+'                                   F‚ñ‚ÈƒXƒ^[ƒg•û–@‚ğÚ‚¹‚Ä‚¨‚«‚Ü‚·
 '==============================================================================================================
 Option Explicit
 
 
 
-'å¯¾è±¡ã®ãƒ†ã‚¹ãƒˆã‚µã‚¤ãƒˆ
+'‘ÎÛ‚ÌƒeƒXƒgƒTƒCƒg
 Const RPAChallengeURL   As String = "https://rpachallenge.com/"
-Const JSã®ã‚ã‚‹ã‚»ãƒ«ç•ªåœ°  As String = "D43"
+Const JS‚Ì‚ ‚éƒZƒ‹”Ô’n  As String = "D43"   '¦ƒAƒNƒeƒBƒuƒV[ƒg‚ğ‘ÎÛ‚Æ‚µ‚Ü‚·B
 
 
-Sub ForCDP(hoge As CDPCoreViaWebSocket)
-    Dim RPAChallenge As New CDPContext
 
-    '1. è¨­å®šã‚»ãƒ«ã‹ã‚‰ã€ãƒ¦ãƒ¼ã‚¶åã‚’å–å¾—
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+'***************************************************************************************************
+'                                  ¡¡¡ CDP Challenge ¡¡¡
+'***************************************************************************************************
+'* ‹@”\@@FV‹K‹N“®‚Æ‚µ‚ÄAƒuƒ‰ƒEƒU‚ğ—§‚¿ã‚°ACDPƒ‚[ƒh‚Æ‚µ‚Äƒ`ƒƒƒŒƒ“ƒW‚ğŠJn‚µ‚Ü‚·
+'***************************************************************************************************
+Sub CDPForFirstStart()
+    '1. ‰ŠúURL‚Æ‚µ‚ÄA`RPA Challenge`‚ğ‹N“®
+    Dim RPAChallenge As CDPContext
+    Set RPAChallenge = ShSetting01_StartBrowser.StartCDPModeContext(RPAChallengeURL)
 
-    '2. ã¾ãšã¯ã€æ—¢å­˜ã®TargetIDã«æ¥ç¶šã§ãã‚‹ã‹ï¼Ÿ
-    ReattachOptions.Set_WebSocketMode(hoge) = UserName
-    If Not RPAChallenge.reattach(ReattachOptions) Then
-        'æ—¢å­˜ã®TargetIDãŒæ¶ˆãˆã¡ã‚ƒã£ãŸã®ã§ã€åˆ¥ã‚¿ãƒ–ã¸ã®å†æ¥ç¶šãƒ•ã‚§ãƒ¼ã‚ºã¸
-        Debug.Print "æ—¢å­˜ã®`targetID`ã¸ã®å†æ¥ç¶šã«å¤±æ•—ã€‚æ–°ã—ã„ã‚¿ãƒ–ã«å†æ¥ç¶šã—ã¦ã€ãã“ã‹ã‚‰å‡¦ç†ã‚’å†é–‹ã—ã¾ã™ã€‚"
+    '2. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+    Debug.Print "New CDP-Session: " & RPAChallenge.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
 
-        '2-1. æ–°ã—ã„ã‚¿ãƒ–ã‚’ä½œæˆã—ã¦ãã“ã‚’ç¢ºç«‹
-        Set RPAChallenge = RPAChallenge.ThisCDPBrowser.newTab(setMain:=True)
-    Else
-        Debug.Print "æ—¢å­˜ã®`targetID`ã¸ã®å†æ¥ç¶šã«æˆåŠŸã€‚ã“ã®ã‚¿ãƒ–ã§å‡¦ç†ã‚’å†é–‹ã§ãã¾ã™ã€‚"
-    End If
-
-    '3ï¼å†æ¥ç¶šã§ããŸã®ã§ã€æŒ‡å®šã®ãƒšãƒ¼ã‚¸ã«é·ç§»
-    RPAChallenge.navigate RPAChallengeURL
-
-    '4. Run!
-    Debug.Print RPAChallenge.jsEval(ShSetting01_StartBrowser.Range(JSã®ã‚ã‚‹ã‚»ãƒ«ç•ªåœ°).value)
-
+    '3. ­‚µ‘Ò‹@‚µ‚ÄI—¹
+    CDPHelpers.Sleep 3
+    RPAChallenge.ThisCDPBrowser.CloseBrowser
 End Sub
 
-Sub ForBiDi(hoge As CDPCoreViaWebSocket)
-    Dim RPAChallenge As New WebDriverBiDiContext
-
-    '1. è¨­å®šã‚»ãƒ«ã‹ã‚‰ã€ãƒ¦ãƒ¼ã‚¶åã‚’å–å¾—
+'***************************************************************************************************
+'* ‹@”\@@F‹N“®Ï‚İ‚Ìƒuƒ‰ƒEƒU‚É‘Î‚µ‚Ä‚ÌAƒ`ƒƒƒŒƒ“ƒW‚Å‚·
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€FE‹N“®Ï‚İ‚Ì«¿ãAWebSocket‚Ì‚İ‚Å‚·
+'            E‚±‚±‚Å‚ÍAŒÅ’èƒ|[ƒg:9222‚Æ‚µ‚Äˆµ‚¢‚Ü‚·
+'***************************************************************************************************
+Sub CDPForReStart1()
+    '1. İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. ã¾ãšã¯ã€æ—¢å­˜ã®ContextIDã«æ¥ç¶šã§ãã‚‹ã‹ï¼Ÿ
-    ReattachOptions.Set_WebSocketMode(hoge) = UserName
-    If Not RPAChallenge.reattach(ReattachOptions) Then
-        'æ—¢å­˜ã®TargetIDãŒæ¶ˆãˆã¡ã‚ƒã£ãŸã®ã§ã€åˆ¥ã‚¿ãƒ–ã¸ã®å†æ¥ç¶šãƒ•ã‚§ãƒ¼ã‚ºã¸
-        Debug.Print "æ—¢å­˜ã®`targetID`ã¸ã®å†æ¥ç¶šã«å¤±æ•—ã€‚æ–°ã—ã„ã‚¿ãƒ–ã«å†æ¥ç¶šã—ã¦ã€ãã“ã‹ã‚‰å‡¦ç†ã‚’å†é–‹ã—ã¾ã™ã€‚"
+    '2. CDP§Œä—p‚ÌWebSocket‚ÖÚ‘±
+    Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket
+    CDPws.AutoConnectBrowserCDP UserName
+    ReattachOptions.Set_WebSocketMode(CDPws) = UserName
 
-        '2-1. æ–°ã—ã„ã‚¿ãƒ–ã‚’ä½œæˆã—ã¦ãã“ã‚’ç¢ºç«‹
-        Set RPAChallenge = RPAChallenge.ThisWebDriverBiDiMode.newTab(setMain:=True)
-    Else
-        Debug.Print "æ—¢å­˜ã®`targetID`ã¸ã®å†æ¥ç¶šã«æˆåŠŸã€‚ã“ã®ã‚¿ãƒ–ã§å‡¦ç†ã‚’å†é–‹ã§ãã¾ã™ã€‚"
-    End If
+    '3. ƒuƒ‰ƒEƒU‚ÉÚ‘±
+    Dim br As CDPBrowser: Set br = New CDPBrowser
+    br.reattach ReattachOptions
 
-    '3. æŒ‡å®šã®ãƒšãƒ¼ã‚¸ã«é·ç§»
+    '4. V‹Kƒ^ƒu‚ğŠJ‚­
+    Dim RPAChallenge As CDPContext
+    Set RPAChallenge = br.newTab(setMain:=True)
+
+    '5D‚»‚Ìƒ^ƒu‚ÅAw’è‚Ìƒy[ƒW‚É‘JˆÚ
     RPAChallenge.navigate RPAChallengeURL
 
-    '4. Run!
-    Dim paramsBiDi_target As New Dictionary, paramsBiDi As New Dictionary
-    paramsBiDi_target.Add "context", RPAChallenge.context
+    '6. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+    Debug.Print "Exist CDP-Session: " & RPAChallenge.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
 
-    paramsBiDi.Add "expression", ShSetting01_StartBrowser.Range(JSã®ã‚ã‚‹ã‚»ãƒ«ç•ªåœ°).value
-    paramsBiDi.Add "target", paramsBiDi_target
-    paramsBiDi.Add "awaitPromise", True
+    '7. ­‚µ‘Ò‹@‚µ‚ÄI—¹
+    CDPHelpers.Sleep 3
+    RPAChallenge.ThisCDPBrowser.CloseBrowser
+End Sub
 
-    RPAChallenge.ThisWebDriverBiDiMode.ExecuteBiDi "script.evaluate", paramsBiDi
+'***************************************************************************************************
+'* ‹@”\@@FuDevToolsActivePortvƒtƒ@ƒCƒ‹ƒ‚[ƒh‚Å‹N“®‚µ‚½ƒuƒ‰ƒEƒU‚É‘Î‚·‚éƒ`ƒƒƒŒƒ“ƒW‚Å‚·
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€F‚±‚ÌDemo‚ÍA•’i‚Ìƒuƒ‰ƒEƒU‚ğ§Œä‚·‚éDemo‚Ì‚½‚ßAuedge://inspect/#remote-debuggingv‚É‚Ä–‘O€”õ‚ª•K—v‚Å‚·
+'***************************************************************************************************
+Sub CDPForReStart2()
+    '1. •’ig‚¢‚Ìƒ†[ƒU[–¼‚ğw’è
+    Dim UserName As String
+    UserName = "User Data"
 
+    '2. CDP§Œä—p‚ÌWebSocket‚ÖÚ‘±
+    Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket
+    BrowserCapabilities.Set_UserDataDirName = UserName
+    CDPws.AutoConnectDevToolsActivePort BrowserCapabilities
+    ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+
+    '3. ƒuƒ‰ƒEƒU‚ÉÚ‘±
+    Dim br As CDPBrowser: Set br = New CDPBrowser
+    br.reattach ReattachOptions
+
+    '4. V‹Kƒ^ƒu‚ğŠJ‚­
+    Dim RPAChallenge As CDPContext
+    Set RPAChallenge = br.newTab(setMain:=True)
+
+    '5D‚»‚Ìƒ^ƒu‚ÅAw’è‚Ìƒy[ƒW‚É‘JˆÚ
+    RPAChallenge.navigate RPAChallengeURL
+
+    '6. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+    Debug.Print "Everyday use CDP-Session: " & RPAChallenge.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
+
+    '7. Ø’f
+    RPAChallenge.ThisCDPBrowser.DisconnectCDP
+End Sub
+
+'***************************************************************************************************
+'* ‹@”\@@FWebView2‚É‘Î‚·‚éƒ`ƒƒƒŒƒ“ƒW‚Å‚·
+'***************************************************************************************************
+Sub CDPForWebView2Start()
+    With WebView2Form
+        '1. WebView2ƒvƒƒZƒX‚ğ‹N“®
+        .StartCDPModeWebView2
+        
+        '2. ƒ‚[ƒhƒŒƒX‚Å•\¦
+        .show False
+
+        '3D‚»‚Ìƒ^ƒu‚ÅAw’è‚Ìƒy[ƒW‚É‘JˆÚ
+        .ThisCDPContext.navigate RPAChallengeURL
+
+        '4. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+        Debug.Print "WebView2 CDP-Session: " & .ThisCDPContext.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
+
+        '5. ­‚µ‘Ò‹@‚µ‚ÄA”ñ•\¦
+        CDPHelpers.Sleep 3
+        .hide
+    End With
+
+    '6. Œãn––
+    Unload WebView2Form
+End Sub
+
+
+
+'***************************************************************************************************
+'                               ¡¡¡ WebDriverBiDi Challenge ¡¡¡
+'***************************************************************************************************
+'* ‹@”\@@FV‹K‹N“®‚Æ‚µ‚ÄAƒuƒ‰ƒEƒU‚ğ—§‚¿ã‚°ABiDiƒ‚[ƒh‚Æ‚µ‚Äƒ`ƒƒƒŒƒ“ƒW‚ğŠJn‚µ‚Ü‚·
+'***************************************************************************************************
+Sub BiDiForFirstStart()
+    '1. ‰ŠúURL‚Æ‚µ‚ÄA`RPA Challenge`‚ğ‹N“®
+    Dim RPAChallenge As WebDriverBiDiContext
+    Set RPAChallenge = ShSetting01_StartBrowser.StartBiDiModeContext(RPAChallengeURL)
+
+    '2. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+    Debug.Print "New BiDi-Session: " & RPAChallenge.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
+
+    '3. ­‚µ‘Ò‹@‚µ‚ÄI—¹
+    CDPHelpers.Sleep 3
+    RPAChallenge.ThisWebDriverBiDiMode.CloseBrowser
+End Sub
+
+'***************************************************************************************************
+'* ‹@”\@@F‹N“®Ï‚İ‚Ìƒuƒ‰ƒEƒU‚É‘Î‚µ‚Ä‚ÌAƒ`ƒƒƒŒƒ“ƒW‚Å‚·
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€FE‹N“®Ï‚İ‚Ì«¿ãAWebSocket‚Ì‚İ‚Å‚·
+'            E‚±‚±‚Å‚ÍAŒÅ’èƒ|[ƒg:9222‚Æ‚µ‚Äˆµ‚¢‚Ü‚·
+'***************************************************************************************************
+Sub BiDiForReStart1()
+    '1. İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '2. ˆê’UACDP§Œä—p‚ÌWebSocket‚ÖÚ‘±
+    Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket
+    CDPws.AutoConnectBrowserCDP UserName
+    ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+
+    '3. BiDi—p‚Ìƒuƒ‰ƒEƒU‚ÉÚ‘±
+    Dim br As WebDriverBiDiMode: Set br = New WebDriverBiDiMode
+    br.reattach ReattachOptions
+
+    '4. V‹Kƒ^ƒu‚ğŠJ‚­
+    Dim RPAChallenge As WebDriverBiDiContext
+    Set RPAChallenge = br.newTab(setMain:=True)
+
+    '5D‚»‚Ìƒ^ƒu‚ÅAw’è‚Ìƒy[ƒW‚É‘JˆÚ
+    RPAChallenge.navigate RPAChallengeURL
+
+    '6. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+    Debug.Print "Exist BiDi-Session: " & RPAChallenge.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
+
+    '7. ­‚µ‘Ò‹@‚µ‚ÄI—¹
+    CDPHelpers.Sleep 3
+    RPAChallenge.ThisWebDriverBiDiMode.CloseBrowser
+End Sub
+
+'***************************************************************************************************
+'* ‹@”\@@FuDevToolsActivePortvƒtƒ@ƒCƒ‹ƒ‚[ƒh‚Å‹N“®‚µ‚½ƒuƒ‰ƒEƒU‚É‘Î‚·‚éƒ`ƒƒƒŒƒ“ƒW‚Å‚·
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€F‚±‚ÌDemo‚ÍA•’i‚Ìƒuƒ‰ƒEƒU‚ğ§Œä‚·‚éDemo‚Ì‚½‚ßAuedge://inspect/#remote-debuggingv‚É‚Ä–‘O€”õ‚ª•K—v‚Å‚·
+'***************************************************************************************************
+Sub BiDiForReStart2()
+    '1. •’ig‚¢‚Ìƒ†[ƒU[–¼‚ğw’è
+    Dim UserName As String
+    UserName = "User Data"
+
+    '2. ˆê’UACDP§Œä—p‚ÌWebSocket‚ÖÚ‘±
+    Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket
+    BrowserCapabilities.Set_UserDataDirName = UserName
+    CDPws.AutoConnectDevToolsActivePort BrowserCapabilities
+    ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+
+    '3. ƒuƒ‰ƒEƒU‚ÉÚ‘±
+    Dim br As WebDriverBiDiMode: Set br = New WebDriverBiDiMode
+    br.reattach ReattachOptions
+
+    '4. V‹Kƒ^ƒu‚ğŠJ‚­
+    Dim RPAChallenge As WebDriverBiDiContext
+    Set RPAChallenge = br.newTab(setMain:=True)
+
+    '5D‚»‚Ìƒ^ƒu‚ÅAw’è‚Ìƒy[ƒW‚É‘JˆÚ
+    RPAChallenge.navigate RPAChallengeURL
+
+    '6. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+    Debug.Print "Everyday use BiDi-Session: " & RPAChallenge.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
+
+    '7. Ø’f
+    RPAChallenge.ThisWebDriverBiDiMode.sessionEnd
+End Sub
+
+'***************************************************************************************************
+'* ‹@”\@@F‹N“®Ï‚İFirefoxƒuƒ‰ƒEƒU‚É‘Î‚·‚éƒ`ƒƒƒŒƒ“ƒW‚Å‚·
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€F–‘O‚ÉAex-firefoxƒuƒ‰ƒ“ƒ`‚Ì•ÏX‚ğ”½‰f‚·‚é•K—v‚ª‚ ‚è‚Ü‚·
+'***************************************************************************************************
+Sub BiDiForFirefoxStart()
+    '1. İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '2. Firefox—p‚ÌWebDriverBiDiServer‚ÉÚ‘±
+    Dim BiDiWS As CDPCoreViaWebSocket: Set BiDiWS = New CDPCoreViaWebSocket
+    BiDiWS.ConnectCDP UserName, "/session", 59035
+
+    '3. WebDriverBiDiA’¼‚â‚èæ‚èƒ‚[ƒh‚Æ‚µ‚ÄƒZƒbƒg
+    ReattachOptions.Set_DirectWebDriverBiDi = True
+    ReattachOptions.Set_WebSocketMode(BiDiWS) = UserName
+
+    '4. Firefoxƒuƒ‰ƒEƒU‚ÉÚ‘±
+    Dim br As WebDriverBiDiMode: Set br = New WebDriverBiDiMode
+    br.reattach ReattachOptions
+
+    '5. V‹Kƒ^ƒu‚ğŠJ‚­
+    Dim RPAChallenge As WebDriverBiDiContext
+    Set RPAChallenge = br.newTab(setMain:=True)
+
+    '6D‚»‚Ìƒ^ƒu‚ÅAw’è‚Ìƒy[ƒW‚É‘JˆÚ
+    RPAChallenge.navigate RPAChallengeURL
+
+    '7. –‘O‚ÉƒZƒ‹‚É–„‚ß‚ñ‚¾JavaScript‚ğ—¬‚µ‚Ş
+    Debug.Print "Firefox BiDi-Session: " & RPAChallenge.jsEval(Range(JS‚Ì‚ ‚éƒZƒ‹”Ô’n).value)
+
+    '8. Ø’f
+    RPAChallenge.ThisWebDriverBiDiMode.sessionEnd
 End Sub
