@@ -120,27 +120,14 @@ Private m_WebSocketFrame As WebSocketReceiveFrameManage
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'WINHTTP_WEB_SOCKET_BUFFER_TYPE
-'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
-Public Enum WS_BUFFER_TYPE
-    WS_NOT_MESSAGE = -3 ' 一度も受信してません          ※一度も`GetAsyncMessage`を呼び出してない初期値
-    WS_PAYLOAD_FRAGMENT ' ペイロード自体が欠けてる場合  ※WinSockバッファーに収まらない OR 通信環境不良で欠けた状態のペイロード状態
-    WS_PAYLOAD_EMPTY    ' ペイロード自体がない          ※フレームヘッダー情報は届いたのに、ペイロードデータが届いてない OR そもそもペイロード自体が存在しないパターン
-    WS_BINARY_MESSAGE   ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
-    WS_BINARY_FRAGMENT  ' WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE
-    WS_UTF8_MESSAGE     ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
-    WS_UTF8_FRAGMENT    ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
-    WS_CLOSE_MESSAGE    ' WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
-End Enum
-
 'Opcode 一覧
-Private Enum OpcodeRegistry
-    ContinuationFrame
-    TextFrame
-    BinaryFrame
-    ConnectionCloseFrame = 8
-    PingFrame
-    PongFrame
+Public Enum OpcodeRegistry
+    ContinuationFrame           '`TextFrame`か、`BinaryFrame`の続きサイン。CDPでは届くことはない
+    TextFrame                   '主役。Jsonテキストで届くので
+    BinaryFrame                 '未使用。CDPは、Jsonテキストしか、届かないので
+    ConnectionCloseFrame = 8    'こっちから、WebSocket切断合図を送るときには、使う。その場合は、向こうからも同じ`Close`応答も来る
+    PingFrame                   'WinSockハンドル生存判定として使用
+    PongFrame                   'こっちから、`Ping`を送らない限りは来ない
 End Enum
 
 '主要な、winsock定数
@@ -183,7 +170,6 @@ Public Event readWebSocketCDP(res() As Byte, resSize As Long, EOS As Boolean)
 Private m_WSAInitialized    As Boolean          'WinSockの初期化成功可否
 Private m_IsConnected       As Boolean          '既にWebSocketに接続済みか？
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
-Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 Private m_resPong           As Boolean          '最後のPongを受信したか？
 
 'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
@@ -210,12 +196,10 @@ Private Utf8Converter           As CharacterCodeConversion  'UTF-8バイト配�
 '***************************************************************************************************
 '                                ■■■ check用プロパティ ■■■
 '***************************************************************************************************
-'* 機能    ：最後に受信したパケットのバッファタイプを確認します（WinHTTP仕様に準拠）
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：初回は、`-3`とします。`GetAsyncMessage`を呼ばないと更新されません
+'* 機能    ：最後に受信したパケットのバッファタイプを確認します（Opcode仕様に準拠）
 '***************************************************************************************************
-Property Get LastBufferType() As WS_BUFFER_TYPE
-    LastBufferType = m_LastBufferType
+Property Get LastBufferType() As OpcodeRegistry
+    LastBufferType = m_WebSocketFrame.opcode
 End Property
 
 '***************************************************************************************************
@@ -903,14 +887,12 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         If m_WebSocketFrame.PayloadLength = 0 Then
             'フレーム情報だけなので、タグを無効化させて次回の取り出し時は、タグ情報を更新するようにする
             m_WebSocketFrame.ValidTags = False
-            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
             printMsg info_, "This frame does not contain any payload data.", FromProcedureName
 
             'フレーム情報だけなので、データは終わりとみなす印にする
             EndOfData = True
         Else
             'ペイロードデータが届いてない
-            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
             printMsg Debug_, "Payload data has not been received.", FromProcedureName
 
             'ペイロードデータはあるので、まだ終わってないとみなす印にする
@@ -1480,7 +1462,6 @@ Private Sub Class_Initialize()
 
     '各種ステータスを初期化
     m_hSocket = -1
-    m_LastBufferType = WS_NOT_MESSAGE
     m_resPong = True
 End Sub
 
