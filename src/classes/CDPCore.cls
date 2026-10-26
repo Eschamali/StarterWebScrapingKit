@@ -1492,7 +1492,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String, sessionID As String
-    Dim CDPNode As BiDiCDPJson: Set CDPNode = BiDiCDPJson.Parse(CDPJsonString)
+    Dim CDPNode As BiDiCDPJConv: Set CDPNode = BiDiCDPJConv.Parse(CDPJsonString)
 
     '--------- 1. ブラウザからのイベントか？ ---------
     If CDPNode.ExistsKey("method") Then
