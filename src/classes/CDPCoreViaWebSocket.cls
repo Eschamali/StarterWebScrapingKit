@@ -16,8 +16,8 @@ Attribute VB_Exposed = False
 '　基本的には、このClassオブジェクトの使いまわしはしない想定で組んでます。`deserialize`で疑似的な使い回しが可能なので、そちらをご利用ください
 '
 '   Chromiumとのやり取り前提として組んでる都合上、以下のロジック周りは意図的に省略してます
-'   ・`FIN`判定：FINを常に1にしているから(web_socket_encoder.cc:170,38)
-'   ・`Text Frame`以外のOpcode処理
+'   ・`FIN`判定：FINを常に1にして送っているから(web_socket_encoder.cc:170,38)
+'   ・一部のOpcode処理
 '
 '====================== なんで、「WinHttpWebSocket○○」系のAPIを使わないの？ ======================
 '   「WinHttpWebSocket○○」の場合、`ioctlsocket`や`PeekNamedPipe`と言った「覗き見機能」はなく、下記の2択しか選択肢がありません
@@ -535,7 +535,8 @@ End Function
 '* 返り値  ：実行結果コード     ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：テキストもWideCharToMultiByte を介したバイト配列変換を使用し、送信を行います
-'* 注意事項：テキストも所詮、バイナリデータなので、UTF-8バイト配列に変換した上で、`SendAsyncMessageAsBINARY`を経由して、送信します
+'* 注意事項：・テキストも所詮、バイナリデータなので、UTF-8バイト配列に変換した上で、`SendAsyncMessageAsBINARY`を経由して、送信します
+'            ・分割送信といった高度なことはしません。常に一括送信です。ﾒﾝﾄﾞｲﾉﾃﾞ
 '***************************************************************************************************
 Public Function SendCommandCDP(SendData As String) As Long
     '1. 送信
@@ -735,7 +736,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
     End If
     printMsg Trace_, "WinSockResSize: " & bytesAvailable, FromProcedureName
 
-    '2. 状況に応じた分岐処理
+    '2. 受信サイズに応じた分岐処理
     If bytesAvailable <= 0 Then
         '受信サイズ0以下なら、いくつか処理をし、抜ける
         printMsg Trace_, "The received data is empty.", FromProcedureName
