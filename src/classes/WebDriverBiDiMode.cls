@@ -96,7 +96,7 @@ Public Function OpenBrowser(caps As BrowserCapabilities) As String
     OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(caps)
 
     '4. BiDi との新しいセッションを確立する
-    Dim resultBiDi As BiDiCDPJson
+    Dim resultBiDi As BiDiCDPJConv
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
     '5. 接続先ブラウザ情報をログで表示
@@ -225,7 +225,7 @@ Public Sub reattach(reattachInfo As ReattachOptions)
     DebugSessionStatus = sessionStatus.BoolKey("ready")
 
     '5. 結果に応じて`session.new`を行う
-    Dim resultBiDi As BiDiCDPJson
+    Dim resultBiDi As BiDiCDPJConv
     If requestSessionNew Or DebugSessionStatus Then
         '5-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
@@ -264,7 +264,7 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     BiDiparams.Add "background", isBackground
 
     '2.実行
-    Dim bidiRes As BiDiCDPJson
+    Dim bidiRes As BiDiCDPJConv
     Set bidiRes = ExecuteBiDi("browsingContext.create", BiDiparams)
 
     '3. 返却準備
@@ -303,9 +303,9 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
 
 
     Dim startTime As Double
-    Dim bidiRes As BiDiCDPJson
-    Dim contexts As BiDiCDPJson
-    Dim matchData As BiDiCDPJson
+    Dim bidiRes As BiDiCDPJConv
+    Dim contexts As BiDiCDPJConv
+    Dim matchData As BiDiCDPJConv
 
     'パラメーターを用意
     Dim BiDiparams As New Dictionary
@@ -357,9 +357,9 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：再帰処理のため、深すぎるとエラーになりますが多分問題ないはずです
 '***************************************************************************************************
-Private Function FindContextRecursive(contexts As BiDiCDPJson, Url As String) As BiDiCDPJson
-    Dim ctxData As BiDiCDPJson
-    Dim childMatch As BiDiCDPJson
+Private Function FindContextRecursive(contexts As BiDiCDPJConv, Url As String) As BiDiCDPJConv
+    Dim ctxData As BiDiCDPJConv
+    Dim childMatch As BiDiCDPJConv
     Dim contextCount As Long
 
     ' contextsはCollection（配列）としてループ
@@ -410,7 +410,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを送信後、ID返却されるまで待機します。
 '***************************************************************************************************
-Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJConv
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDi"
 
 
@@ -432,8 +432,8 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     ResultJsonStr = AutoWaitTakeResultBiDi(RunID, StopBiDiError)
 
     '4. 結果を、Node変換
-    Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
+    Dim resultJson As BiDiCDPJConv
+    Set resultJson = BiDiCDPJConv.Parse(ResultJsonStr)
 
     '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
@@ -598,7 +598,7 @@ End Property
 '* 返り値　：エラー有無論理値
 '* 引数　　：ResultsObj         パース処理済みのCDP-Jsonコマンド実行結果
 '***************************************************************************************************
-Private Function ExecuteError(ResultsObj As BiDiCDPJson) As Boolean
+Private Function ExecuteError(ResultsObj As BiDiCDPJConv) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -869,12 +869,12 @@ End Sub
 '* 注意事項：・CDPのパイプ通信で1対1で直接繋がってしまっている都合上、一部項目は空となります
 '            ・ログレベル - DEBUG のみ表示します
 '***************************************************************************************************
-Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
+Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJConv)
     Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
 
 
     '1. VBA用にキャッシュする
-    Dim Node_capabilities As BiDiCDPJson: Set Node_capabilities = ResultSessionNew.NodeKey("capabilities")
+    Dim Node_capabilities As BiDiCDPJConv: Set Node_capabilities = ResultSessionNew.NodeKey("capabilities")
     With br
         'オリジナルのまま
         .acceptInsecureCerts = Node_capabilities.BoolKey("acceptInsecureCerts")
@@ -927,7 +927,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
 '***************************************************************************************************
-Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJson
+Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJConv
     '`session.new`の`Parameters`が省略されてる場合は、空規定値を作成する
     If params Is Nothing Then
         Set params = New Dictionary
@@ -948,7 +948,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-status
 '***************************************************************************************************
-Private Function sessionStatus() As BiDiCDPJson
+Private Function sessionStatus() As BiDiCDPJConv
     Set sessionStatus = ExecuteBiDi("session.status")
 End Function
 
@@ -962,7 +962,7 @@ End Function
 '* 機能説明：ブラウザを閉じずに、デバッグだけ終らせる後始末用にどうぞ
 '* 注意事項：WebSocket切断も同時に発生するためここは、エラー無視として働きます
 '***************************************************************************************************
-Public Function sessionEnd() As BiDiCDPJson
+Public Function sessionEnd() As BiDiCDPJConv
     Set sessionEnd = ExecuteBiDi("session.end", , False)
 End Function
 

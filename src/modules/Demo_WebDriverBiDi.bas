@@ -140,7 +140,7 @@ Sub UseExtensions()
     paramsBiDi.Add "extensionData", extData
 
     ' 今回はエラー無視で設定 (StopError:=False)
-    Dim resultBiDi As BiDiCDPJson
+    Dim resultBiDi As BiDiCDPJConv
     Set resultBiDi = controlExtensions.ExecuteBiDi("webExtension.install", paramsBiDi, False)
 
     '読み込まれたか確認する
@@ -205,7 +205,7 @@ Sub TestAlert()
     Set Demo_alerts = ShSetting01_StartBrowser.StartBiDiModeContext("https://www.selenium.dev/selenium/web/alerts.html", sessionCapabilitiesRequest:=caps)
 
     '結果とBiDiパラメーター変数を用意
-    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
+    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJConv
 
     'テスト入力文字列
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
@@ -302,7 +302,7 @@ Sub TestBiDiPlus_CDPTunnel()
     ' ブラウザ起動
     Set BiDiPlus = ShSetting01_StartBrowser.StartBiDiModeContext
 
-    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
+    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJConv
 
     '-----------------------------------------------------------------------
     ' 1. CDPのセッションIDを取得する (goog:cdp.getSession)
