@@ -342,7 +342,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
     If methodName <> BiDiForCDPEventName Then Exit Sub
 
     '3. PayloadのName部分を取得
-    Dim CDPToBiDi As BiDiCDPJson: Set CDPToBiDi = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+    Dim CDPToBiDi As BiDiCDPJConv: Set CDPToBiDi = BiDiCDPJConv.Parse(RawJson).NodeKey("params")
     Dim bindingCalledName As String: bindingCalledName = CDPToBiDi.StringKey("name")
 
     '4. `Name`値に応じた処理
@@ -473,7 +473,7 @@ Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String
-    Dim BiDiNode As BiDiCDPJson: Set BiDiNode = BiDiCDPJson.Parse(BiDiJsonString)
+    Dim BiDiNode As BiDiCDPJConv: Set BiDiNode = BiDiCDPJConv.Parse(BiDiJsonString)
 
     '--------- 1. BiDiからのイベントか？ ---------
     If BiDiNode.StringKey("type") = "event" Then
