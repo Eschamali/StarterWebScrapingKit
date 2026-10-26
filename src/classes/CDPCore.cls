@@ -176,6 +176,7 @@ Private Const CREATE_UNICODE_ENVIRONMENT As Long = &H400&   '`lpEnvironment`がU
 Private Const ThisClassName             As String = "CDPCore"   'ログのトレース用
 Private Const MAX_STR_LEN               As Long = 2 ^ 30 - 1    'VBA文字列の限界
 Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。なお、この補正はあくまでも、Pipe経路に限ります。
+Private Const RunDoEventsCount          As Integer = 2 ^ 10     '長いTake○○ループ中に`DoEvents`を挟む間隔値
 
 
 
@@ -454,8 +455,9 @@ Private Function InitCDP(strExec As String, showWindowMode As WinState) As Long
     '  > Edge は Windows 上で再起動する可能性があり (msRelaunchNoCompatLayer)、その際にファイルディスクリプタ (stdout/stderr) と CDP (3/4) が失われます。上流で修正されるまで無効にします。
     'このツールの場合は、根本原因である環境変数側で、対処します。`Playwright`の方針に従い、上流で修正されるまで、この戦法を適用します。
     Dim envBlock As LongPtr, creationFlags As Long
+    creationFlags = NORMAL_PRIORITY_CLASS
     If CreateEnvironmentBlock(envBlock, 0, 0&) Then
-        creationFlags = NORMAL_PRIORITY_CLASS Or CREATE_UNICODE_ENVIRONMENT
+        creationFlags = creationFlags Or CREATE_UNICODE_ENVIRONMENT
     Else
         envBlock = 0
         printMsg WARN_, "CreateEnvironmentBlock failed, so the browser will inherit Excel's environment variables. ErrorCode:" & Err.LastDllError, ThisClassName & ".InitCDP"
@@ -1284,12 +1286,12 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
     printMsg Trace_, "Starts retrieving data from the WebSocket...", FromProcedureName
 
     '終了サインかつ、受信データなしになるまで、ループ受信を行います
-    Dim LoopCounter As Long
+    Dim ResCounter As Long
     Dim isFIN As Boolean: isFIN = True  '初期化
     Do
         '一定の回数ごとに`DoEvents`を呼ぶ。※初回ループは、必ず呼ぶ
-        If LoopCounter Mod RunDoEventsCount = 0 Then DoEvents
-        LoopCounter = LoopCounter + 1
+        If ResCounter Mod RunDoEventsCount = 0 Then DoEvents
+        ResCounter = ResCounter + 1
 
 
         '受信処理
@@ -1490,7 +1492,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String, sessionID As String
-    Dim CDPNode As BiDiCDPJson: Set CDPNode = BiDiCDPJson.Parse(CDPJsonString)
+    Dim CDPNode As BiDiCDPJConv: Set CDPNode = BiDiCDPJConv.Parse(CDPJsonString)
 
     '--------- 1. ブラウザからのイベントか？ ---------
     If CDPNode.ExistsKey("method") Then

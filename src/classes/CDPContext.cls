@@ -250,7 +250,7 @@ Private publicBrowserEvents As StateBrowserEvents   'bas側で使用する用
 
 '各種エラー情報
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
-Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
+Private lastExceptionDetailsJS  As BiDiCDPJConv 'JavaScript実行時の最後のエラー情報(Node情報方式)
 
 'その他
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
@@ -379,10 +379,10 @@ Private Sub InitAttachToSession(InitURL As String)
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim result
-    Dim boolFound As Boolean, doc As BiDiCDPJson
+    Dim boolFound As Boolean, doc As BiDiCDPJConv
     For Each result In FirstTabs
         ' 2-1. 文字列をパース
-        Set doc = BiDiCDPJson.Parse(CStr(result))
+        Set doc = BiDiCDPJConv.Parse(CStr(result))
 
         ' 2-2. 必要なノードを安全に辿る
         If doc.ExistsKey("params") Then
@@ -578,7 +578,7 @@ End Function
 '            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
 '                                           `getIFrameContextID`メソッド等で得れるのがそれです
 '
-'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
+'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、`BiDiCDPJConv.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
 '                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。(既定)
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
@@ -730,7 +730,7 @@ step1:
         If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
         'エラーチェック
-        Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
+        Dim Node_CDPresult As BiDiCDPJConv: Set Node_CDPresult = BiDiCDPJConv.Parse(CDPresult)
         If Not ExecuteError(Node_CDPresult) Then GoTo step2   'CDP自体のエラーがなければ、`step2`へ
     End If
     '-----------------------------------------------------------------------------------------------------------------
@@ -966,7 +966,7 @@ End Sub
 '            ・これはあくまでも、`例外`のみ扱います。「try { ... } catch(e) { return e }」系統の取得は対象外です。
 '            ・非同期によるあとで取り出したパターンとは、連動しません。
 '***************************************************************************************************
-Property Get LastJavaScriptException() As BiDiCDPJson
+Property Get LastJavaScriptException() As BiDiCDPJConv
     Set LastJavaScriptException = lastExceptionDetailsJS
 End Property
 
@@ -999,7 +999,7 @@ End Property
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJConv
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
@@ -1021,8 +1021,8 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     ResultJsonStr = AutoWaitTakeResultCDP(RunID, StopCDPError)
 
     '4. 結果を、Node変換
-    Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
+    Dim resultJson As BiDiCDPJConv
+    Set resultJson = BiDiCDPJConv.Parse(ResultJsonStr)
 
     '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
@@ -1196,7 +1196,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As BiDiCDPJConv, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -1226,7 +1226,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
 
 
             '`error`オブジェクトの中身で記録
-            Dim errNode As BiDiCDPJson
+            Dim errNode As BiDiCDPJConv
             Set errNode = result.NodeKey("error")
 
             '主要なエラー情報を抜き出す
@@ -1342,18 +1342,18 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
 
 
     '------------------ 1. 各種非同期イベントの処理 ------------------
-    Dim tmp As BiDiCDPJson
+    Dim tmp As BiDiCDPJConv
     Select Case methodName
         '------------------ この`Context`(TargetID)のSessionステータスの更新を行います ------------------
         '`SessionID`が切れたが、`targetId`は生存
         Case "Target.detachedFromTarget"
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
-            If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
+            If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
 
         '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
         Case "Target.targetCrashed"
             '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
-            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Set tmp = BiDiCDPJConv.Parse(RawJson).NodeKey("params")
             If tmp.StringKey("targetId") = brTab.targetID Then
                 ControlStatus.targetCrashed = True
 
@@ -1366,12 +1366,12 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
         '`targetId`が消えて、`SessionID`も道ずれ破棄
         Case "Target.targetDestroyed"
             '1-1. 自分の`targetId`か確認し、そうであれば、フラグ更新
-            If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("targetId") = brTab.targetID Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+            If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("targetId") = brTab.targetID Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
         '一部のパラメーター(URL等)を更新します
         Case "Target.targetInfoChanged"
             '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
-            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
+            Set tmp = BiDiCDPJConv.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
             If tmp.StringKey("targetId") = brTab.targetID Then
                 '1-2. 各種パラメーター更新
                 With brTab
@@ -1421,13 +1421,13 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     If sessionID <> brTab.sessionID Then Exit Sub
 
     '2. このタブクラス独自のイベント処理を行う
-    Dim tmpNode As BiDiCDPJson
+    Dim tmpNode As BiDiCDPJConv
     Select Case methodName
         '------------------ この`Context`(TargetID)のJavaScript実行環境ステータスの更新を行います ------------------
         'JavaScript実行環境情報の更新を行います
         Case "Runtime.executionContextCreated"
             '2-1. このタブクラスのTargetIDと一致するか？
-            Set tmpNode = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("context")
+            Set tmpNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params").NodeKey("context")
             If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
                 '2-2. 各種statusを上書き
                 With brTabRuntime
@@ -1446,7 +1446,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
         'JavaScript実行環境情報の破棄更新を行います
         Case "Runtime.executionContextDestroyed"
             '2-1. このClassで保持中の`executionContextUniqueId`と一致するか？
-            If brTabRuntime.uniqueId = BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("executionContextUniqueId") Then
+            If brTabRuntime.uniqueId = BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("executionContextUniqueId") Then
                 brTabRuntime.IsValid = False
                 printMsg info_, "The JavaScript environment owned by this class has been destroyed.", FromProcedureName
             End If
@@ -1463,7 +1463,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
             '2-1. このClassで保持中の`targetid`と一致するか？
             With brTab
                 '※1遷移でも複数回来るため、0のときのみ更新させる
-                If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("frameId") = .targetID Then If .ReadState = 0 Then .ReadState = ReadyState.isLoading
+                If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("frameId") = .targetID Then If .ReadState = 0 Then .ReadState = ReadyState.isLoading
             End With
 
         Case "Page.domContentEventFired"
@@ -1726,7 +1726,7 @@ Public Sub getSessionInfo()
 
 
     'Get infos
-    Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
+    Dim TargetInfo As BiDiCDPJConv: Set TargetInfo = refreshTargetInfo
 
     '各種パラメーター更新
     With brTab
@@ -1762,10 +1762,10 @@ Public Sub printChildFrames()
 
     Dim NodeToken As Long
     Dim iframeCount As Long
-    Dim childFrames As BiDiCDPJson
+    Dim childFrames As BiDiCDPJConv
 
     '1. 実行して、まずは結果を取得
-    Dim tmp As BiDiCDPJson
+    Dim tmp As BiDiCDPJConv
     Set tmp = ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")
 
     '2. iframeがない場合は即抜け
@@ -1780,7 +1780,7 @@ Public Sub printChildFrames()
         NodeToken = .FirstChildToken  ' 配列の先頭トークン
         Do While NodeToken > 0
             '`childFrames`の各`frame`要素を取り出す
-            Dim childFrame As BiDiCDPJson
+            Dim childFrame As BiDiCDPJConv
             Set childFrame = .NodeFromToken(NodeToken).NodeKey("frame")
             iframeCount = iframeCount + 1
 
@@ -2202,7 +2202,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 
     Dim params As New Dictionary
-    Dim r As BiDiCDPJson
+    Dim r As BiDiCDPJConv
     Dim b64 As String, tmpPng As String
 
    'Verify if the page can be captured with screenshot
@@ -2278,9 +2278,9 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：`Target.TargetInfo`オブジェクト。　※取得失敗時は、`Nothing`で返ります。大抵は、context(タブ等)が消えてることが多いです
 '***************************************************************************************************
-Private Function refreshTargetInfo() As BiDiCDPJson
+Private Function refreshTargetInfo() As BiDiCDPJConv
     '1. このClassで設定中の`SessionID`を基に情報取得を試みる
-    Dim TargetInfo As BiDiCDPJson
+    Dim TargetInfo As BiDiCDPJConv
     Set TargetInfo = ExecuteCDP("Target.getTargetInfo")
 
     '2. エラーがなければ、`targetInfo`の中身を返却
@@ -2319,7 +2319,7 @@ Public Function getIFrameContextID(Optional iframeName As String, Optional Url A
 
 
     Dim NodeToken_childFrames   As Long
-    Dim Node_childFrames        As BiDiCDPJson
+    Dim Node_childFrames        As BiDiCDPJConv
     Dim frameID                 As String, candidateframeID As String
     Dim iframefound             As Boolean
     Dim bestScore As Long, score As Long
@@ -2330,7 +2330,7 @@ Public Function getIFrameContextID(Optional iframeName As String, Optional Url A
     If doRetrySecond > 0 Then timerStart = CDPHelpers.TimerCounter
     Do
         '2. 実行して、まずは`frameTree`を取得
-        Dim frameTreeNode As BiDiCDPJson
+        Dim frameTreeNode As BiDiCDPJConv
         Set frameTreeNode = ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")
 
         '3. iframeがない場合は即抜け
@@ -2346,7 +2346,7 @@ Public Function getIFrameContextID(Optional iframeName As String, Optional Url A
         candidateframeID = vbNullString
         Do While NodeToken_childFrames > 0
             '5-1. `childFrames`の各`frame`要素を取り出す
-            Dim childFrame As BiDiCDPJson
+            Dim childFrame As BiDiCDPJConv
             Set childFrame = Node_childFrames.NodeFromToken(NodeToken_childFrames).NodeKey("frame")
 
             '5-2. 現スコアをリセット

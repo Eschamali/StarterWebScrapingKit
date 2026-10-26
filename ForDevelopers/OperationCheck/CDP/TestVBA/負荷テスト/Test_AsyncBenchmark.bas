@@ -113,7 +113,6 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
     For t = 1 To NUM_TABS
         tabStates(t).Index = t
 
-        tabs(t).ExecuteCDP "Page.enable"
         tabs(t).ExecuteCDP "Network.enable"
         tabs(t).SetFilterEvents = "Page.loadEventFired"
         tabs(t).SetFilterEvents = "Network.requestWillBeSent"
@@ -210,7 +209,18 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
             .show False
         End With
     Else
+        
+        '------ 一般ルート ------
         Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        '------------------------
+
+        '---- マニュアルルート---
+'        Dim CoreEvent As CDPCore    '`exCDP_PageLoadWatcherForCore.cls`ファイルを使用する場合はこれも使うこと
+'        Set CoreEvent = BrowserCapabilities.ClsGet_CDPCore
+'        Set chrome = New CDPBrowser
+'        chrome.OpenBrowser BrowserCapabilities
+        '------------------------
+        
         Set tabs(1) = chrome.getTab(setMain:=True)
     End If
 
@@ -228,7 +238,8 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
         tabStates(t).Index = t
 
         Set watchers(t) = New exCDP_PageLoadWatcher
-        watchers(t).Init tabs(t)   ' Page/Network有効化はクラス内部で完了する
+'        watchers(t).InitCore CoreEvent  '`exCDP_PageLoadWatcherForCore.cls`ファイルを使用する場合はこれも使うこと
+        watchers(t).Init tabs(t)        ' Page/Network有効化はクラス内部で完了する
     Next t
 
     ReDim cookieTickets(1 To NUM_TABS * NUM_ROUNDS)

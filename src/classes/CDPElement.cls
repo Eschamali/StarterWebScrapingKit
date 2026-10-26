@@ -1473,7 +1473,7 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
 
 
     '1. `objectId`に対して、直下のNode情報を取得
-    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
+    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJConv
     Set paramsCDP = New Dictionary
     paramsCDP.Add "objectId", CurrentElement.objectId
     paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
@@ -1485,7 +1485,7 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
     '3. 指定Index圏内か？
-    Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
+    Dim Nodes_shadowRoots As BiDiCDPJConv: Set Nodes_shadowRoots = ResultCDP("node").NodeKey("shadowRoots")
     If Nodes_shadowRoots.Count <= Index Then printMsg WARN_, "shadowRoots-Index out of range.", FromProcedureName: Exit Function
 
     '4. 指定位置の`shadowRoots`の`backendNodeId`を取得
@@ -1526,7 +1526,7 @@ Public Function GetShadowRoots() As Collection
 
 
     '1. `objectId`に対して、直下のNode情報を取得
-    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
+    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJConv
     Set paramsCDP = New Dictionary
     paramsCDP.Add "objectId", CurrentElement.objectId
     paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
@@ -1538,7 +1538,7 @@ Public Function GetShadowRoots() As Collection
     If Not ResultCDP.NodeKey("node").ExistsKey("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
     '3. `shadowRoots`の最初の`shadowRoots`要素のトークンIDを取得
-    Dim Nodes_shadowRoots As BiDiCDPJson: Set Nodes_shadowRoots = ResultCDP.NodeKey("node").NodeKey("shadowRoots")
+    Dim Nodes_shadowRoots As BiDiCDPJConv: Set Nodes_shadowRoots = ResultCDP.NodeKey("node").NodeKey("shadowRoots")
     Dim tId_shadowRoots As Long: tId_shadowRoots = Nodes_shadowRoots.FirstChildToken
 
     '4. 探索準備
@@ -1554,7 +1554,7 @@ Public Function GetShadowRoots() As Collection
         printMsg Debug_, "`Shadow-Root` - backendNodeId: " & shadowRootNodeId, FromProcedureName
 
         '5-2. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
-        Dim ResultRemoteObject As BiDiCDPJson
+        Dim ResultRemoteObject As BiDiCDPJConv
         paramsCDP.RemoveAll
         paramsCDP.Add "backendNodeId", shadowRootNodeId
         Set ResultRemoteObject = ExecuteCDP("DOM.resolveNode", paramsCDP).NodeKey("object")
@@ -1623,7 +1623,7 @@ End Sub
 '***************************************************************************************************
 '                             ■■■ CDPContext.cls 直通メソッド ■■■
 '***************************************************************************************************
-Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJConv
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 

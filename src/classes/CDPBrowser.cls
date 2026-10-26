@@ -321,7 +321,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     If isBackground Then params("background") = isBackground
 
     '2. 実行
-    Dim results As BiDiCDPJson
+    Dim results As BiDiCDPJConv
     Set results = ExecuteCDP("Target.createTarget", params)
 
     '3. Return the new tab's Session ID
@@ -378,7 +378,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
     Dim NodeToken As Long
     Dim tabId As String, candidateTabId As String
-    Dim targets As BiDiCDPJson
+    Dim targets As BiDiCDPJConv
     Dim timerStart As Double
     Dim tabfound As Boolean
     Dim bestScore As Long, score As Long
@@ -562,7 +562,7 @@ Public Sub printTargetInfos()
 
     Dim NodeToken As Long
     Dim TabCount As Long
-    Dim targets As BiDiCDPJson
+    Dim targets As BiDiCDPJConv
     Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
@@ -597,7 +597,7 @@ Public Function PageCount() As Long
 
 
     Dim NodeToken As Long
-    Dim targets As BiDiCDPJson
+    Dim targets As BiDiCDPJConv
     Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
@@ -655,7 +655,7 @@ End Function
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJConv
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
@@ -677,8 +677,8 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     ResultJsonStr = AutoWaitTakeResultCDP(RunID, StopCDPError)
 
     '4. 結果を、Node変換
-    Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
+    Dim resultJson As BiDiCDPJConv
+    Set resultJson = BiDiCDPJConv.Parse(ResultJsonStr)
 
     '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
@@ -848,7 +848,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As BiDiCDPJConv, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -878,7 +878,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
 
 
             '`error`オブジェクトの中身で記録
-            Dim errNode As BiDiCDPJson
+            Dim errNode As BiDiCDPJConv
             Set errNode = result.NodeKey("error")
 
             '主要なエラー情報を抜き出す
@@ -1087,7 +1087,7 @@ End Sub
 '***************************************************************************************************
 Private Sub getBrowserInfo()
     '1. バージョン番号を取得
-    Dim BrowserInfos As BiDiCDPJson: Set BrowserInfos = ExecuteCDP("Browser.getVersion")
+    Dim BrowserInfos As BiDiCDPJConv: Set BrowserInfos = ExecuteCDP("Browser.getVersion")
 
     '2. VBA用にキャッシュする
     With br
@@ -1125,7 +1125,7 @@ Public Function attachToTab(tabId As String) As String
     CDPparams.Add "flatten", True
 
     '2. 実行
-    Dim tmp As BiDiCDPJson
+    Dim tmp As BiDiCDPJConv
     Set tmp = ExecuteCDP("Target.attachToTarget", CDPparams, False)
 
     '3. 結果があれば、返却

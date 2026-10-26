@@ -192,7 +192,7 @@ Sub UseExtensions()
     controlExtensions.navigate "edge://extensions/"
 
     '拡張機能を読み込む
-    Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
+    Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJConv
     Set CDPparams = New Dictionary
     CDPparams.Add "path", ExtensionsFolderPath
     Set ResultCDP = controlExtensions.ThisCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
@@ -250,7 +250,7 @@ Sub TestAlert()
 
     '必要な変数を用意
     Dim paramsCDP As New Dictionary
-    Dim resCDP As BiDiCDPJson
+    Dim resCDP As BiDiCDPJConv
     Dim searchId As String
     Dim nodeId As Long
     Dim x As Double, y As Double
@@ -605,7 +605,8 @@ Sub runNewTab()
    'Google search result returns links that open in the same tab window
    'For this demonstration, we need to make it open in a new tab window instead
     Dim targetElement As CDPElement
-    Set targetElement = chrome.getElementByXPath(".//a[contains(@href, 'https://www.newstarget.com/')]")
+    '※2026/10/17確認時、Googleの検索結果リンクは`href="/goto?url=..."`(リダイレクト)形式に変わったため、リンク内に表示されるURL(`cite`)でも判定する
+    Set targetElement = chrome.getElementByXPath("//a[contains(@href, 'https://www.newstarget.com/') or .//cite[contains(., 'https://www.newstarget.com')]]")
     targetElement.setAttribute "target", "_blank"   'Modify the element attribute to open in a new tab instead
     targetElement.click                             'Click the link, a new tab will be spontaneously open. 別タブで開いてしまうため、ここは待機なしクリックにする
 

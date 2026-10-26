@@ -3,8 +3,8 @@ Attribute VB_Name = "Test_BiDiAlertRace"
 ' WebDriverBiDi: 受信ずれ耐久テスト（alert）
 '
 ' 狙い:
-' - invokeMethodAsync("script.evaluate") の戻りIDを後で ResultBiDiForAsync で回収する流れに対し、
-'   userPromptOpened / handleUserPrompt / 同期invokeMethod を混在させて、受信ずれを起こしやすくする。
+' - `jsEval(RunAsyncBiDi:=True)`(script.evaluate) の戻りIDを後で `TakeResultBiDi` で回収する流れに対し、
+'   userPromptOpened / handleUserPrompt / 同期の`jsEval` を混在させて、受信ずれを起こしやすくする。
 '
 ' 下記のテスト用のイベントクラス処理ファイルのインポートをしてください
 ' ・WebDriverBiDiEventtest.cls
@@ -33,26 +33,28 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
     caps("capabilities").Add "alwaysMatch", alwaysMatch
     '-------------------------------------------
 
-    Dim wd As WebDriverBiDiCore
-    Set wd = 設定シートからのBiDi起動("file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\WebDriverBiDi\TestHtml\Test_BiDiAlertRace\Test_BiDiAlertRace.html", "\", "/"), sessionCapabilitiesRequest:=caps)
+    '設定シートに基づき、BiDiモードで起動
+    Dim t As WebDriverBiDiContext
+    Set t = ShSetting01_StartBrowser.StartBiDiModeContext("file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\WebDriverBiDi\TestHtml\Test_BiDiAlertRace\Test_BiDiAlertRace.html", "\", "/"), sessionCapabilitiesRequest:=caps)
+
+    Dim wd As WebDriverBiDiMode
+    Set wd = t.ThisWebDriverBiDiMode
+
+    'alertの自動処理は、拡張クラス側の`ExEvent`で行う
     Dim DialogAutoClose As New WebDriverBiDiEventtest
-    DialogAutoClose.Init wd
-    
+    DialogAutoClose.Init t
+
     passCount = 0
     failCount = 0
 
     PrintHeader "BiDi alert race stress test 開始"
 
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Dim paramsBiDi As Dictionary
     Dim targetContext As String
-
-    Set resultBiDi = wd.invokeMethod("browsingContext.getTree")
-    If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")
-    End If
+    targetContext = t.context
     If targetContext = "" Then
         Debug.Print "  FAIL | targetContext 取得失敗"
-        wd.quit
+        wd.CloseBrowser
         Exit Sub
     End If
 
@@ -61,7 +63,7 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
     Dim eventsArray As New Collection
     eventsArray.Add "browsingContext.userPromptOpened"
     paramsBiDi.Add "events", eventsArray
-    wd.invokeMethod "session.subscribe", paramsBiDi
+    wd.ExecuteBiDi "session.subscribe", paramsBiDi
 
     Dim i As Long
     For i = 1 To iterations
@@ -74,25 +76,24 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
 
         ' 1) alertボタンclick を async 実行（これのID回収が主目的）
         Dim asyncClickId As Long
-        asyncClickId = EvalAsync(wd, targetContext, "document.getElementById('btn-bidi-alert').click()", False)
+        asyncClickId = EvalAsync(t, "document.getElementById('btn-bidi-alert').click()", False)
 
         ' 2) さらに async を1本追加し混雑させる
         Dim asyncDummyId As Long
-        asyncDummyId = EvalAsync(wd, targetContext, "document.title", False)
+        asyncDummyId = EvalAsync(t, "document.title", False)
 
         ' 3) イベント処理設定
         DialogAutoClose.DefaultAccept = True
         DialogAutoClose.DefaultPromptText = "BIDI_INPUT_" & CStr(i)
-        DialogAutoClose.targetContext = targetContext
 
         ' 4) 同期コマンドを挟んで受信ループ中の競合を誘発
         Dim dummySync As Variant
-        dummySync = EvalSyncValue(wd, targetContext, "document.body.clientWidth")
+        dummySync = EvalSyncValue(t, "document.body.clientWidth")
 
         ' 5) ページ状態の整合確認（alertが閉じた後に更新される値）
         Dim lastMsg As String, statusTxt As String
-        lastMsg = CStr(EvalSyncValue(wd, targetContext, "window.__bidi_last_alert"))
-        statusTxt = CStr(EvalSyncValue(wd, targetContext, "document.getElementById('status').textContent"))
+        lastMsg = CStr(EvalSyncValue(t, "window.__bidi_last_alert"))
+        statusTxt = CStr(EvalSyncValue(t, "document.getElementById('status').textContent"))
 
         If InStr(1, lastMsg, "BIDI_RACE_", vbTextCompare) = 0 Then
             failCount = failCount + 1
@@ -108,10 +109,10 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
         End If
 
         ' 6) 非同期ID回収（ここがズレ検知ポイント）
-        Dim box1 As Dictionary, box2 As Dictionary
+        Dim box1 As String, box2 As String
         Dim ok1 As Boolean, ok2 As Boolean
-        ok1 = TryResultBiDiForAsync(wd, asyncClickId, box1, 2#)
-        ok2 = TryResultBiDiForAsync(wd, asyncDummyId, box2, 2#)
+        ok1 = TryTakeResultBiDi(wd, asyncClickId, box1, 2#)
+        ok2 = TryTakeResultBiDi(wd, asyncDummyId, box2, 2#)
 
         If Not ok1 Then
             failCount = failCount + 1
@@ -126,7 +127,7 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
 '            Debug.Print "  " & EOk() & " PASS | async result IDs recovered"
         End If
 
-        wd.sleep 0.03
+        CDPHelpers.Sleep 0.03
         GoTo IterNext
 
 IterErr:
@@ -139,70 +140,53 @@ IterNext:
     Next i
 
     PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
-    wd.quit
+    wd.CloseBrowser
 End Sub
 
-Private Function EvalAsync(wd As WebDriverBiDiCore, targetContext As String, expr As String, Optional awaitPromise As Boolean = False) As Long
-    Dim paramsBiDi As New Dictionary
-    Dim Target As New Dictionary
-    Target.Add "context", targetContext
-
-    paramsBiDi.Add "expression", expr
-    paramsBiDi.Add "target", Target
-    paramsBiDi.Add "awaitPromise", awaitPromise
-
-    EvalAsync = wd.invokeMethodAsync("script.evaluate", paramsBiDi)
+'非同期で`script.evaluate`を送り、コマンドIDだけを返す
+Private Function EvalAsync(t As WebDriverBiDiContext, expr As String, Optional awaitPromise As Boolean = False) As Long
+    EvalAsync = t.jsEval(expr, awaitPromise:=awaitPromise, RunAsyncBiDi:=True)
 End Function
 
-Private Function EvalSyncValue(wd As WebDriverBiDiCore, targetContext As String, expr As String, Optional awaitPromise As Boolean = True) As Variant
-    Dim paramsBiDi As New Dictionary
-    Dim Target As New Dictionary
-    Dim resultBiDi As Dictionary
-
-    Target.Add "context", targetContext
-    paramsBiDi.Add "expression", expr
-    paramsBiDi.Add "target", Target
-    paramsBiDi.Add "awaitPromise", awaitPromise
-
-    Set resultBiDi = wd.invokeMethod("script.evaluate", paramsBiDi)
-
-    If resultBiDi Is Nothing Then Exit Function
-    If Not resultBiDi.Exists("result") Then Exit Function
-    If Not resultBiDi("result").Exists("value") Then Exit Function
-    EvalSyncValue = resultBiDi("result")("value")
+'同期で`script.evaluate`を送り、値を返す
+Private Function EvalSyncValue(t As WebDriverBiDiContext, expr As String, Optional awaitPromise As Boolean = True) As Variant
+    EvalSyncValue = t.jsEval(expr, awaitPromise:=awaitPromise)
 End Function
 
-Private Function WaitForPromptEvent(wd As WebDriverBiDiCore, evName As String, timeoutSec As Double) As Boolean
+Private Function WaitForPromptEvent(wd As WebDriverBiDiMode, evName As String, timeoutSec As Double) As Boolean
     Dim t0 As Double: t0 = Timer
     Do
         wd.TakeEvents
         If Not (wd.BiDiEvents Is Nothing) Then
-            If wd.BiDiEvents("EventMethods").Exists(evName) Then
-                WaitForPromptEvent = True
-                Exit Function
+            If wd.BiDiEvents.Exists("EventMethods") Then
+                If wd.BiDiEvents("EventMethods").Exists(evName) Then
+                    WaitForPromptEvent = True
+                    Exit Function
+                End If
             End If
         End If
-        wd.sleep 0.02
+        CDPHelpers.Sleep 0.02
         DoEvents
         If Timer - t0 > timeoutSec Then Exit Do
     Loop
     WaitForPromptEvent = False
 End Function
 
-Private Function TryResultBiDiForAsync(wd As WebDriverBiDiCore, ByVal cmdId As Long, ByRef receiveBox As Dictionary, ByVal timeoutSec As Double) As Boolean
+'非同期コマンドの結果(Json文字列)を、タイムアウトまで回収を試みる
+Private Function TryTakeResultBiDi(wd As WebDriverBiDiMode, ByVal cmdId As Long, ByRef receiveBox As String, ByVal timeoutSec As Double) As Boolean
     Dim t0 As Double: t0 = Timer
     Do
-        Set receiveBox = wd.ResultBiDiForAsync(cmdId)
-        If Not receiveBox Is Nothing Then
-            TryResultBiDiForAsync = True
+        receiveBox = wd.TakeResultBiDi(cmdId)
+        If StrPtr(receiveBox) Then
+            TryTakeResultBiDi = True
             Exit Function
         End If
         wd.TakeEvents
-        wd.sleep 0.02
+        CDPHelpers.Sleep 0.02
         DoEvents
         If Timer - t0 > timeoutSec Then Exit Do
     Loop
-    TryResultBiDiForAsync = False
+    TryTakeResultBiDi = False
 End Function
 
 Private Sub PrintHeader(msg As String)

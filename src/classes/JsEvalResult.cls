@@ -35,8 +35,8 @@ Private Const ThisClassName As String = "JsEvalResult"    'ログのトレース
 ' [ SECTION ] 基本情報
 '---------------------------------------------------------------------------------------------------'
 Private m_isCDP             As Boolean      '制御中のプロトコル。`False`なら、BiDi
-Private m_ResultObject      As BiDiCDPJson  '実行結果部分のオブジェクト(`Runtime.RemoteObject` or `script.RemoteValue`)
-Private m_ExceptionDetails  As BiDiCDPJson  '実行例外部分のオブジェクト(`exceptionDetails` or `script.ExceptionDetails`)
+Private m_ResultObject      As BiDiCDPJConv  '実行結果部分のオブジェクト(`Runtime.RemoteObject` or `script.RemoteValue`)
+Private m_ExceptionDetails  As BiDiCDPJConv  '実行例外部分のオブジェクト(`exceptionDetails` or `script.ExceptionDetails`)
 Private m_isException       As Boolean      '実行時例外が発生したか？
 Private m_VarTypeJS         As String       '結果型(JS向け)
 Private m_VarTypeVBA        As VbVarType    '結果型(VBA向け)
@@ -68,7 +68,7 @@ Private m_LogID             As String       'ログID
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：利用前に、CDP/BiDi自体のコマンド実行成功可否確認が必要です
 '***************************************************************************************************
-Public Sub InitForReturnObject(isCDP As Boolean, ReturnObject As BiDiCDPJson, Optional IFEXCEPTION As Variant, Optional RunJS As String)
+Public Sub InitForReturnObject(isCDP As Boolean, ReturnObject As BiDiCDPJConv, Optional IFEXCEPTION As Variant, Optional RunJS As String)
     Const FromProcedureName As String = ThisClassName & ".InitForReturnObject"
     Const exceptionSignName As String = "exception"
 
@@ -180,7 +180,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`ExceptionResultObject`から呼び出す想定です
 '***************************************************************************************************
-Public Sub InitForResultObject(isCDP As Boolean, ResultObject As BiDiCDPJson, Optional RunJS As String)
+Public Sub InitForResultObject(isCDP As Boolean, ResultObject As BiDiCDPJConv, Optional RunJS As String)
     Const FromProcedureName As String = ThisClassName & ".InitForResultObject"
 
 
@@ -431,7 +431,7 @@ End Sub
 ' [ SECTION ] 例外情報(Runtime.ExceptionDetails/script.ExceptionDetails)
 '             ※一旦、BiDiとの共通分のみ用意します
 '---------------------------------------------------------------------------------------------------
-Property Get rawException() As BiDiCDPJson
+Property Get rawException() As BiDiCDPJConv
     Set rawException = m_ExceptionDetails
 End Property
 
@@ -466,7 +466,7 @@ Property Get ExceptionLineNumber() As Long
     ExceptionLineNumber = m_ExceptionDetails.NumberKey("lineNumber")
 End Property
 
-Property Get ExceptionStackTrace() As BiDiCDPJson
+Property Get ExceptionStackTrace() As BiDiCDPJConv
     '例外情報がない時は、即抜け
     If Not m_isException Then Exit Property
 
@@ -525,15 +525,15 @@ Property Get UnserializableValue() As String
     UnserializableValue = m_ResultObject.StringKey("unserializableValue")
 End Property
 
-Property Get CustomPreview() As BiDiCDPJson
+Property Get CustomPreview() As BiDiCDPJConv
     Set CustomPreview = m_ResultObject.NodeKey("customPreview")
 End Property
 
-Property Get DeepSerializedValue() As BiDiCDPJson
+Property Get DeepSerializedValue() As BiDiCDPJConv
     Set DeepSerializedValue = m_ResultObject.NodeKey("deepSerializedValue")
 End Property
 
-Property Get Preview() As BiDiCDPJson
+Property Get Preview() As BiDiCDPJConv
     Set Preview = m_ResultObject.NodeKey("preview")
 End Property
 
