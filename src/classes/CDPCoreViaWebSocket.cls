@@ -871,7 +871,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
                 '※理由(テキスト)までは見ません、ﾒﾝﾄﾞｲﾉﾃﾞ
                 If EndOfData Then
                     Dim CloseCode As Long
-                    CloseCode = CLng(m_LastReceiveContentBINARY(0)) * 256& + CLng(m_LastReceiveContentBINARY(1))
+                    CloseCode = CLng(m_LastReceiveContentBINARY(0)) * 2 ^ 8 + CLng(m_LastReceiveContentBINARY(1))
                     printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`. Code: " & CloseCode, FromProcedureName
                 Else
                     printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
