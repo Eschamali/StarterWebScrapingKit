@@ -29,7 +29,7 @@ Attribute VB_Name = "Test_BiDiAsyncBenchmark_WaitEvents"
 '   BiDiコマンド：
 '     ・Cookie      → `storage.getCookies`（`partition`に`{type:"context", context:...}`を指定）
 '     ・Screenshot  → `browsingContext.captureScreenshot`
-'   結果の生JSONは、`ExecuteBiDi`同様`BiDiCDPJson.Parse`で解析し、`"type"="error"`かどうかで
+'   結果の生JSONは、`ExecuteBiDi`同様`BiDiCDPJConv.Parse`で解析し、`"type"="error"`かどうかで
 '   成否判定します（CDP版の`{"error":...}/{"result":...}`とはJSON構造が異なる点に注意）。
 '===================================================================================================
 Option Explicit
@@ -236,8 +236,8 @@ Private Sub FireAndDrainRound(mode As WebDriverBiDiMode, tabs() As WebDriverBiDi
                     screenshotPayloads(screenshotPayloadCount).RoundIndex = r
                     screenshotPayloads(screenshotPayloadCount).FileName = "bidi_bench_tab" & screenshotTickets(i).TabIndex & "_round" & r & ".png"
 
-                    Dim resNode As BiDiCDPJson
-                    Set resNode = BiDiCDPJson.Parse(resJson)
+                    Dim resNode As BiDiCDPJConv
+                    Set resNode = BiDiCDPJConv.Parse(resJson)
                     If resNode.StringKey("type") = "error" Then
                         screenshotPayloads(screenshotPayloadCount).HadError = True
                         Debug.Print "  [WARN] Tab " & screenshotTickets(i).TabIndex & " Round " & r & " スクショ取得エラー: " & resNode.StringKey("message")
@@ -317,8 +317,8 @@ Private Sub DrainAllCookies(mode As WebDriverBiDiMode, ByRef cookieTickets() As 
                     cookieTickets(i).Retrieved = True
                     remaining = remaining - 1
 
-                    Dim resNode As BiDiCDPJson
-                    Set resNode = BiDiCDPJson.Parse(resJson)
+                    Dim resNode As BiDiCDPJConv
+                    Set resNode = BiDiCDPJConv.Parse(resJson)
                     If resNode.StringKey("type") = "error" Then
                         cookieTickets(i).HadError = True
                     Else

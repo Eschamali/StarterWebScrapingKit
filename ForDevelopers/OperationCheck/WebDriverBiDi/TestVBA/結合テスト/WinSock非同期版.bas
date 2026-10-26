@@ -320,8 +320,8 @@ Private Sub ValidateMain10AsyncResponse(ByRef rawJson As String)
     Const PROC As String = _
         "Demo_WebDriverBiDi_Main10_Async.ValidateMain10AsyncResponse"
 
-    Dim envelope As BiDiCDPJson
-    Set envelope = BiDiCDPJson.Parse(rawJson)
+    Dim envelope As BiDiCDPJConv
+    Set envelope = BiDiCDPJConv.Parse(rawJson)
 
     If envelope Is Nothing Then
         Err.Raise vbObjectError + 2210, PROC, _
@@ -348,7 +348,7 @@ Private Sub ValidateMain10AsyncResponse(ByRef rawJson As String)
             "The asynchronous BiDi response has no result member."
     End If
 
-    Dim evaluateResult As BiDiCDPJson
+    Dim evaluateResult As BiDiCDPJConv
     Set evaluateResult = envelope.NodeKey("result")
 
     If evaluateResult Is Nothing Then
@@ -359,7 +359,7 @@ Private Sub ValidateMain10AsyncResponse(ByRef rawJson As String)
     'script.evaluate can return type=success or type=exception.
     If LCase$(evaluateResult.StringKey("type")) <> "success" Then
         Dim detail As String
-        Dim exceptionDetails As BiDiCDPJson
+        Dim exceptionDetails As BiDiCDPJConv
 
         If evaluateResult.ExistsKey("exceptionDetails") Then
             Set exceptionDetails = evaluateResult.NodeKey("exceptionDetails")
@@ -374,7 +374,7 @@ Private Sub ValidateMain10AsyncResponse(ByRef rawJson As String)
         Err.Raise vbObjectError + 2214, PROC, detail
     End If
 
-    Dim remoteValue As BiDiCDPJson
+    Dim remoteValue As BiDiCDPJConv
     Set remoteValue = evaluateResult.NodeKey("result")
 
     If remoteValue Is Nothing Then
