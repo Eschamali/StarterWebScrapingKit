@@ -744,7 +744,9 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         '※破棄モードの場合は、スルー
         If Not destruction Then EndOfData = Not m_WebSocketFrame.ValidTags
 
-        '2-2. 受信0の時のみ、一定の回数ごとに`Ping`を送る。※初回ループは、送らない
+        '2-2. 受信0の時のみ、一定の回数ごとに`Ping`を送る。
+        '※初回ループは、送らない
+        '※連続で受信0の時のみ、カウント
         Static EmptyCounter As Integer
         EmptyCounter = EmptyCounter + 1
         If EmptyCounter Mod RunPingCount = 0 Then
@@ -785,6 +787,9 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         'この場合、サイズ0、エラーなしとなります。
         If Not UpdateFrameHeader(bytesAvailable) Then Exit Function
     End If
+
+    '受信データは来たので、コンボをリセット
+    EmptyCounter = 0
 
     '3. 必要な取り出しペイロードデータサイズを計算
     Dim TakePayloadSize As Long
