@@ -486,7 +486,7 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
         printMsg ERROR_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - ErrorCode: " & ErrorCode & " - " & WinApiError.GetMessage(ErrorCode), FromProcedureName
 
         '上手い具合に、`id`付きで、返ったエラーもくっつけて、復元させる
-        Dim ErrorNode As BiDiCDPJson: Set ErrorNode = BiDiCDPJson.Parse(ResultJsonStr).NodeKey("error")
+        Dim ErrorNode As BiDiCDPJConv: Set ErrorNode = BiDiCDPJConv.Parse(ResultJsonStr).NodeKey("error")
         synthesized = "{""id"":" & callbackId & ",""error"":" & ErrorNode.Stringify & "}"
     End If
 
