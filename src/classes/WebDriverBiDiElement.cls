@@ -168,8 +168,8 @@ End Sub
 '* 注意事項：・空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '            ・`CDPElement`と同じ使い勝手にするため、プロパティ名は`CurrentObjectId`のままにしています
 '***************************************************************************************************
-Property Get CurrentObjectId() As String
-    CurrentObjectId = CurrentElement.sharedId
+Property Get CurrentElementId() As String
+    CurrentElementId = CurrentElement.sharedId
 End Property
 
 '***************************************************************************************************
@@ -757,9 +757,9 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
             If Not Not CurrentElement.SearchArgs Then
                 '引数情報があるので、引数付きで実行
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentElementId, CurrentElement.SearchArgs)
             Else
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentElementId)
             End If
         End If
 
