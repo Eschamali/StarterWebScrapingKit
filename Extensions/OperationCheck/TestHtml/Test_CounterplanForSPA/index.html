@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Test_CounterplanForSPA</title>
+<style>
+  body { font-family: sans-serif; margin: 16px; }
+  section { border: 1px solid #ccc; padding: 8px 12px; margin-bottom: 12px; }
+  h2 { font-size: 15px; margin: 0 0 6px; }
+  .result { font-weight: bold; color: #06c; }
+  .box { position: relative; display: inline-block; }
+  #overlay { position: absolute; inset: -4px; background: rgba(255, 0, 0, .15); }
+  [role="combobox"], #fakeSearch { display: inline-block; border: 1px solid #888; padding: 4px 8px; cursor: pointer; min-width: 160px; }
+  [role="listbox"] { list-style: none; margin: 4px 0 0; padding: 0; border: 1px solid #888; width: 180px; }
+  [role="option"] { padding: 4px 8px; cursor: pointer; }
+  [role="option"]:hover { background: #eef; }
+</style>
+</head>
+<body>
+<h1>exCDP_SpaElement テストページ</h1>
+<p>各シナリオの結果は <span class="result">青字</span> の欄に表示されます。</p>
+
+<!-- S1: 非表示の複製要素 -->
+<section>
+  <h2>S1. 非表示の複製（同じXPathに2件ヒット。先頭は非表示）</h2>
+  <div style="display:none"><button class="save" onclick="mark('r1','hidden')">Save</button></div>
+  <button class="save" onclick="mark('r1','visible')">Save</button>
+  結果: <span id="r1" class="result"></span>
+</section>
+
+<!-- S2: フォーカスで再描画される要素 -->
+<section>
+  <h2>S2. 初回フォーカス時に、ボタンが新しい要素へ差し替わる（stale）</h2>
+  <div id="s2"><button id="rerender" onclick="mark('r2','old')">Rerender</button></div>
+  結果: <span id="r2" class="result"></span>
+</section>
+
+<!-- S3: クリックで本物の入力欄が現れる -->
+<section>
+  <h2>S3. クリックすると、本物の入力欄に差し替わる（Google Flights 風）</h2>
+  <div id="s3"><div id="fakeSearch" role="button" tabindex="0">Where from?</div></div>
+  結果(アプリ側の値): <span id="r3" class="result"></span>
+</section>
+
+<!-- S4: input イベントでのみ状態が更新される入力欄 -->
+<section>
+  <h2>S4. input イベントでのみモデルが更新され、blur 時にモデルの値へ戻される入力欄</h2>
+  <input id="controlled" type="text">
+  結果(モデル): <span id="r4" class="result"></span>
+</section>
+
+<!-- S5: オーバーレイに覆われたボタン -->
+<section>
+  <h2>S5. 半透明のオーバーレイに覆われたボタン</h2>
+  <div class="box"><button id="covered" onclick="mark('r5','button')">Accept terms</button><div id="overlay" onclick="mark('r5','overlay')"></div></div>
+  結果: <span id="r5" class="result"></span>
+</section>
+
+<!-- S6: 独自ドロップダウン -->
+<section>
+  <h2>S6. 独自ドロップダウン（role=option。非表示の複製リストあり）</h2>
+  <div id="combo" role="combobox" tabindex="0" aria-expanded="false">Choose a city</div>
+  <ul role="listbox" style="display:none"><li role="option">Paris</li><li role="option">Tokyo</li></ul>
+  <ul role="listbox" id="cityList" hidden><li role="option">Paris</li><li role="option">Tokyo</li><li role="option">New York</li></ul>
+  結果: <span id="r6" class="result"></span>
+</section>
+
+<!-- S7: ネイティブ select -->
+<section>
+  <h2>S7. ネイティブの select</h2>
+  <select id="sel"><option value="">--</option><option value="jp">Japan</option><option value="fr">France</option></select>
+  結果(value): <span id="r7" class="result"></span>
+</section>
+
+<!-- S8: Shadow DOM -->
+<section>
+  <h2>S8. open な Shadow DOM 内のボタンと入力欄</h2>
+  <x-card></x-card>
+  クリック結果: <span id="r8" class="result"></span> / 入力結果: <span id="r9" class="result"></span>
+</section>
+
+<!-- S10: 値を自動整形する入力欄 -->
+<section>
+  <h2>S10. 入力値を3桁カンマ区切りに自動整形する入力欄（照合で不一致になる例）</h2>
+  <input id="amount" type="text">
+  結果: <span id="r10" class="result"></span>
+</section>
+
+<script>
+  function mark(id, v) { document.getElementById(id).textContent = v; }
+
+  // S2: 初回フォーカス時だけ、同じ見た目の新しいボタンへ差し替える
+  (function () {
+    let replaced = false;
+    document.getElementById('s2').addEventListener('focusin', function (e) {
+      if (replaced || e.target.id !== 'rerender') return;
+      replaced = true;
+      const nb = document.createElement('button');
+      nb.id = 'rerender';
+      nb.textContent = 'Rerender';
+      nb.onclick = function () { mark('r2', 'new'); };
+      e.target.replaceWith(nb);
+    });
+  })();
+
+  // S3: クリック後、少し遅れて本物の input に差し替え、フォーカスする
+  document.getElementById('fakeSearch').addEventListener('click', function () {
+    const fake = this;
+    setTimeout(function () {
+      if (!fake.isConnected) return;
+      const input = document.createElement('input');
+      input.id = 'realSearch';
+      input.type = 'text';
+      input.addEventListener('input', function () { mark('r3', input.value); });
+      fake.replaceWith(input);
+      input.focus();
+    }, 80);
+  });
+
+  // S4: モデルは input イベントでのみ更新。blur 時にモデルの値を書き戻す（制御コンポーネント風）
+  (function () {
+    const el = document.getElementById('controlled');
+    let model = '';
+    el.addEventListener('input', function () { model = el.value; mark('r4', model); });
+    el.addEventListener('blur', function () { el.value = model; });
+  })();
+
+  // S6: クリックで少し遅れてリストを開く
+  (function () {
+    const combo = document.getElementById('combo');
+    const list = document.getElementById('cityList');
+    combo.addEventListener('click', function () {
+      setTimeout(function () { list.hidden = false; combo.setAttribute('aria-expanded', 'true'); }, 100);
+    });
+    list.addEventListener('click', function (e) {
+      const opt = e.target.closest('[role="option"]');
+      if (!opt) return;
+      combo.textContent = opt.textContent;
+      mark('r6', opt.textContent);
+      list.hidden = true;
+      combo.setAttribute('aria-expanded', 'false');
+    });
+  })();
+
+  // S7
+  document.getElementById('sel').addEventListener('change', function () { mark('r7', this.value); });
+
+  // S8
+  customElements.define('x-card', class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'open' });
+      root.innerHTML = '<div><button id="shadowBtn">Shadow OK</button> <input id="shadowInput" type="text"></div>';
+      root.getElementById('shadowBtn').addEventListener('click', function () { mark('r8', 'clicked'); });
+      root.getElementById('shadowInput').addEventListener('input', function (e) { mark('r9', e.target.value); });
+    }
+  });
+
+  // S10: 数字以外を除き、3桁カンマ区切りに整形
+  document.getElementById('amount').addEventListener('input', function () {
+    const digits = this.value.replace(/[^0-9]/g, '');
+    this.value = digits ? Number(digits).toLocaleString('en-US') : '';
+    mark('r10', this.value);
+  });
+</script>
+</body>
+</html>
