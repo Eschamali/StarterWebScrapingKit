@@ -8,7 +8,7 @@ description: 起動済みブラウザへの再接続（reattach）時のオプ�
 
 起動時のオプションをまとめた [`BrowserCapabilities`](./BrowserCapabilities) の再接続版です。再接続では特に、**どの制御経路（Pipe / Port / WebView2）でつなぎ直すか**を必ず指定する必要があります。
 
-- `BrowserCapabilities` と同じく、起動に使ったあとは破棄される**使い切り（ワンショット）**です
+- `BrowserCapabilities` と同じく、起動に使ったあとは破棄される **使い切り（ワンショット）** です
 - `ReattachOptions` という名前そのものが、そのまま使える**既定インスタンス**です（`New` 不要）
 
 ## 使い方
