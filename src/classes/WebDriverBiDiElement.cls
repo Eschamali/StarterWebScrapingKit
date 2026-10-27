@@ -455,30 +455,30 @@ End Function
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 属性操作
 '---------------------------------------------------------------------------------------------------
-Public Function getAttribute(strAttributeName As String) As String
+Property Get PageAttribute(strAttributeName As String) As String
 '----------------------------------------------------------
 ' Get the value of an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Property
 
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
     arg.Add "value", strAttributeName: arg.Add "type", "string"
     Set args(0) = arg
-    getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
+    PageAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
 
-End Function
+End Property
 
-Public Function setAttribute(strAttributeName As String, strValue As String)
+Property Let PageAttribute(strAttributeName As String, strValue As String)
 '----------------------------------------------------------
 ' Set value to an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Property
 
 
     Dim args2(1) As Dictionary
@@ -486,7 +486,7 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
     Dim a2 As New Dictionary: a2.Add "value", strValue: a2.Add "type", "string":           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
-End Function
+End Property
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 要素本体の内容・値
