@@ -30,8 +30,8 @@ Private Function DictArrItem(d As Object, idx As Long) As Variant
 
     ' TypeName で新しいクラス名を判定に追加します
     Select Case TypeName(d)
-        Case "BiDiCDPJson", "JSON"
-            ' JSON.cls/BiDiCDPJson は一貫して 0 始まりです
+        Case "BiDiCDPJConv", "JSON"
+            ' JSON.cls/BiDiCDPJConv は一貫して 0 始まりです
             ' ExistsIndex で範囲内かチェックし、ValueAt で値を取り出します
             If d.ExistsIndex(idx) Then
                 DictArrItem = d.ValueAt(idx)
@@ -60,7 +60,7 @@ End Function
 
 ' serializationOptions: deep 時の DeepSerializedValue（type + value のペア配列）と、
 ' 通常の入れ子 Dictionary の両方から子を辿る。
-Private Function DsvChildObject(ByVal Parent As BiDiCDPJson, ByVal Key As String) As BiDiCDPJson
+Private Function DsvChildObject(ByVal Parent As BiDiCDPJConv, ByVal Key As String) As BiDiCDPJConv
     If Parent Is Nothing Then Exit Function
 
     ' 1. 通常の入れ子構造（キーが直接存在する場合）
@@ -73,12 +73,12 @@ Private Function DsvChildObject(ByVal Parent As BiDiCDPJson, ByVal Key As String
     ' 2. DeepSerializedValue (DSV) 構造の判定
     ' {"type": "object", "value": [ ["k1", v1], ["k2", v2] ]} のような形を想定
     If Parent.StringKey("type") = "object" Then
-        Dim pairs As BiDiCDPJson: Set pairs = Parent.NodeKey("value")
+        Dim pairs As BiDiCDPJConv: Set pairs = Parent.NodeKey("value")
         
         ' value が配列であることを確認してループ
         If pairs.IsArray Then
             Dim i As Long
-            Dim pair As BiDiCDPJson
+            Dim pair As BiDiCDPJConv
             
             ' 0始まりのインデックスでループを回します
             For i = 0 To pairs.Count - 1
@@ -425,7 +425,7 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
 
     br.ExecuteCDP "Page.enable", Nothing
 
-    Dim ftRes As BiDiCDPJson
+    Dim ftRes As BiDiCDPJConv
     Set ftRes = br.ExecuteCDP("Page.getFrameTree", Nothing)
 
     Dim rootFrameId As String
@@ -435,7 +435,7 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
     pCW.Add "frameId", rootFrameId
     pCW.Add "worldName", "jsEvalTestIsolated"
 
-    Dim cwRes As BiDiCDPJson
+    Dim cwRes As BiDiCDPJConv
     Set cwRes = br.ExecuteCDP("Page.createIsolatedWorld", pCW)
 
     Dim execCtx As Long

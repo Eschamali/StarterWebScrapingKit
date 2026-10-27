@@ -551,8 +551,8 @@ Private Sub SN_ValidateCommandResponse( _
     Const PROC As String = _
         "Demo_ServiceNow_Async.SN_ValidateCommandResponse"
 
-    Dim envelope As BiDiCDPJson
-    Set envelope = BiDiCDPJson.Parse(rawJson)
+    Dim envelope As BiDiCDPJConv
+    Set envelope = BiDiCDPJConv.Parse(rawJson)
 
     If envelope Is Nothing Then
         Err.Raise vbObjectError + 2510, PROC, _
@@ -582,7 +582,7 @@ Private Sub SN_ValidateCommandResponse( _
 
     If Not isScriptEvaluate Then Exit Sub
 
-    Dim evaluateResult As BiDiCDPJson
+    Dim evaluateResult As BiDiCDPJConv
     Set evaluateResult = envelope.NodeKey("result")
 
     If evaluateResult Is Nothing Then
@@ -592,7 +592,7 @@ Private Sub SN_ValidateCommandResponse( _
 
     If LCase$(evaluateResult.StringKey("type")) <> "success" Then
         Dim detail As String
-        Dim exceptionDetails As BiDiCDPJson
+        Dim exceptionDetails As BiDiCDPJConv
 
         If evaluateResult.ExistsKey("exceptionDetails") Then
             Set exceptionDetails = _
@@ -610,7 +610,7 @@ Private Sub SN_ValidateCommandResponse( _
         Err.Raise vbObjectError + 2514, PROC, detail
     End If
 
-    Dim remoteValue As BiDiCDPJson
+    Dim remoteValue As BiDiCDPJConv
     Set remoteValue = evaluateResult.NodeKey("result")
 
     If remoteValue Is Nothing Then

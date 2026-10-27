@@ -187,8 +187,8 @@ End Sub
 '* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
 '* 注意事項：空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '***************************************************************************************************
-Property Get CurrentObjectId() As String
-    CurrentObjectId = CurrentElement.objectId
+Property Get CurrentElementId() As String
+    CurrentElementId = CurrentElement.objectId
 End Property
 
 '***************************************************************************************************
@@ -501,30 +501,30 @@ End Function
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 属性操作
 '---------------------------------------------------------------------------------------------------
-Public Function getAttribute(strAttributeName As String) As String
+Property Get PageAttribute(strAttributeName As String) As String
 '----------------------------------------------------------
 ' Get the value of an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Property
 
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
     arg.Add "value", strAttributeName
     Set args(0) = arg
-    getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
+    PageAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
 
-End Function
+End Property
 
-Public Function setAttribute(strAttributeName As String, strValue As String)
+Property Let PageAttribute(strAttributeName As String, strValue As String)
 '----------------------------------------------------------
 ' Set value to an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Property
 
 
     Dim args2(1) As Dictionary
@@ -532,7 +532,7 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
     Dim a2 As New Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
-End Function
+End Property
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 要素本体の内容・値
@@ -663,31 +663,31 @@ End Property
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] フォーカス・選択・イベント
 '---------------------------------------------------------------------------------------------------
-Public Function selectText()
+Public Sub selectText()
 '----------------------------------------------------------
 ' Select all the text held by the element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Sub
 
 
     jsEval "function(){ let r = document.createRange(); let s = window.getSelection(); r.selectNodeContents(this); s.removeAllRanges(); s.addRange(r) }"
 
-End Function
+End Sub
 
-Public Function focus()
+Public Sub focus()
 '----------------------------------------------------------
 ' Set focus to an element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Sub
 
 
     jsEval "function(){ this.focus() }"
 
-End Function
+End Sub
 
 Public Function fireEvent(strEventName As String) As Boolean
 '------------------------------------------------------------
@@ -811,9 +811,9 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
             If Not Not CurrentElement.SearchArgs Then
                 '引数情報があるので、引数付きで実行
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentElementId, CurrentElement.SearchArgs)
             Else
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentElementId)
             End If
         End If
 
@@ -1424,7 +1424,7 @@ Public Function getIFrame() As CDPElement
 
 
     '1. Check if the iFrame is hosted on a different domain
-    Dim src As String: src = getAttribute("src")
+    Dim src As String: src = PageAttribute("src")
     If InStr(src, "http") Then printMsg WARN_, "This iFrame may not be hosted in the same domain. src=""" & src & """", FromProcedureName
 
     '2. Get contentDocument objectId via callFunctionOn

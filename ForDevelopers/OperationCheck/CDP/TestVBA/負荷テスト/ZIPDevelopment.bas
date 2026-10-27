@@ -1,3 +1,4 @@
+Attribute VB_Name = "ZIPDevelopment"
 Option Explicit
 
 Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" _
@@ -81,7 +82,7 @@ Sub Webブラウザ操作でZIPテスト()
     ' 5. CDP経由で実行し、解凍された全データを一発で受け取る！
     ' ※ awaitPromise:=True でPromiseの解決を待ち、
     '   returnByValue:=True で中身のデータを直接取得します。
-    Dim resCDP As BiDiCDPJson
+    Dim resCDP As BiDiCDPJConv
     Set resCDP = ZIPテスト.jsEval(JsCode, awaitPromise:=True, returnByValue:=True)
 
     If WebView2Mode Then WebView2Form.hide

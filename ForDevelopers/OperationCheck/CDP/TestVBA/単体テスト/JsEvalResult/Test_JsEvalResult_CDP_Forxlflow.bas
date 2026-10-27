@@ -202,14 +202,14 @@ End Sub
 Public Sub Test_ReturnByValue_Object()
     Dim r As JsEvalResult: Set r = br.jsEval("({ a: 1, b: 'x' })", returnByValue:=True, returnByDetails:=True)
     CheckType r, "object", "", vbObject
-    AssertSame "BiDiCDPJson", TypeName(r.value), "TypeName(value)"
+    AssertSame "BiDiCDPJConv", TypeName(r.value), "TypeName(value)"
     AssertSame "", r.objectId, "objectId"
 End Sub
 
 Public Sub Test_ReturnByValue_Array()
     Dim r As JsEvalResult: Set r = br.jsEval("[1, 'two', true]", returnByValue:=True, returnByDetails:=True)
     CheckType r, "object", "", vbObject
-    AssertSame "BiDiCDPJson", TypeName(r.value), "TypeName(value)"
+    AssertSame "BiDiCDPJConv", TypeName(r.value), "TypeName(value)"
 End Sub
 
 Public Sub Test_ReturnByValue_Function()
@@ -220,7 +220,7 @@ End Sub
 Public Sub Test_Deep_Object()
     Dim r As JsEvalResult: Set r = br.jsEval("({ a: 1, list: [1, 2] })", serializationOptions:=DeepOption(), returnByDetails:=True)
     CheckType r, "object", "", vbObject
-    AssertSame "BiDiCDPJson", TypeName(r.value), "TypeName(value)"
+    AssertSame "BiDiCDPJConv", TypeName(r.value), "TypeName(value)"
     AssertTrue Len(r.objectId) > 0, "deep‚Å‚àobjectId‚Í•t‚­"
     AssertTrue Not r.DeepSerializedValue Is Nothing, "DeepSerializedValue"
 End Sub

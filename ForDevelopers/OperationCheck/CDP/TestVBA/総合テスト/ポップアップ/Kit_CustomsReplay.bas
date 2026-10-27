@@ -219,7 +219,7 @@ Private Sub ClickByCDP(ByVal mainContext As CDPContext, ByVal item As CDPElement
 End Sub
 
 Private Function SnapshotPageIds(ByVal br As CDPBrowser) As Collection
-    Dim result As BiDiCDPJson, infos As BiDiCDPJson
+    Dim result As BiDiCDPJConv, infos As BiDiCDPJConv
     Dim token As Long
     Dim ids As New Collection
     Set result = br.ExecuteCDP("Target.getTargets")
@@ -248,7 +248,7 @@ Private Function WaitNewPopupTarget(ByVal br As CDPBrowser, _
                                     ByVal seen As Collection, _
                                     ByVal seconds As Double) As String
     Dim t0 As Double
-    Dim result As BiDiCDPJson, infos As BiDiCDPJson
+    Dim result As BiDiCDPJConv, infos As BiDiCDPJConv
     Dim token As Long
     Dim id As String, opener As String
     Dim candidates As Long, candidate As String

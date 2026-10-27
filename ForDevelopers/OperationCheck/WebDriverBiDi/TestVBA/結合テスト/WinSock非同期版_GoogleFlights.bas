@@ -509,8 +509,8 @@ Private Sub GF_ValidateCommandResponse( _
     Const PROC As String = _
         "Demo_GoogleFlights_Async.GF_ValidateCommandResponse"
 
-    Dim envelope As BiDiCDPJson
-    Set envelope = BiDiCDPJson.Parse(rawJson)
+    Dim envelope As BiDiCDPJConv
+    Set envelope = BiDiCDPJConv.Parse(rawJson)
 
     If envelope Is Nothing Then
         Err.Raise vbObjectError + 2410, PROC, _
@@ -538,7 +538,7 @@ Private Sub GF_ValidateCommandResponse( _
 
     If Not isScriptEvaluate Then Exit Sub
 
-    Dim evaluateResult As BiDiCDPJson
+    Dim evaluateResult As BiDiCDPJConv
     Set evaluateResult = envelope.NodeKey("result")
 
     If evaluateResult Is Nothing Then
@@ -548,7 +548,7 @@ Private Sub GF_ValidateCommandResponse( _
 
     If LCase$(evaluateResult.StringKey("type")) <> "success" Then
         Dim detail As String
-        Dim exceptionDetails As BiDiCDPJson
+        Dim exceptionDetails As BiDiCDPJConv
 
         If evaluateResult.ExistsKey("exceptionDetails") Then
             Set exceptionDetails = _
@@ -564,7 +564,7 @@ Private Sub GF_ValidateCommandResponse( _
         Err.Raise vbObjectError + 2414, PROC, detail
     End If
 
-    Dim remoteValue As BiDiCDPJson
+    Dim remoteValue As BiDiCDPJConv
     Set remoteValue = evaluateResult.NodeKey("result")
 
     If remoteValue Is Nothing Then
