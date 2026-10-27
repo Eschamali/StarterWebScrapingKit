@@ -617,31 +617,31 @@ End Property
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] フォーカス・選択・イベント
 '---------------------------------------------------------------------------------------------------
-Public Function selectText()
+Public Sub selectText()
 '----------------------------------------------------------
 ' Select all the text held by the element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Sub
 
 
     jsEval "function(){ let r = document.createRange(); let s = window.getSelection(); r.selectNodeContents(this); s.removeAllRanges(); s.addRange(r) }"
 
-End Function
+End Sub
 
-Public Function focus()
+Public Sub focus()
 '----------------------------------------------------------
 ' Set focus to an element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Sub
 
 
     jsEval "function(){ this.focus() }"
 
-End Function
+End Sub
 
 Public Function fireEvent(strEventName As String) As Boolean
 '------------------------------------------------------------
