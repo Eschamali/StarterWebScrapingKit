@@ -127,7 +127,9 @@ VBA は、Office のインストールのついでに入った `WebView2Loader.d
 2. その場所の `EBWebView\x64\EmbeddedBrowserWebView.dll` を読み込む
 3. その中の `CreateWebViewEnvironmentWithOptionsInternal` という関数を呼ぶ
 
-そうです。この `EmbeddedBrowserWebView.dll` が、真の WebView2 のコアです。`WebView2Loader.dll` は名前からお察しの通り、WebView2 を探して読み込むだけの、言ってしまえば簡易なヘルパー DLL です。Qiita の記事でも、ローダー DLL がしていることは「レジストリを読んでWebView2のインストールフォルダを特定し、WebView2（COMサーバー）を起動するぐらい」と書かれています。
+そうです。`WebView2Loader.dll` が最終的に読み込んで呼んでいるのは、この `EmbeddedBrowserWebView.dll` です。`WebView2Loader.dll` は名前からお察しの通り、WebView2 を探して読み込むだけの、言ってしまえば簡易なヘルパー DLL です。Qiita の記事でも、ローダー DLL がしていることは「レジストリを読んでWebView2のインストールフォルダを特定し、WebView2（COMサーバー）を起動するぐらい」と書かれています。
+
+では、この DLL こそが WebView2 の本体なのかというと、そう単純でもありませんでした。その話は、後で実際に試したところでします。
 
 置き場所は、ブラウザの探し方とは少し違います。
 
@@ -156,6 +158,138 @@ VBA は、Office のインストールのついでに入った `WebView2Loader.d
 
 手に入るのは、「古い Office でも WebView2 が動く」。ただそれだけかもしれません。サポートが終わった製品まで気にしてしまうなんて、ボクはどうしてしまったんだろうね。
 
+### 試してみた：exe のメタ情報から読み込む
+
+…と書いていたら、思わぬところから道が開けました。
+
+きっかけは、`mapperTab.js` をブラウザのバージョンに合わせて取ってくる仕組み（`assset\WebDriverBiDiOnlineUpdater.bas`）を作っていたときです。ブラウザの exe には、ファイルのバージョン情報（エクスプローラーのプロパティの「詳細」に出るもの）として、ブラウザのバージョンがそのまま入っています。VBA なら、`Scripting.FileSystemObject` の `GetFileVersion` で、ブラウザを起動せずに読めます（`CDPHost.cls` の `getBrowserVersion`）。
+
+そして Edge は、exe とバージョン番号のフォルダが隣どうしに並んでいます。手元の PC では、次のようになっていました。
+
+```text
+C:\Program Files (x86)\Microsoft\Edge\Application\
+├── msedge.exe                   ← バージョン情報は 156.0.4314.50
+└── 156.0.4314.50\
+    └── EBWebView\x64\EmbeddedBrowserWebView.dll
+```
+
+つまり、exe のパスとバージョン情報があれば、`EmbeddedBrowserWebView.dll` の場所が決まります。先ほど「追加で必要」と書いたバージョンは、レジストリを読まなくても手に入ったわけです。`{F3017226-…}` のような中カッコの文字列も要りません。
+
+実際に必要だった変更は、数行の追記だけでした。
+
+**1. DLL のパスを組み立てて、読み込む（`CDPHost.cls` の `DirectLoadWebView2`）**
+
+```vb
+'このVBAを動かしてるビット数で、アーキテクチャのフォルダを決める
+#If Win64 Then
+    UseBit = "x64"
+#Else
+    UseBit = "x86"
+#End If
+
+'exeのパス・exeのバージョン情報・ビット数から、DLLの絶対パスを組み立てて読み込む
+EmbeddedBrowserWebViewPath = getBrowserPath & "\..\" & getBrowserVersion & "\EBWebView\" & UseBit & "\EmbeddedBrowserWebView.dll"
+DirectLoadWebView2 = LoadLibrary(EmbeddedBrowserWebViewPath)
+```
+
+**2. 関数を宣言する（`WebView2Host.cls`）**
+
+```vb
+Private Declare PtrSafe Function CreateWebViewEnvironmentWithOptionsInternal Lib "EmbeddedBrowserWebView" ( _
+    ByVal unknown As Long, _
+    ByVal runtimeType As Long, _
+    ByVal userDataFolder As LongPtr, _
+    ByVal EnvironmentOptions As LongPtr, _
+    ByVal environmentCreatedHandler As LongPtr) As Long
+```
+
+`Lib` には、パスを書かずにモジュール名だけを書いています。それでも 1. で読み込んだ DLL が使われるのは、先ほどの「Windows が DLL を探す順番」の1番目、**すでに読み込まれている DLL の一覧**に入っているからです。`WebView2Loader.dll` が `Office16` フォルダにあるおかげで見つかったのと同じ仕組みが、ここでも効いています。
+
+**3. 呼び出す（`WebView2Host.cls` の `RunWebView2`）**
+
+```vb
+hr = CreateWebViewEnvironmentWithOptionsInternal(1, 0, StrPtr(WebView2UserDataDirPath), EnvironmentOptions, pEnvHandlerObj)
+```
+
+引数の形は、OpenWebView2Loader に合わせました。
+
+* 1番目は、OpenWebView2Loader が常に `true` を渡しているので、`1` で固定しています
+
+* 2番目の `0` は、インストール版のランタイムを表す値です（OpenWebView2Loader の `WebView2RunTimeType` の `kInstalled`）。フォルダを指定した配布版を表す `1`（`kRedistributable`）との違いは、下で試しています
+
+* 残りの3つは、`WebView2Loader.dll` の `CreateCoreWebView2EnvironmentWithOptions` に渡していたものと同じです。`CreateCoreWebView2EnvironmentWithOptions` にあった「ブラウザのフォルダ」の引数はありません
+
+どちらで呼ぶかは、`WebView2Host.cls` の定数 `UseEmbeddedBrowserWebView` で切り替えます。DLL を読み込めなかった場合は、これまでどおり `WebView2Loader.dll` 経由で呼びます（今は、確かめやすいように `Stop` で止まるようにしています）。
+
+…レジストリ操作なんて、不要だったんです🙃
+
+### …と思ったら、動いていたのは Edge 本体ではなかった
+
+ところが、起動した WebView2 のバージョン（`ICoreWebView2Environment` の `BrowserVersionString`）を見てみると、予想外の結果になりました。
+
+| 呼び方 | 読み込んだ DLL | `BrowserVersionString` |
+| --- | --- | --- |
+| `WebView2Loader.dll` 経由 | （ローダー任せ） | 155.0.4283.62 |
+| 直接（2番目の引数が `0`） | Edge 本体の DLL（156.0.4314.50） | **155.0.4283.62** |
+| 直接（2番目の引数が `1`） | Edge 本体の DLL（156.0.4314.50） | 失敗（`0x80070032`） |
+| 直接（2番目の引数が `1`） | WebView2 Runtime の DLL（155.0.4283.62） | 155.0.4283.62 |
+
+Edge 本体の DLL を読み込んだのに、動いていたのは WebView2 Runtime（155.0.4283.62）でした。`BrowserVersionString` が返すのは、DLL のバージョンではなく、起動したブラウザのプロセス（`msedgewebview2.exe`）のバージョンです。
+
+フォルダの中身を比べると、理由が見えてきます。
+
+| | Edge 本体（156.0.4314.50） | WebView2 Runtime（155.0.4283.62） |
+| --- | --- | --- |
+| `EBWebView\x64\EmbeddedBrowserWebView.dll` | ある | ある |
+| `msedgewebview2.exe` | **無い**（署名ファイルの `msedgewebview2.exe.sig` だけ） | ある |
+
+Edge 本体のフォルダには、WebView2 のブラウザとして起動できる `msedgewebview2.exe` がありません。そのため、2番目の引数が `0`（インストール版）のときは、DLL がインストール済みの WebView2 Runtime を起動したと考えられます。手元の PC で動いていた他のアプリ（Teams・OneDrive・Outlook など）の `msedgewebview2.exe` も、すべて WebView2 Runtime のフォルダから起動されていました。DLL が Runtime をどうやって見つけているのか（DLL の中でレジストリを読んでいるのか、など）は、確かめられていません。
+
+2番目の引数を `1`（フォルダ指定の配布版）にすると、`0x80070032` で失敗しました。これは Win32 のエラー 50（`ERROR_NOT_SUPPORTED`、要求はサポートされていません）で、「ファイルが見つからない」（`0x80070002`）ではありません。Edge 本体のフォルダは、配布版のランタイムとしては扱えないようです。
+
+では、`msedgewebview2.exe` がある WebView2 Runtime のフォルダから DLL を読み込み、`1` で呼ぶとどうなるか。こちらは動き、155.0.4283.62 になりました。
+
+### 2番目の引数と、3つの役割
+
+ここまでの結果から、2番目の引数は次のように働いていると考えられます。
+
+* **`0`（`kInstalled`）**：DLL が、インストール済みの WebView2 Runtime を自分で探して起動する。DLL をどのフォルダから読み込んだかは関係ない
+
+* **`1`（`kRedistributable`）**：DLL が、自分の隣にある `msedgewebview2.exe` を起動する。隣に無ければ「サポートされていません」で失敗する。Microsoft が「Fixed Version」として配布している、フォルダごと持ち運ぶ版の Runtime を使うときの動きだと思われます
+
+`0` のときの DLL は、「インストール済みの Runtime を探して起動する」という点で、`WebView2Loader.dll` とほぼ同じ役割をしています。ただし、再実装の OpenWebView2Loader は、ほかにもチャンネルの優先順位（Beta・Dev・Canary を優先する設定）や、ポリシー・環境変数による上書き、最低バージョン（`86.0.616.0`）の確認をしています。DLL の側が同じことをしているかは、確かめていません。手元の PC には Edge の Beta・Dev・Canary が入っていないので、チャンネルの優先順位は試せていません。
+
+そして、本当の意味で WebView2 の本体と呼べるのは、`EmbeddedBrowserWebView.dll` ではなく、起動される `msedgewebview2.exe` のほうでした。描画も、JavaScript の実行も、CDP も、この exe のプロセスで動いています。`BrowserVersionString` が返すのも、この exe のバージョンです。
+
+```text
+アプリ（VBA / Excel）
+   │  CreateCoreWebView2EnvironmentWithOptions
+   ▼
+WebView2Loader.dll          … DLL を探して読み込むだけ（ローダーのローダー）
+   │  LoadLibrary → CreateWebViewEnvironmentWithOptionsInternal
+   ▼
+EmbeddedBrowserWebView.dll  … アプリのプロセスの中で動く窓口。ブラウザを選んで起動し、COM のオブジェクトを渡す
+   │  プロセスをまたいだやり取り
+   ▼
+msedgewebview2.exe          … 本当のブラウザ（Chromium）
+```
+
+OpenWebView2Loader のソースも、`EmbeddedBrowserWebView.dll` を「client DLL」と呼んでいます。関数名は `FindInstalledClientDll` や `CreateWebViewEnvironmentWithClientDll` で、読み込んだ DLL を入れる変数の名前も `clientDll` です。「コア」ではなく、ブラウザにつなぐ側の部品という扱いです。DLL と exe の間でどんなやり取りをしているかは、確かめていません。
+
+まとめると、この方法で省けたのは、「DLL を探すためのレジストリ」と「`WebView2Loader.dll`」です。どのブラウザで動くかは、2番目の引数で決まります。`0` なら DLL が探したインストール済みの Runtime、`1` なら DLL の隣の `msedgewebview2.exe` です。
+
+DLL とブラウザをそろえたいなら、**WebView2 Runtime のフォルダの DLL を、`1` で呼ぶ**のが筋が良さそうです。DLL とブラウザが同じフォルダ・同じバージョンになり、どの Runtime を使うかもツールの側で決められます。WebView2 Runtime のフォルダには exe が直下に無いので、バージョンのフォルダを列挙して探すことになります（これもレジストリは要りません）。今の `DirectLoadWebView2` は、Edge 本体のフォルダの DLL を `0` で呼ぶ作りです。
+
+::: warning この方法の注意点
+* **Edge 本体の DLL を `0` で呼ぶと、DLL とブラウザのバージョンがずれます。** 読み込むのは Edge 本体の DLL（手元の PC では 156.0.4314.50）で、起動するのは WebView2 Runtime（155.0.4283.62）です。本物の `WebView2Loader.dll` は、同じフォルダの DLL とブラウザを組み合わせて使います。今は動いていますが、DLL とブラウザの間のやり取りが食い違うと、動かなくなるおそれがあります。WebView2 Runtime のフォルダの DLL を `1` で呼べば、そろえられます（上の「2番目の引数と、3つの役割」）。なお、`DirectLoadWebView2` が今対象にしているのは、Edge 系統のパスだけです
+
+* **ポリシーによる上書きが効かない可能性があります。** 再実装の OpenWebView2Loader は、`Software\Policies\Microsoft\Edge\WebView2\` などのレジストリや、環境変数 `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` による上書きを見ています。この方法は、ローダーのこの処理を通りません。DLL の側が同じ設定を見ているかは、確かめていません
+
+* **非公開の API であることは変わりません。** Edge の更新で関数の名前や引数が変わると、動かなくなります。`WebView2Loader.dll` 経由に戻せる作りを残しているのは、このためです
+
+* **古い Office で動くかは、まだ確かめていません。** 手元に古い Office が無いためです。ロマンは、まだロマンのままです
+:::
+
 さて、ブラウザの探し方はこの辺にして、次は本編の各通信経路について話します。最初は [Pipe 経路](/stories/DebugRouteTech/pipe-tech)です。
 
 ## 参考資料
@@ -179,6 +313,8 @@ VBA は、Office のインストールのついでに入った `WebView2Loader.d
 * [Playwright packages/playwright-core/src/server/registry/index.ts](https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/server/registry/index.ts)
 
 * [Dynamic-link library search order（Microsoft Learn）](https://learn.microsoft.com/ja-jp/windows/win32/dlls/dynamic-link-library-search-order)
+
+* [LoadLibraryA 関数（Microsoft Learn）](https://learn.microsoft.com/ja-jp/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya)
 
 * [Microsoft 365 Apps と WebView2 Runtime（Microsoft Learn）](https://learn.microsoft.com/ja-jp/microsoft-365-apps/deploy/webview2-install)
 
