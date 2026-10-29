@@ -228,6 +228,14 @@ Private Type StateTab
 End Type
 Private brTab As StateTab
 
+'親子関係情報
+Private Type ParentChild
+    targetID    As String   'タブ(ページ)単位としての識別子
+    frameID     As String   'タブ(ページ)の中の枠単位(iframe等)としての識別子。※TOPと同じなら、targetID=FrameID となります。
+End Type
+Private openerInfo As ParentChild   'どっから（外に）開いた？
+Private parentInfo As ParentChild   '埋め込み元は（中に誰がいる）？
+
 '操作中のTOP層タブとしてのJavaScript環境情報
 Private Type StateTabForJavaScript
     ExecutionContextId  As Long     '実行コンテキスト情報。`Runtime.callFunctionOn - executionContextId`に使います
@@ -1728,7 +1736,8 @@ Public Sub getSessionInfo()
     'Get infos
     Dim TargetInfo As BiDiCDPJConv: Set TargetInfo = refreshTargetInfo
 
-    '各種パラメーター更新
+    '--------------- 各種パラメーター更新 ---------------
+    '＜自身のタブ(ページ)＞
     With brTab
         .Url = TargetInfo.StringKey("url")
         .Title = TargetInfo.StringKey("title")
@@ -1736,6 +1745,17 @@ Public Sub getSessionInfo()
         .browserContextId = TargetInfo.StringKey("browserContextId")
     End With
 
+    '＜自身のタブ(ページ)の親子関係情報＞
+    '開いた元
+    openerInfo.targetID = TargetInfo.StringKey("openerId")
+    openerInfo.frameID = TargetInfo.StringKey("openerFrameId")
+
+    '埋め込み元
+    parentInfo.targetID = TargetInfo.StringKey("parentId")
+    parentInfo.frameID = TargetInfo.StringKey("parentFrameId")
+    '----------------------------------------------------
+
+    '----------------- イベント購読処理 -----------------
     'JavaScript関連の変化も捉えれるようにする
     '※`reattach`を想定して一旦OFFにして、再度ONにすることで、最新の`Runtime.executionContextCreated`等が飛んでくれる親切機能を利用してます
     runtimeEnable False
@@ -1744,6 +1764,7 @@ Public Sub getSessionInfo()
     '`document.readyState`相当も使えるように有効化
     '※こっちは、OFF→ONにしても、今の`document.readyState`状況は降ってこないので、ONのみとします
     pageEnable True
+    '----------------------------------------------------
 
     'ユーザーエージェントに刻印する場合はそれを行う
     If BrowserCore.UseCustomUAMode Then AppendVbaUserAgent
@@ -2868,6 +2889,36 @@ End Property
 '***************************************************************************************************
 Property Get isTargetClosed() As Boolean
     isTargetClosed = ControlStatus.targetDestroyed
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このタブ(ページ)が開かれた元の`TargetID` or `FrameId`を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：Strict True ：ページ描画枠(iframe等)単位を基準として返します(Target.TargetInfo-openerFrameId)
+'                          例えば、Aページに埋め込まれた「twitterの埋め込み」から開いたといったのを区別したいときに使います
+'                   False：タブ/ウィンドウ単位を基準として返します(Target.TargetInfo-openerId)
+'
+'* 返値    ：開かれた元の`TargetID` or `FrameId`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ない場合は、`vbnullstring`です
+'***************************************************************************************************
+Property Get OpenerID(Optional Strict As Boolean) As String
+    OpenerID = IIf(Strict, openerInfo.frameID, openerInfo.targetID)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このタブ(ページ)が埋め込まれた元の`TargetID` or `FrameId`を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：Strict True ：ページ描画枠(iframe等)単位を基準として返します(Target.TargetInfo-parentFrameId)
+'                          例えば、Aページに埋め込まれたBページiframeの中に埋め込まれた物(いわゆる、iframeネスト)を区別したいときに使います
+'                   False：タブ/ウィンドウ単位を基準として返します(Target.TargetInfo-parentId)
+'
+'* 返値    ：埋め込まれた元の`TargetID` or `FrameId`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ない場合は、`vbnullstring`です
+'***************************************************************************************************
+Property Get ParentId(Optional Strict As Boolean) As String
+    ParentId = IIf(Strict, parentInfo.frameID, parentInfo.targetID)
 End Property
 
 
