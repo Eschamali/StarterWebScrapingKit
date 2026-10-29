@@ -305,7 +305,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
 
     '3. ソケット生成
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
-    If m_hSocket = SOCKET_ERROR Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If m_hSocket = SOCKET_ERROR Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '4. 適度なバッファーを設定
     Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
@@ -315,15 +315,15 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     addr.sin_family = AF_INET
     addr.sin_port = SwapBytes16(port) ' ポートのエンディアン変換 (純VBA)
     addr.sin_addr = inet_addr(Host)
-    If addr.sin_addr = SOCKET_ERROR Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If addr.sin_addr = SOCKET_ERROR Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '6. 接続実行 (TCPコネクションの確立)
     Dim ret As Long
     ret = Connect(m_hSocket, addr, LenB(addr))
-    If ret = SOCKET_ERROR Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If ret = SOCKET_ERROR Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '7. WebSocketハンドシェイクの実行
-    If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '8. WebSocketハンドシェイクの実行結果確認
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
