@@ -1445,9 +1445,14 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
         '------------------ この`Context`(TargetID)のJavaScript実行環境ステータスの更新を行います ------------------
         'JavaScript実行環境情報の更新を行います
         Case "Runtime.executionContextCreated"
-            '2-1. このタブクラスのTargetIDと一致するか？
+            '2-1. `Runtime.ExecutionContextDescription`を取り出す
             Set tmpNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params").NodeKey("context")
-            If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
+
+            '2-2. `auxData`から、このタブクラスのTargetIDと一致するか確認する
+            '※このClassの`TargetID`と本来の住人（実ページのJS）であるかの確認
+            Dim auxData As BiDiCDPJConv
+            Set auxData = tmpNode.NodeKey("auxData")
+            If auxData.StringKey("frameId") = brTab.targetID And auxData.BoolKey("isDefault") Then
                 '2-2. 各種statusを上書き
                 With brTabRuntime
                     .IsValid = True '使えるよサイン
