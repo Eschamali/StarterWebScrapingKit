@@ -424,7 +424,15 @@ Private Sub InitAttachToSession(InitURL As String)
     '自動蓄積機能を無効化
 3   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
-    printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
+    'ちゃんと`SessionID`が取れたか？
+4   If StrPtr(brTab.sessionID) Then
+        '成功
+        printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
+    Else
+        'エラーメッセージを取り出して､終了
+        Dim ErrMes As String: ErrMes = BrowserCore.LastCDPJsonError("message")
+        printMsg ERROR_, "Failed to retrieve `SessionID`. Reason: " & ErrMes, FromProcedureName, doRaiseError:=True
+    End If
     Exit Sub
 
 ifError:

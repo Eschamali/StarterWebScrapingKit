@@ -1198,6 +1198,8 @@ End Sub
 '            flatten: Enables "flat" access to the session via specifying sessionId attribute
 '            in the commands. Set to True by default to make attachToTab work.
 '            Returns: a session ID string that is needed for CDP automation.
+'* 注意事項：ポリシー`DeveloperToolsAvailability`があると、「Not allowed」で失敗します。
+'            その場合は、WebView2ルートをご利用ください
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
     '1. コマンド準備
