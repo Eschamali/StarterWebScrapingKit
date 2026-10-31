@@ -43,23 +43,19 @@ Public Enum DevToolsAgentHost_KType
     kBrowserUI
 End Enum
 
-'JSの`document.readyState`の状態一式
-'※Pageイベントとして置き換えます
-Public Enum ReadyState      'Used for .wait method
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] JSの`document.readyState`の状態一式。Pageイベントとしても使用します
+'---------------------------------------------------------------------------------------------------'
+Public Enum ReadyState
     Nowait          'ページ遷移等が発生せず、待機不要な場合
     isLoading       'equivalence of the browser's "loading"(Page.frameStartedLoading) state
     isInteractive   'equivalence of the browser's "interactive"(Page.domContentEventFired) state
     isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
-'ログ共通設定。
-Private Type StateLog
-    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
-    logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
-End Type
-Public currentLog       As StateLog
-
-'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
+'---------------------------------------------------------------------------------------------------'
 Public Enum WinState
     asHidden = 0            'Hides the window and activates another window.
     asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
@@ -75,6 +71,11 @@ Public Enum WinState
     doForceMin = 11         'Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
 End Enum
 
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
 'バッファー設定関連
 Public Const InitialBuffer      As Long = 2 ^ 20     'CDPやり取りPipe/テキスト変数/ADODB.Stream/setsockopt の初期バッファー値
 
@@ -93,8 +94,16 @@ Public Const EmptyPageName      As String = "about:blank"           '空のWeb�
 '***************************************************************************************************
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
-Private m_Frequency     As Currency     '実行マシンでの周波数記録用
+'ログ共通設定
+Private Type StateLog
+    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
+    logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
+End Type
+Public currentLog       As StateLog
 Private LogControl      As New Logger   'ログレベルの制御
+
+'その他
+Private m_Frequency     As Currency     '実行マシンでの周波数記録用
 
 
 
@@ -144,9 +153,9 @@ End Function
 '---------------------------------------------------------------------------------------------------
 Public Function StringToEnumReadyState(param As String) As ReadyState
     Select Case param
-        Case EnumToStringReadyState(isLoading):     StringToEnumReadyState = ReadyState.isLoading
-        Case EnumToStringReadyState(isInteractive): StringToEnumReadyState = ReadyState.isInteractive
-        Case EnumToStringReadyState(isComplete):    StringToEnumReadyState = ReadyState.isComplete
+        Case EnumToStringReadyState(ReadyState.isLoading):     StringToEnumReadyState = ReadyState.isLoading
+        Case EnumToStringReadyState(ReadyState.isInteractive): StringToEnumReadyState = ReadyState.isInteractive
+        Case EnumToStringReadyState(ReadyState.isComplete):    StringToEnumReadyState = ReadyState.isComplete
     End Select
 End Function
 
