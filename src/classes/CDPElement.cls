@@ -529,18 +529,39 @@ Public Sub SelectOption(Optional value As String, Optional Label As String, Opti
     fireEvent "change"
 End Sub
 
-Property Get selected() As String
-'----------------------------------------------------------
-' Get the selected option. Only returns the first option.
-' Updated: 06/03/2025
-'----------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：<select> タグで、現在選択中の項目を取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：mode に応じた値　※未選択の場合は、seValue/seLabel：空文字、seIndex：-1
+'* 引数　　：mode     seValue：option の value 属性値
+'  　　　　　         seLabel：画面に見えている表示文字（前後の空白トリム）
+'  　　　　　         seIndex：0始まりの番号
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`SelectOption`で選んだ項目を、同じ基準(Value/Label/Index)で確認できます
+'* 注意事項：複数選択(multiple)の場合は、先頭の選択項目を返します
+'***************************************************************************************************
+Public Function getSelection(mode As SelectOptionMode) As Variant
+    '※JavaScript側の`m`は、`SelectOptionMode`の値(0:seValue / 1:seLabel / 2:seIndex)
+    Const GetSelectionJS As String = "function(m) {" & _
+                                     "  if (m === 2) return this.selectedIndex;" & _
+                                     "  const opt = this.selectedOptions[0];" & _
+                                     "  if (!opt) return '';" & _
+                                     "  return (m === 1) ? opt.text.trim() : opt.value;" & _
+                                     "}"
 
-    If checkExist Then If Not isExist Then Exit Property
+
+    If checkExist Then If Not isExist Then Exit Function
 
 
-    selected = jsEval("function(){ return this.selectedOptions[0].text }")
+    '1. 引数部分を組み立て
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary: arg.Add "value", mode: Set args(0) = arg
 
-End Property
+    '2. 取得して、Indexは数値、それ以外は文字列で返却
+    Dim result As Variant
+    result = jsEval(GetSelectionJS, args)
+    If mode = SelectOptionMode.seIndex Then getSelection = CLng(result) Else getSelection = CStr(result)
+End Function
 
 Public Function setSelection(strOptionName As String)
 '----------------------------------------------------------
