@@ -86,7 +86,7 @@ Private Sub Test01_ContextSearch(br As WebDriverBiDiContext)
 
     Dim byQueryAll As Collection: Set byQueryAll = br.getElementsByQuery("#collectionList .list-item")
     AssertEq "getElementsByQueryの件数", CStr(byQueryAll.Count), "5"
-    AssertEq "getElementsByQuery[5]のdata-n", byQueryAll(5).getAttribute("data-n"), "5"
+    AssertEq "getElementsByQuery[5]のdata-n", byQueryAll(5).PageAttribute("data-n"), "5"
 
     Dim byXPathAll As Collection: Set byXPathAll = br.getElementsByXPath("//ul[@id='collectionList']/li")
     AssertEq "getElementsByXPathの件数", CStr(byXPathAll.Count), "5"
@@ -158,20 +158,36 @@ Private Sub Test04_Checked(br As WebDriverBiDiContext)
 End Sub
 
 '==============================================================================
-' ⑤ selected / setSelection
+' ⑤ SelectOption / getSelection
 '==============================================================================
 Private Sub Test05_Selected_SetSelection(br As WebDriverBiDiContext)
-    PrintSection "⑤ selected / setSelection"
+    PrintSection "⑤ SelectOption / getSelection"
 
     Dim sel As WebDriverBiDiElement: Set sel = br.getElementByID("testSelect")
 
-    sel.setSelection "opt2"
-    AssertEq "setSelection後のvalue", sel.value, "opt2"
+    sel.SelectOption "opt2"
+    AssertEq "SelectOption(Value)後のvalue", sel.value, "opt2"
 
-    sel.selected = "0"
-    AssertEq "selected=0後のvalue", sel.value, "opt1"
+    sel.SelectOption Index:=0
+    AssertEq "SelectOption(Index:=0)後のvalue", sel.value, "opt1"
 
-    AssertNotEmpty "selected(Get)", CStr(sel.selected)
+    AssertEq "getSelection(seLabel)", sel.getSelection(seLabel), "Option 1"
+
+    '`SelectOption`は、Value / Label / Index のどれか1つで選択する → `getSelection`で同じ基準を確認
+    sel.SelectOption Value:="opt3"
+    AssertEq "SelectOption(Value)後のgetSelection(seValue)", sel.getSelection(seValue), "opt3"
+    AssertEq "SelectOption(Value)後のgetSelection(seLabel)", sel.getSelection(seLabel), "Option 3"
+    AssertEq "SelectOption(Value)後のgetSelection(seIndex)", sel.getSelection(seIndex), "2"
+
+    sel.SelectOption Label:="Option 1"
+    AssertEq "SelectOption(Label)後のgetSelection(seValue)", sel.getSelection(seValue), "opt1"
+
+    sel.SelectOption Index:=1
+    AssertEq "SelectOption(Index)後のgetSelection(seLabel)", sel.getSelection(seLabel), "Option 2"
+
+    '名前付き引数なしの場合は、Value扱い
+    sel.SelectOption "opt3"
+    AssertEq "SelectOption(引数名なし＝Value)後のgetSelection(seIndex)", sel.getSelection(seIndex), "2"
 End Sub
 
 '==============================================================================
@@ -182,16 +198,16 @@ Private Sub Test06_Click_SimpleClick_FireEvent(br As WebDriverBiDiContext)
 
     Dim btn As WebDriverBiDiElement: Set btn = br.getElementByID("testClickBtn")
 
-    AssertEq "初期クリック回数", btn.getAttribute("data-clickcount"), "0"
+    AssertEq "初期クリック回数", btn.PageAttribute("data-clickcount"), "0"
 
     btn.click
-    AssertEq "click後のクリック回数", btn.getAttribute("data-clickcount"), "1"
+    AssertEq "click後のクリック回数", btn.PageAttribute("data-clickcount"), "1"
 
     btn.SimpleClick
-    AssertEq "SimpleClick後のクリック回数", btn.getAttribute("data-clickcount"), "2"
+    AssertEq "SimpleClick後のクリック回数", btn.PageAttribute("data-clickcount"), "2"
 
     btn.fireEvent "customtestevent"
-    AssertEq "fireEvent後のcustomfired", btn.getAttribute("data-customfired"), "true"
+    AssertEq "fireEvent後のcustomfired", btn.PageAttribute("data-customfired"), "true"
 End Sub
 
 '==============================================================================
@@ -202,10 +218,10 @@ Private Sub Test07_GetAttribute_SetAttribute(br As WebDriverBiDiContext)
 
     Dim el As WebDriverBiDiElement: Set el = br.getElementByID("testAttrTarget")
 
-    AssertEq "getAttribute初期値", el.getAttribute("data-foo"), "bar"
+    AssertEq "getAttribute初期値", el.PageAttribute("data-foo"), "bar"
 
-    el.setAttribute "data-foo", "baz"
-    AssertEq "setAttribute後のgetAttribute", el.getAttribute("data-foo"), "baz"
+    el.PageAttribute("data-foo") = "baz"
+    AssertEq "setAttribute後のgetAttribute", el.PageAttribute("data-foo"), "baz"
 End Sub
 
 '==============================================================================
@@ -230,7 +246,7 @@ Private Sub Test09_Submit(br As WebDriverBiDiContext)
     PrintSection "⑨ submit"
 
     br.getElementByID("testSubmitInput").submit
-    AssertEq "submit呼び出し後のdata-submitted", br.getElementByID("testForm").getAttribute("data-submitted"), "true"
+    AssertEq "submit呼び出し後のdata-submitted", br.getElementByID("testForm").PageAttribute("data-submitted"), "true"
 End Sub
 
 '==============================================================================
@@ -241,14 +257,14 @@ Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As WebDriverBiDiConte
 
     Dim parentEl As WebDriverBiDiElement: Set parentEl = br.getElementByID("traversalParent")
     Dim child1 As WebDriverBiDiElement: Set child1 = parentEl.getFirstChild
-    AssertEq "getFirstChildのid", child1.getAttribute("id"), "child1"
+    AssertEq "getFirstChildのid", child1.PageAttribute("id"), "child1"
     AssertEq "相対検索の子もWebDriverBiDiElementで返ること", TypeName(child1), "WebDriverBiDiElement"
 
     Dim child2 As WebDriverBiDiElement: Set child2 = child1.getNextSibling
-    AssertEq "getNextSiblingのid", child2.getAttribute("id"), "child2"
+    AssertEq "getNextSiblingのid", child2.PageAttribute("id"), "child2"
 
-    AssertEq "getPrevSiblingのid", br.getElementByID("child3").getPrevSibling.getAttribute("id"), "child2"
-    AssertEq "getParentのid", child2.getParent.getAttribute("id"), "traversalParent"
+    AssertEq "getPrevSiblingのid", br.getElementByID("child3").getPrevSibling.PageAttribute("id"), "child2"
+    AssertEq "getParentのid", child2.getParent.PageAttribute("id"), "traversalParent"
 End Sub
 
 '==============================================================================
@@ -263,7 +279,7 @@ Private Sub Test11_GetChildren_ElementsByQuery_ElementsByXPath(br As WebDriverBi
 
     Dim byQuery As Collection: Set byQuery = ul.getElementsByQuery(".list-item")
     AssertEq "getElementsByQueryの件数", CStr(byQuery.Count), "5"
-    AssertEq "getElementsByQuery[1]のdata-n", byQuery(1).getAttribute("data-n"), "1"
+    AssertEq "getElementsByQuery[1]のdata-n", byQuery(1).PageAttribute("data-n"), "1"
 
     AssertEq "getElementsByXPathの件数", CStr(ul.getElementsByXPath("li").Count), "5"
 End Sub
@@ -342,7 +358,7 @@ Private Sub Test15_Diagnostics_And_Options(br As WebDriverBiDiContext)
 
     AssertContains "UseSearchJSに検索構文が含まれること", el.UseSearchJS, "getElementById"
     AssertTrue "varResultがvbStringであること", (el.varResult = vbString)
-    AssertNotEmpty "CurrentObjectId(script.handle)が取得できていること", el.CurrentObjectId
+    AssertNotEmpty "CurrentElementId(script.handle)が取得できていること", el.CurrentElementId
 
     el.ExposeDevTools "__vbaTestExposed"
     AssertEq "ExposeDevTools後にwindowへ公開されていること", CStr(br.jsEval("typeof window.__vbaTestExposed !== 'undefined' ? 'yes' : 'no'")), "yes"
@@ -391,16 +407,16 @@ Private Sub Test16_SendClick_SendKey(br As WebDriverBiDiContext)
     PrintSection "⑯ sendClick / sendKey"
 
     Dim scBtn As WebDriverBiDiElement: Set scBtn = br.getElementByID("testSendClickBtn")
-    AssertEq "sendClick前のクリック回数", scBtn.getAttribute("data-clickcount"), "0"
+    AssertEq "sendClick前のクリック回数", scBtn.PageAttribute("data-clickcount"), "0"
     scBtn.sendClick
-    AssertEq "sendClick後のクリック回数", scBtn.getAttribute("data-clickcount"), "1"
+    AssertEq "sendClick後のクリック回数", scBtn.PageAttribute("data-clickcount"), "1"
 
     Dim ki As WebDriverBiDiElement: Set ki = br.getElementByID("testKeyInput")
     ki.sendKey keyEnter
-    AssertEq "sendKey(keyEnter)後のkeyCode", ki.getAttribute("data-lastkeycode"), "13"
+    AssertEq "sendKey(keyEnter)後のkeyCode", ki.PageAttribute("data-lastkeycode"), "13"
 
     ki.sendKey keyBackspace
-    AssertEq "sendKey(keyBackspace)後のkeyCode", ki.getAttribute("data-lastkeycode"), "8"
+    AssertEq "sendKey(keyBackspace)後のkeyCode", ki.PageAttribute("data-lastkeycode"), "8"
 End Sub
 
 '==============================================================================
@@ -410,19 +426,19 @@ Private Sub Test17_SendHover_HoverReveal(br As WebDriverBiDiContext)
     PrintSection "⑰ sendHover / ホバーで出現するボタン"
 
     Dim hv As WebDriverBiDiElement: Set hv = br.getElementByID("testHoverTarget")
-    AssertEq "sendHover前のhovered状態", hv.getAttribute("data-hovered"), "false"
+    AssertEq "sendHover前のhovered状態", hv.PageAttribute("data-hovered"), "false"
     hv.sendHover
-    AssertEq "sendHover後のhovered状態", hv.getAttribute("data-hovered"), "true"
-    AssertEq "sendHover後のhover回数", hv.getAttribute("data-hovercount"), "1"
+    AssertEq "sendHover後のhovered状態", hv.PageAttribute("data-hovered"), "true"
+    AssertEq "sendHover後のhover回数", hv.PageAttribute("data-hovercount"), "1"
 
     Dim container As WebDriverBiDiElement: Set container = br.getElementByID("hoverRevealContainer")
     Dim revealBtn As WebDriverBiDiElement: Set revealBtn = br.getElementByID("hoverRevealBtn")
-    AssertEq "ホバー前のクリック回数", revealBtn.getAttribute("data-clickcount"), "0"
+    AssertEq "ホバー前のクリック回数", revealBtn.PageAttribute("data-clickcount"), "0"
     container.sendHover
     Dim waitResult As String: waitResult = WaitUntilClickable(revealBtn)
     AssertTrue "ホバー後、ボタンがクリック可能になること(DOM安定待機)" & IIf(waitResult = "OK", "", " / " & waitResult), (waitResult = "OK")
     revealBtn.sendClick
-    AssertEq "ホバー→sendClick後のクリック回数", revealBtn.getAttribute("data-clickcount"), "1"
+    AssertEq "ホバー→sendClick後のクリック回数", revealBtn.PageAttribute("data-clickcount"), "1"
 End Sub
 
 '==============================================================================
