@@ -532,7 +532,7 @@ Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession 
     End If
 
     '5. sessionId生存check
-    If refreshTargetInfo Is Nothing Then
+    If checkCurrentTargetInfo Is Nothing Then
         reattach = False
 
 
@@ -1751,7 +1751,7 @@ Private Sub Activation()
 
 
     'Get infos
-    Dim TargetInfo As BiDiCDPJConv: Set TargetInfo = refreshTargetInfo
+    Dim TargetInfo As BiDiCDPJConv: Set TargetInfo = checkCurrentTargetInfo
 
     '--------------- 各種パラメーター更新 ---------------
     '＜自身のタブ(ページ)＞
@@ -2278,13 +2278,13 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：`Target.TargetInfo`オブジェクト。　※取得失敗時は、`Nothing`で返ります。大抵は、context(タブ等)が消えてることが多いです
 '***************************************************************************************************
-Private Function refreshTargetInfo() As BiDiCDPJConv
+Private Function checkCurrentTargetInfo() As BiDiCDPJConv
     '1. このClassで設定中の`SessionID`を基に情報取得を試みる
     Dim TargetInfo As BiDiCDPJConv
     Set TargetInfo = ExecuteCDP("Target.getTargetInfo")
 
     '2. エラーがなければ、`targetInfo`の中身を返却
-    If TargetInfo.ExistsKey("targetInfo") Then Set refreshTargetInfo = TargetInfo.NodeKey("targetInfo")
+    If TargetInfo.ExistsKey("targetInfo") Then Set checkCurrentTargetInfo = TargetInfo.NodeKey("targetInfo")
 
 End Function
 
