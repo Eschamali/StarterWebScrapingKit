@@ -563,21 +563,6 @@ Public Function getSelection(mode As SelectOptionMode) As Variant
     If mode = SelectOptionMode.seIndex Then getSelection = CLng(result) Else getSelection = CStr(result)
 End Function
 
-Public Function setSelection(strOptionName As String)
-'----------------------------------------------------------
-' Set option value to a select element.
-' Updated: 06/03/2025
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    jsEval "function(){ this.scrollIntoView(false) }"
-    Me.value = strOptionName
-    fireEvent "change"
-
-End Function
-
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 属性操作
 '---------------------------------------------------------------------------------------------------
