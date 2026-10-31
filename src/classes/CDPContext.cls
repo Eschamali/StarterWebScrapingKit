@@ -2510,28 +2510,6 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
     ExecuteCDPAsync "Runtime.releaseObject", paramsRelease, False
 End Function
 
-'***************************************************************************************************
-'* 機能　　：`getIFrameContextID`メソッドで得た`executionContextId`を基に、`CDPElement`で扱えるようにします
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：`executionContextId`に基づく`CDPElement`
-'* 引数　　：executionContextId     `getIFrameContextID`メソッドで得た`executionContextId`
-'***************************************************************************************************
-Public Function getIFrame(ExecutionContextId As Long) As CDPElement
-    '1. 要素として返却するように`document`を実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document"
-    resultSearch = jsEval(SearchJS, contextId:=ExecutionContextId)
-
-    '2. 結果を判定。文字型なら、ObjectIDを確保
-    Dim objectId As String, JsResultVarType As VbVarType
-    JsResultVarType = VarType(resultSearch)
-    If JsResultVarType = vbString Then objectId = resultSearch
-
-    '3. 結果を`CDPElement.cls`に格納
-    Set getIFrame = New CDPElement
-    getIFrame.Init Me, JsResultVarType, objectId, SearchJS
-End Function
-
 
 
 '***************************************************************************************************
