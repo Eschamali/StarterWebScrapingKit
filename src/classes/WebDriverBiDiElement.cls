@@ -487,7 +487,7 @@ End Sub
 '* 機能説明：`SelectOption`で選んだ項目を、同じ基準(Value/Label/Index)で確認できます
 '* 注意事項：複数選択(multiple)の場合は、先頭の選択項目を返します
 '***************************************************************************************************
-Public Function getSelection(mode As SelectOptionMode) As Variant
+Public Function GetSelection(mode As SelectOptionMode) As Variant
     '※JavaScript側の`m`は、`SelectOptionMode`の値(0:seValue / 1:seLabel / 2:seIndex)
     Const GetSelectionJS As String = "function(m) {" & _
                                      "  if (m === 2) return this.selectedIndex;" & _
@@ -507,7 +507,7 @@ Public Function getSelection(mode As SelectOptionMode) As Variant
     '2. 取得して、Indexは数値、それ以外は文字列で返却
     Dim result As Variant
     result = jsEval(GetSelectionJS, args)
-    If mode = SelectOptionMode.seIndex Then getSelection = CLng(result) Else getSelection = CStr(result)
+    If mode = SelectOptionMode.seIndex Then GetSelection = CLng(result) Else GetSelection = CStr(result)
 End Function
 
 '---------------------------------------------------------------------------------------------------
