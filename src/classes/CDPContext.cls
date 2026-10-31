@@ -350,7 +350,7 @@ Public Sub OpenBrowserAndConnectTab(caps As BrowserCapabilities)
 
     '5. Complete initialization ------------------------------------------------------
     InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
-    getSessionInfo                                                  'Store initial session info for printParams debugging
+    Activation                                                      'Store initial session info for printParams debugging
     BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
@@ -545,7 +545,7 @@ Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession 
         BrowserCore.EnableDiscoverTargets = True
 
         'ステータス更新
-        getSessionInfo
+        Activation
         printParams
     End If
 
@@ -1742,7 +1742,7 @@ Public Sub printParams()
 
 End Sub
 
-Public Sub getSessionInfo()
+Private Sub Activation()
 '----------------------------------------------------------------------------------
 ' Obtain session info on the fly for printParams.
 ' Updated: 22/03/2023
@@ -2652,7 +2652,7 @@ Property Let CurrentSessionID(newSessionID As String)
     End With
 
     '更新した`SessionID`として情報を再更新
-    getSessionInfo
+    Activation
 
     'ログ化
     printMsg info_, m_LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
