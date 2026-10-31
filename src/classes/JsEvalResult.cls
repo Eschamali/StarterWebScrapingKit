@@ -495,7 +495,7 @@ End Property
 
 Property Get value() As Variant
 Attribute value.VB_UserMemId = 0
-    CDPHelpers.SetVar(rawValue) = m_AutoValue
+    CDPHelpers.SetVar(value) = m_AutoValue
 End Property
 
 Property Get rawValue() As Variant

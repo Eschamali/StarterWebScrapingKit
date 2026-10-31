@@ -113,25 +113,41 @@ Private Sub Test03_Checked(br As CDPContext)
 End Sub
 
 '==============================================================================
-' ④ selected / setSelection（セレクトボックス）
+' ④ SelectOption / getSelection（セレクトボックス）
 '==============================================================================
 Private Sub Test04_Selected_SetSelection(br As CDPContext)
-    PrintSection "④ selected / setSelection"
+    PrintSection "④ SelectOption / getSelection"
 
     Dim sel As CDPElement: Set sel = br.getElementByID("testSelect")
 
-    '`setSelection`はvalue属性で指定して選択する
-    sel.setSelection "opt2"
-    AssertEq "setSelection後のvalue", sel.value, "opt2"
+    '`SelectOption`(引数名なし＝Value)で、value属性で指定して選択する（旧`setSelection`相当）
+    sel.SelectOption "opt2"
+    AssertEq "SelectOption(Value)後のvalue", sel.value, "opt2"
 
-    '`selected`Letは、selectedIndexで指定して選択する（0始まり）
-    sel.selected = "0"
-    AssertEq "selected=0後のvalue", sel.value, "opt1"
+    '`SelectOption Index:=`で、0始まりの番号で選択する（旧`selected`Let相当）
+    sel.SelectOption Index:=0
+    AssertEq "SelectOption(Index:=0)後のvalue", sel.value, "opt1"
 
-    '`selected`Getは、選択中option要素のobjectIdを返す（文字列取得できていることの確認）
-    AssertNotEmpty "selected（選択中option要素のobjectId）", CStr(sel.selected)
+    '`getSelection(seLabel)`で、選択中の表示文字を取得する（旧`selected`Get相当）
+    AssertEq "getSelection(seLabel)", sel.getSelection(seLabel), "Option 1"
 
-    br.jsEval "updateStatus('s-ce04','④ 完了 " & EOk() & " | selected / setSelection', true)", StopApiError:=False
+    '`SelectOption`は、Value / Label / Index のどれか1つで選択する → `getSelection`で同じ基準を確認
+    sel.SelectOption Value:="opt3"
+    AssertEq "SelectOption(Value)後のgetSelection(seValue)", sel.getSelection(seValue), "opt3"
+    AssertEq "SelectOption(Value)後のgetSelection(seLabel)", sel.getSelection(seLabel), "Option 3"
+    AssertEq "SelectOption(Value)後のgetSelection(seIndex)", sel.getSelection(seIndex), "2"
+
+    sel.SelectOption Label:="Option 1"
+    AssertEq "SelectOption(Label)後のgetSelection(seValue)", sel.getSelection(seValue), "opt1"
+
+    sel.SelectOption Index:=1
+    AssertEq "SelectOption(Index)後のgetSelection(seLabel)", sel.getSelection(seLabel), "Option 2"
+
+    '名前付き引数なしの場合は、Value扱い
+    sel.SelectOption "opt3"
+    AssertEq "SelectOption(引数名なし＝Value)後のgetSelection(seIndex)", sel.getSelection(seIndex), "2"
+
+    br.jsEval "updateStatus('s-ce04','④ 完了 " & EOk() & " | SelectOption / getSelection', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -142,16 +158,16 @@ Private Sub Test05_Click_SimpleClick_FireEvent(br As CDPContext)
 
     Dim btn As CDPElement: Set btn = br.getElementByID("testClickBtn")
 
-    AssertEq "初期クリック回数", btn.getAttribute("data-clickcount"), "0"
+    AssertEq "初期クリック回数", btn.PageAttribute("data-clickcount"), "0"
 
     btn.click
-    AssertEq "click後のクリック回数", btn.getAttribute("data-clickcount"), "1"
+    AssertEq "click後のクリック回数", btn.PageAttribute("data-clickcount"), "1"
 
     btn.SimpleClick
-    AssertEq "SimpleClick後のクリック回数", btn.getAttribute("data-clickcount"), "2"
+    AssertEq "SimpleClick後のクリック回数", btn.PageAttribute("data-clickcount"), "2"
 
     btn.fireEvent "customtestevent"
-    AssertEq "fireEvent後のcustomfired", btn.getAttribute("data-customfired"), "true"
+    AssertEq "fireEvent後のcustomfired", btn.PageAttribute("data-customfired"), "true"
 
     br.jsEval "updateStatus('s-ce05','⑤ 完了 " & EOk() & " | click / SimpleClick / fireEvent', true)", StopApiError:=False
 End Sub
@@ -163,16 +179,16 @@ Private Sub Test06_SendClick_SendKey(br As CDPContext)
     PrintSection "⑥ sendClick / sendKey"
 
     Dim scBtn As CDPElement: Set scBtn = br.getElementByID("testSendClickBtn")
-    AssertEq "sendClick前のクリック回数", scBtn.getAttribute("data-clickcount"), "0"
+    AssertEq "sendClick前のクリック回数", scBtn.PageAttribute("data-clickcount"), "0"
     scBtn.sendClick
-    AssertEq "sendClick後のクリック回数", scBtn.getAttribute("data-clickcount"), "1"
+    AssertEq "sendClick後のクリック回数", scBtn.PageAttribute("data-clickcount"), "1"
 
     Dim ki As CDPElement: Set ki = br.getElementByID("testKeyInput")
     ki.sendKey keyEnter
-    AssertEq "sendKey(keyEnter)後のkeyCode", ki.getAttribute("data-lastkeycode"), "13"
+    AssertEq "sendKey(keyEnter)後のkeyCode", ki.PageAttribute("data-lastkeycode"), "13"
 
     ki.sendKey keyBackspace
-    AssertEq "sendKey(keyBackspace)後のkeyCode", ki.getAttribute("data-lastkeycode"), "8"
+    AssertEq "sendKey(keyBackspace)後のkeyCode", ki.PageAttribute("data-lastkeycode"), "8"
 
     br.jsEval "updateStatus('s-ce06','⑥ 完了 " & EOk() & " | sendClick / sendKey', true)", StopApiError:=False
 End Sub
@@ -185,10 +201,10 @@ Private Sub Test07_GetAttribute_SetAttribute(br As CDPContext)
 
     Dim el As CDPElement: Set el = br.getElementByID("testAttrTarget")
 
-    AssertEq "getAttribute初期値", el.getAttribute("data-foo"), "bar"
+    AssertEq "getAttribute初期値", el.PageAttribute("data-foo"), "bar"
 
-    el.setAttribute "data-foo", "baz"
-    AssertEq "setAttribute後のgetAttribute", el.getAttribute("data-foo"), "baz"
+    el.PageAttribute("data-foo") = "baz"
+    AssertEq "setAttribute後のgetAttribute", el.PageAttribute("data-foo"), "baz"
 
     br.jsEval "updateStatus('s-ce07','⑦ 完了 " & EOk() & " | getAttribute / setAttribute', true)", StopApiError:=False
 End Sub
@@ -227,7 +243,7 @@ Private Sub Test09_Submit(br As CDPContext)
     el.submit
 
     Dim frm As CDPElement: Set frm = br.getElementByID("testForm")
-    AssertEq "submit呼び出し後のdata-submitted", frm.getAttribute("data-submitted"), "true"
+    AssertEq "submit呼び出し後のdata-submitted", frm.PageAttribute("data-submitted"), "true"
 
     br.jsEval "updateStatus('s-ce09','⑨ 完了 " & EOk() & " | submit', true)", StopApiError:=False
 End Sub
@@ -240,17 +256,17 @@ Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As CDPContext)
 
     Dim parentEl As CDPElement: Set parentEl = br.getElementByID("traversalParent")
     Dim child1 As CDPElement: Set child1 = parentEl.getFirstChild
-    AssertEq "getFirstChildのid", child1.getAttribute("id"), "child1"
+    AssertEq "getFirstChildのid", child1.PageAttribute("id"), "child1"
 
     Dim child2 As CDPElement: Set child2 = child1.getNextSibling
-    AssertEq "getNextSiblingのid", child2.getAttribute("id"), "child2"
+    AssertEq "getNextSiblingのid", child2.PageAttribute("id"), "child2"
 
     Dim child3 As CDPElement: Set child3 = br.getElementByID("child3")
     Dim backToChild2 As CDPElement: Set backToChild2 = child3.getPrevSibling
-    AssertEq "getPrevSiblingのid", backToChild2.getAttribute("id"), "child2"
+    AssertEq "getPrevSiblingのid", backToChild2.PageAttribute("id"), "child2"
 
     Dim parentBack As CDPElement: Set parentBack = child2.getParent
-    AssertEq "getParentのid", parentBack.getAttribute("id"), "traversalParent"
+    AssertEq "getParentのid", parentBack.PageAttribute("id"), "traversalParent"
 
     br.jsEval "updateStatus('s-ce10','⑩ 完了 " & EOk() & " | getParent / getNextSibling / getPrevSibling / getFirstChild', true)", StopApiError:=False
 End Sub
@@ -268,7 +284,7 @@ Private Sub Test11_GetChildren_ElementsByQuery_ElementsByXPath(br As CDPContext)
 
     Dim byQuery As Collection: Set byQuery = ul.getElementsByQuery(".list-item")
     AssertEq "getElementsByQueryの件数", CStr(byQuery.Count), "5"
-    AssertEq "getElementsByQuery[1]のdata-n", byQuery(1).getAttribute("data-n"), "1"
+    AssertEq "getElementsByQuery[1]のdata-n", byQuery(1).PageAttribute("data-n"), "1"
 
     Dim byXPath As Collection: Set byXPath = ul.getElementsByXPath("li")
     AssertEq "getElementsByXPathの件数", CStr(byXPath.Count), "5"
@@ -396,7 +412,7 @@ Private Sub Test16_SetFileInputFiles(br As CDPContext)
 End Sub
 
 '==============================================================================
-' ⑰ 診断プロパティ（UseSearchJS / varResult / CurrentObjectId / ExposeDevTools）
+' ⑰ 診断プロパティ（UseSearchJS / varResult / CurrentElementId / ExposeDevTools）
 '    と実行オプション（SetOptionStopException / SetOptionRunAsyncCDP / SetOptionUserGesture）
 '==============================================================================
 Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
@@ -406,7 +422,7 @@ Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
 
     AssertContains "UseSearchJSに検索構文が含まれること", el.UseSearchJS, "getElementById"
     AssertTrue "varResultがvbStringであること", (el.varResult = vbString)
-    AssertNotEmpty "CurrentObjectIdが取得できていること", el.CurrentObjectId
+    AssertNotEmpty "CurrentElementIdが取得できていること", el.CurrentElementId
 
     el.ExposeDevTools "__vbaTestExposed"
     Dim exposedCheck As Variant
@@ -453,12 +469,12 @@ Private Sub Test18_SendHover(br As CDPContext)
     PrintSection "⑱ sendHover"
 
     Dim hv As CDPElement: Set hv = br.getElementByID("testHoverTarget")
-    AssertEq "sendHover前のhovered状態", hv.getAttribute("data-hovered"), "false"
-    AssertEq "sendHover前のhover回数", hv.getAttribute("data-hovercount"), "0"
+    AssertEq "sendHover前のhovered状態", hv.PageAttribute("data-hovered"), "false"
+    AssertEq "sendHover前のhover回数", hv.PageAttribute("data-hovercount"), "0"
 
     hv.sendHover
-    AssertEq "sendHover後のhovered状態", hv.getAttribute("data-hovered"), "true"
-    AssertEq "sendHover後のhover回数", hv.getAttribute("data-hovercount"), "1"
+    AssertEq "sendHover後のhovered状態", hv.PageAttribute("data-hovered"), "true"
+    AssertEq "sendHover後のhover回数", hv.PageAttribute("data-hovercount"), "1"
 
     br.jsEval "updateStatus('s-ce18','⑱ 完了 " & EOk() & " | sendHover', true)", StopApiError:=False
 End Sub
@@ -472,13 +488,13 @@ Private Sub Test19_HoverReveal_Click(br As CDPContext)
     Dim container As CDPElement: Set container = br.getElementByID("hoverRevealContainer")
     Dim revealBtn As CDPElement: Set revealBtn = br.getElementByID("hoverRevealBtn")
 
-    AssertEq "ホバー前のクリック回数", revealBtn.getAttribute("data-clickcount"), "0"
+    AssertEq "ホバー前のクリック回数", revealBtn.PageAttribute("data-clickcount"), "0"
 
     container.sendHover
     Dim waitResult As String: waitResult = WaitUntilClickable(revealBtn)
     AssertTrue "ホバー後、ボタンがクリック可能になること(DOM安定待機)" & IIf(waitResult = "OK", "", " / " & waitResult), (waitResult = "OK")
     revealBtn.sendClick
-    AssertEq "ホバー→sendClick後のクリック回数", revealBtn.getAttribute("data-clickcount"), "1"
+    AssertEq "ホバー→sendClick後のクリック回数", revealBtn.PageAttribute("data-clickcount"), "1"
 
     br.jsEval "updateStatus('s-ce19','⑲ 完了 " & EOk() & " | ホバーで出現するボタン', true)", StopApiError:=False
 End Sub
