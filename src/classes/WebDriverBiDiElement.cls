@@ -470,7 +470,7 @@ Public Sub SelectOption(Optional value As String, Optional Label As String, Opti
     '3. 反映
     '※存在しない選択肢の場合は、エラー停止します
     '※BiDiの例外情報(`script.ExceptionDetails`)は、`text`にメッセージが入ります
-    If IsError(jsEval(UseJs, args)) Then printMsg ERROR_, "No candidates were found for the specified SelectOption. > " & main.LastJavaScriptException.StringKey("text"), FromProcedureName
+    If IsError(jsEval(UseJs, args)) Then printMsg ERROR_, "No candidates were found for the specified SelectOption. > " & main.LastJavaScriptException.StringKey("text"), FromProcedureName, doRaiseError:=True
 
     '4. SPAにも対応すべく、`change`イベントを発火
     fireEvent "change"
