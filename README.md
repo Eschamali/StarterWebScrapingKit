@@ -18,6 +18,8 @@ WebDriver（`msedgedriver.exe` / `chromedriver.exe` など）が担っている�
 外部ドライバ、SeleniumBasic、COM DLLの登録、管理者権限は**一切使いません**。  
 Excel VBA（標準モジュール／クラスモジュール）と Windows 標準API だけで、Chromium系ブラウザ（Edge / Chrome）や WebView2 と直接会話します。（実は [Firefox](#-実はfirefox-も動きます) も少しだけ）
 
+[リリースページ](https://github.com/Eschamali/StarterWebScrapingKit/releases)から、ExcelかAccessを1つDLするだけで、追加の**インストール/ダウンロード**を必要としない、真のゼロ・インストールで試せます🦊
+
 ---
 
 ## 立ち上げたきっかけ

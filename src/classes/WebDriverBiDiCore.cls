@@ -29,10 +29,6 @@ Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-C
 Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const BiDiSend      As String = "onBidiMessage"                 '`BiDi-CDP Mapper`へコマンド送信する際の関数名        (chromium-bidi\src\bidiTab\bidiTab.ts#L45)
 
-'nmp情報
-Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
-Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
-
 
 
 '***************************************************************************************************
@@ -342,7 +338,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
     If methodName <> BiDiForCDPEventName Then Exit Sub
 
     '3. PayloadのName部分を取得
-    Dim CDPToBiDi As BiDiCDPJson: Set CDPToBiDi = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+    Dim CDPToBiDi As BiDiCDPJConv: Set CDPToBiDi = BiDiCDPJConv.Parse(RawJson).NodeKey("params")
     Dim bindingCalledName As String: bindingCalledName = CDPToBiDi.StringKey("name")
 
     '4. `Name`値に応じた処理
@@ -473,7 +469,7 @@ Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String
-    Dim BiDiNode As BiDiCDPJson: Set BiDiNode = BiDiCDPJson.Parse(BiDiJsonString)
+    Dim BiDiNode As BiDiCDPJConv: Set BiDiNode = BiDiCDPJConv.Parse(BiDiJsonString)
 
     '--------- 1. BiDiからのイベントか？ ---------
     If BiDiNode.StringKey("type") = "event" Then
@@ -589,42 +585,39 @@ End Property
 
 
 '***************************************************************************************************
-'                               ■■■ `mapperTab.js`更新関連 ■■■
+'                               ■■■ `mapperTab.js`更新 ■■■
 '***************************************************************************************************
-'* 機能　　：ローカルファイルから、JSコードを取得します
+'* 機能　　：Chromium向けの、WebDriverBiDiのコアである`mapperTab.js`の更新を行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：成功論理値
-'* 引数　　：FolderPath     フォルダパス
-'            FileName       JSファイル名
-'            Version        バージョン番号(分かれば。入れる際は数字始まりで)
+'* 引数　　：mapperTabStr   `mapperTab.js`の中身
+'            Version        バージョン番号(基本、数字始まりで)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：読み取ったファイルと、Excelテーブルに挿入した文字列との一致確認も行っていきます
+'* 注意事項：ライセンス情報のない物は、インポートできません
 '***************************************************************************************************
-Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName, Optional Version As String = "Local") As Boolean
-    Const FromProcedureName As String = ThisClassName & ".UpdateFromLocalFile"
+Public Function UpdateWebDriverBiDi(mapperTabStr As String, Version As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".UpdateWebDriverBiDi"
 
 
-    '1. ファイルから、Jsコードを取得
-    '※Windows方式の改行コード(CRLF)だと、テーブル挿入時の分割にて、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
-    Dim m_CharConv As New CharacterCodeConversion
-    Dim JsCode As String
-    With m_CharConv
-        JsCode = Replace(.BytesToString(.BytesFromSavedFile(FolderPath, FileName)), vbCrLf, vbLf)
-    End With
+    '1. ライセンスチェック
+    If InStr(1, mapperTabStr, "Copyright 2021 Google LLC.") = 0 Then printMsg ERROR_, "Google's license information could not be found.", FromProcedureName:                Exit Function
+    If InStr(1, mapperTabStr, "Copyright (c) Microsoft Corporation.") = 0 Then printMsg ERROR_, "Microsoft's license information could not be found.", FromProcedureName:   Exit Function
 
+    '更新処理
     With ShLibrary01_JS
         '2. 専用のテーブルに配置
-        .TableMapperTabJS = JsCode
+        .TableMapperTabJS = mapperTabStr
 
         '3. 正しく置けてるか確認
-        UpdateFromLocalFile = (JsCode = .TableMapperTabJS)
+        UpdateWebDriverBiDi = (mapperTabStr = .TableMapperTabJS)
 
         '4. ミスの場合はテーブルの中身を削除
-        If Not (UpdateFromLocalFile) Then .DeleteMapperTabJS
+        If Not (UpdateWebDriverBiDi) Then .DeleteMapperTabJS: printMsg ERROR_, "The contents entered in the table do not match.", FromProcedureName
 
-        'ローカルファイルで更新した旨を記録
+        '5. ローカルファイルで更新した旨を記録
         '※ミスの場合は、空欄にする
-        .VersionMapperTabJS = IIf(UpdateFromLocalFile, " " & Version, "")
+        .VersionMapperTabJS = IIf(UpdateWebDriverBiDi, Version, vbNullString)
     End With
 End Function
 

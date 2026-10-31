@@ -40,3 +40,33 @@ Microsoft Edge(Chromium系)をChrome DevTools Protocol (CDP) 経由で自動操�
 | `assset/` | ChromiumでWebDriverBiDi化するやつ | WebDriverBiDiが動くのはこれのおかげ |
 | `docs/` | VitePress製ドキュメント | gh-pagesブランチでのみ出現。 |
 | `Extensions/` | このツールの拡張機能一式(DL監視等) | Extensionsブランチでのみ出現。 |
+
+## 6. 各ブランチと意味
+
+|ブランチ名|概要|マージについて|
+|---|---|---|
+|main|Defaultブランチ。Rootの`Readme.md`編集もこれ|リリース間近の時に`dev-xlflow`ブランチからマージされる|
+|dev-xlflow|アクティブな開発全般ブランチ。主にCDPのコアに修正や機能追加、全般テストを行う際に使用。|WebView2,WinSock,WebDriverBiDiからマージされる|
+|WebView2|WebView2系のソースに修正を加える際に使用|なし|
+|WinSock|WebSocket周りの修正を行う際に使用|なし|
+|WebDriverBiDi|WebDriverBiDi周りの修正を行う際に使用。WebDriverBiDi用テストもここで|なし|
+|gh-pages|vitepress更新専用|mainからマージされる|
+|Extensions|mainブランチに対する拡張機能を提供するブランチ。主に軽量として|mainからマージされる|
+|ex-Firefox|Extensionsブランチに、Firefoxも制御できるようにした実験ブランチ|Extensionsからマージされる|
+|ex-NativeMessaging|Extensionsブランチに、[native-messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging?hl=ja)経由でCDP制御できるかの実験ブランチ|Extensionsからマージされる|
+|ex-BrowserAI|Extensionsブランチに、PromptAPIを扱えるにようにする拡張機能実験|Extensionsからマージされる|
+
+# 7. 非公開APIについて
+
+下記Class,basは基本、内部用として扱い。今後のDemoも含め、直接bas,Classから触らない。
+※ユーザーからの明示的な非公開API使用の指示がある場合は無視
+
+- WebView2Thunks
+- CDPCore
+- CDPHost
+- Logger
+- WebDriverBiDiCore
+- WebView2CallbackHandler
+- WebView2EnvOptions
+- WebView2Host
+- CDPIframe

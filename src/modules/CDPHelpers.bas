@@ -22,25 +22,40 @@ Private Declare PtrSafe Sub OutputDebugString Lib "kernel32" Alias "OutputDebugS
 
 
 '***************************************************************************************************
-'                                   ■■■ 各種定数 ■■■
+'                                   ■■■ 各種構造体 ■■■
 '***************************************************************************************************
-'JSの`document.readyState`の状態一式
-'※Pageイベントとして置き換えます
-Public Enum ReadyState      'Used for .wait method
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類。命名は右記に準拠します → https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22
+'---------------------------------------------------------------------------------------------------'
+Public Enum DevToolsAgentHost_KType
+    kTab = 1
+    kPage                   '普段目にするタブがこれ
+    kFrame                  'iFrameと同等
+    kDedicatedWorker
+    kSharedWorker
+    kServiceWorker
+    kWorklet
+    kBrowser
+    kGuest
+    kOther                  '非表示タブ
+    kAuctionWorklet
+    kAssistiveTechnology
+    kBrowserUI
+End Enum
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] JSの`document.readyState`の状態一式。Pageイベントとしても使用します
+'---------------------------------------------------------------------------------------------------'
+Public Enum ReadyState
     Nowait          'ページ遷移等が発生せず、待機不要な場合
     isLoading       'equivalence of the browser's "loading"(Page.frameStartedLoading) state
     isInteractive   'equivalence of the browser's "interactive"(Page.domContentEventFired) state
     isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
-'ログ共通設定。
-Private Type StateLog
-    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
-    logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
-End Type
-Public currentLog       As StateLog
-
-'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
+'---------------------------------------------------------------------------------------------------'
 Public Enum WinState
     asHidden = 0            'Hides the window and activates another window.
     asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
@@ -56,6 +71,11 @@ Public Enum WinState
     doForceMin = 11         'Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
 End Enum
 
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
 'バッファー設定関連
 Public Const InitialBuffer      As Long = 2 ^ 20     'CDPやり取りPipe/テキスト変数/ADODB.Stream/setsockopt の初期バッファー値
 
@@ -74,8 +94,16 @@ Public Const EmptyPageName      As String = "about:blank"           '空のWeb�
 '***************************************************************************************************
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
-Private m_Frequency     As Currency     '実行マシンでの周波数記録用
+'ログ共通設定
+Private Type StateLog
+    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
+    logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
+End Type
+Public currentLog       As StateLog
 Private LogControl      As New Logger   'ログレベルの制御
+
+'その他
+Private m_Frequency     As Currency     '実行マシンでの周波数記録用
 
 
 
@@ -94,6 +122,27 @@ Public Function EnumToStringReadyState(param As ReadyState) As String
     End Select
 End Function
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Public Function EnumToStringDevToolsAgentHost_KType(param As DevToolsAgentHost_KType) As String
+    Select Case param
+        Case DevToolsAgentHost_KType.kTab:                  EnumToStringDevToolsAgentHost_KType = "tab"
+        Case DevToolsAgentHost_KType.kPage:                 EnumToStringDevToolsAgentHost_KType = "page"
+        Case DevToolsAgentHost_KType.kFrame:                EnumToStringDevToolsAgentHost_KType = "iframe"
+        Case DevToolsAgentHost_KType.kDedicatedWorker:      EnumToStringDevToolsAgentHost_KType = "worker"
+        Case DevToolsAgentHost_KType.kSharedWorker:         EnumToStringDevToolsAgentHost_KType = "shared_worker"
+        Case DevToolsAgentHost_KType.kServiceWorker:        EnumToStringDevToolsAgentHost_KType = "service_worker"
+        Case DevToolsAgentHost_KType.kWorklet:              EnumToStringDevToolsAgentHost_KType = "worklet"
+        Case DevToolsAgentHost_KType.kBrowser:              EnumToStringDevToolsAgentHost_KType = "browser"
+        Case DevToolsAgentHost_KType.kGuest:                EnumToStringDevToolsAgentHost_KType = "webview"
+        Case DevToolsAgentHost_KType.kOther:                EnumToStringDevToolsAgentHost_KType = "other"
+        Case DevToolsAgentHost_KType.kAuctionWorklet:       EnumToStringDevToolsAgentHost_KType = "auction_worklet"
+        Case DevToolsAgentHost_KType.kAssistiveTechnology:  EnumToStringDevToolsAgentHost_KType = "assistive_technology"
+        Case DevToolsAgentHost_KType.kBrowserUI:            EnumToStringDevToolsAgentHost_KType = "browser_ui"
+    End Select
+End Function
+
 
 
 '***************************************************************************************************
@@ -104,9 +153,30 @@ End Function
 '---------------------------------------------------------------------------------------------------
 Public Function StringToEnumReadyState(param As String) As ReadyState
     Select Case param
-        Case EnumToStringReadyState(isLoading):     StringToEnumReadyState = ReadyState.isLoading
-        Case EnumToStringReadyState(isInteractive): StringToEnumReadyState = ReadyState.isInteractive
-        Case EnumToStringReadyState(isComplete):    StringToEnumReadyState = ReadyState.isComplete
+        Case EnumToStringReadyState(ReadyState.isLoading):     StringToEnumReadyState = ReadyState.isLoading
+        Case EnumToStringReadyState(ReadyState.isInteractive): StringToEnumReadyState = ReadyState.isInteractive
+        Case EnumToStringReadyState(ReadyState.isComplete):    StringToEnumReadyState = ReadyState.isComplete
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類を文字列Enumで返します
+'---------------------------------------------------------------------------------------------------
+Public Function StringToEnumDevToolsAgentHost_KType(param As String) As DevToolsAgentHost_KType
+    Select Case param
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kTab):                 StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kTab
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kPage):                StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kPage
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kFrame):               StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kFrame
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kDedicatedWorker):     StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kDedicatedWorker
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kSharedWorker):        StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kSharedWorker
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kServiceWorker):       StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kServiceWorker
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kWorklet):             StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kWorklet
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kBrowser):             StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kBrowser
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kGuest):               StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kGuest
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kOther):               StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kOther
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kAuctionWorklet):      StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kAuctionWorklet
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kAssistiveTechnology): StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kAssistiveTechnology
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kBrowserUI):           StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kBrowserUI
     End Select
 End Function
 

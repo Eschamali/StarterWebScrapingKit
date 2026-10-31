@@ -1299,13 +1299,26 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 
         '返り値チェック
         If intRes > 0 Then
-            '破棄モードかの判定 ※ログメッセージ分岐のみ
+            '破棄モードかの判定
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
                 printMsg Trace_, "Discarding data in WebSocket...", FromProcedureName
             Else
                 '中身の解析に備えて、蓄積準備
+                '※実際は、`GetAsyncMessage`内のRaiseEventでやってるが便宜上。
                 printMsg Trace_, "Storing received messages...", FromProcedureName
+
+                '受信データの種類が切断要求の場合は、切断処理を行う
+                If viaWebSocket.LastBufferType = ConnectionCloseFrame Then
+                    'ハンドル情報テーブルも削除
+                    CloseHandleBrowser
+
+                    'エラー表示
+                    printMsg ERROR_, "Disconnected because a disconnection request was received from the Chromium browser.", FromProcedureName, doRaiseError:=StopWebSocketError
+
+                    'もう有効なハンドルではないため、抜ける
+                    Exit Sub
+                End If
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
@@ -1321,13 +1334,6 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
                 printMsg ERROR_, "Error recv in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStyleReadFile, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
-            ElseIf viaWebSocket.LastBufferType = WS_CLOSE_MESSAGE Then
-                '切断要求が来た場合
-                printMsg ERROR_, "Disconnected because a disconnection request was received from the Chromium browser.", FromProcedureName, doRaiseError:=StopWebSocketError
-
-                'ついでに、ハンドル情報テーブルも削除
-                CloseHandleBrowser
-                Exit Sub
             Else
                 'パイプ内は空あるいは、WebSocketフレーム単位としてまだ届いていない
                 printMsg Trace_, "The WebSocket is currently empty.", FromProcedureName
@@ -1492,7 +1498,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String, sessionID As String
-    Dim CDPNode As BiDiCDPJson: Set CDPNode = BiDiCDPJson.Parse(CDPJsonString)
+    Dim CDPNode As BiDiCDPJConv: Set CDPNode = BiDiCDPJConv.Parse(CDPJsonString)
 
     '--------- 1. ブラウザからのイベントか？ ---------
     If CDPNode.ExistsKey("method") Then
