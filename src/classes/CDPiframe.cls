@@ -85,7 +85,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：frameTree      `Page.getFrameTree`のRETURN OBJECTの中身を渡します
 '            TabName        タブの名前 ※デバッグ用
-'            NestLevel      `InitPageGetFrameTree`と同じ
+'            NestLevel      ※`InitPageGetFrameTree`と同じ
 '***************************************************************************************************
 Public Sub printChildFrames(frameTree As BiDiCDPJConv, tabName As String, Optional NestLevel As Long)
     Const FromProcedureName As String = ThisClassName & ".printChildFrames"
