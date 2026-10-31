@@ -646,9 +646,10 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`chromium-bidi`のrelease仕様変更に伴い、更新はローカル経由のみとします
+'* 注意事項：・`chromium-bidi`のrelease仕様変更に伴い、同梱の更新Demoは、ローカル経由のみとします
+'            ・オンライン経由版は、別途入手が必要です。
 '***************************************************************************************************
-Private Sub WebDriverBiDiUpdateViaLocalFile()
+Private Sub UpdateWebDriverBiDiViaLocalFile()
     '1. ファイルパスを、ダイアログで指定
     Dim UpdateFilePath As String
     With Application.FileDialog(3)  'msoFileDialogFilePicker
@@ -671,16 +672,24 @@ Private Sub WebDriverBiDiUpdateViaLocalFile()
     Dim SplitNum As Long: SplitNum = UBound(tmp)
 
     '3. 分けて格納
-    Dim FolderName As String, FileName As String
-    FileName = tmp(SplitNum): tmp(SplitNum) = ""
-    FolderName = Join(tmp, "\")
+    Dim FolderPath As String, FileName As String
+    FileName = tmp(SplitNum): tmp(SplitNum) = vbNullString
+    FolderPath = Join(tmp, "\")
 
     '4. バージョン番号があれば指定を促す
     Dim Version As String
     Version = InputBox("記録するバージョン番号を入力して下さい", "chromium-bidi mapperTab.js", "Local")
-    If LenB(Version) = 0 Then Version = "Local"  '空欄時は、既定値にする。キャンセルの区別はしない
+    If LenB(Version) = 0 Then Version = "Local"  '空欄時は、既定値を用意。キャンセルの区別はしない
 
-    '5. 更新処理
+    '5. パスを基に、Jsコードを取得
+    '※Windows方式の改行コード(CRLF)だと、テーブル挿入時の分割にて、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
+    Dim m_CharConv As New CharacterCodeConversion
+    Dim JsCode As String
+    With m_CharConv
+        JsCode = Replace(.BytesToString(.BytesFromSavedFile(FolderPath, FileName)), vbCrLf, vbLf)
+    End With
+
+    '6. 更新処理
     Dim UpdateBiDi As New WebDriverBiDiCore
-    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName, Version) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
+    If UpdateBiDi.UpdateWebDriverBiDi(JsCode, Version) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できなかったか、適切なライセンス情報がありませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
 End Sub
