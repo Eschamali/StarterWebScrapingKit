@@ -1782,11 +1782,16 @@ End Property
 '                                   ■■■ 後始末 ■■■
 '***************************************************************************************************
 Private Sub Class_Terminate()
+    Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
+
+
     '不要になった objectId をリリースします(あれば)
     '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
     If StrPtr(CurrentElement.objectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", CurrentElement.objectId
         main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
+
+        printMsg Debug_, "Destroyed ObjectID: " & CurrentElement.objectId, FromProcedureName
     End If
 End Sub
