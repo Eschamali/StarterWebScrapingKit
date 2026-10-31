@@ -96,7 +96,7 @@ Public Function OpenBrowser(caps As BrowserCapabilities) As String
     OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(caps)
 
     '4. BiDi との新しいセッションを確立する
-    Dim resultBiDi As BiDiCDPJson
+    Dim resultBiDi As BiDiCDPJConv
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
     '5. 接続先ブラウザ情報をログで表示
@@ -225,7 +225,7 @@ Public Sub reattach(reattachInfo As ReattachOptions)
     DebugSessionStatus = sessionStatus.BoolKey("ready")
 
     '5. 結果に応じて`session.new`を行う
-    Dim resultBiDi As BiDiCDPJson
+    Dim resultBiDi As BiDiCDPJConv
     If requestSessionNew Or DebugSessionStatus Then
         '5-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
@@ -264,7 +264,7 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     BiDiparams.Add "background", isBackground
 
     '2.実行
-    Dim bidiRes As BiDiCDPJson
+    Dim bidiRes As BiDiCDPJConv
     Set bidiRes = ExecuteBiDi("browsingContext.create", BiDiparams)
 
     '3. 返却準備
@@ -285,114 +285,144 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
 End Function
 
 '***************************************************************************************************
-'* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
+'* 機能　　：既に開いているタブ（またはその中のiframe）のコンテキストを、URLに基づいて検索します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスモジュール - WebDriverBiDiContext
-'* 引数　　：tabName        タブ名
-'            Url            URL
-'            maxDepth       Tree の深さレベル。基本は、0にすると子フレーム(iframe)を含まず、トップレベルのタブだけ取得となります
+'* 返り値　：クラスモジュール - WebDriverBiDiContext。見つからない場合は`Nothing`
+'* 引数　　：Url            URL。先頭一致を優先し、次に部分一致で探します
+'            maxDepth       どこまで潜るか。0(省略)でトップレベルのタブのみ、nでn階層下のiframeまで、負の値で無制限
 '            setMain        `True`で、Excelに`context`を記録し、リアタッチに備えます
 '            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。maxDepth はデフォルトは、トップレベルのタブだけにしてます
-'* 注意事項：・url引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
+'* 機能説明：浅い階層から順に探します（幅優先）。同じ確からしさなら、浅い方（タブ → iframe の順）を採用します
+'            探索の考え方は`CDPiframe.InitPageGetFrameTree`と同じです
+'* 注意事項：・url引数を省略すると、最初のトップレベルのタブを返します
 '            ・WebDriverBiDi では、タブ名での検索はできないようです
 '***************************************************************************************************
 Public Function getTab(Optional Url As String, Optional maxDepth As Long, Optional setMain As Boolean, Optional doRetrySecond As Double) As WebDriverBiDiContext
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
+    Dim bidiRes As BiDiCDPJConv, matchData As BiDiCDPJConv
+    Dim bestScore As Long, bestDepth As Long
     Dim startTime As Double
-    Dim bidiRes As BiDiCDPJson
-    Dim contexts As BiDiCDPJson
-    Dim matchData As BiDiCDPJson
 
-    'パラメーターを用意
+    '1. パラメーターを用意（負の値＝無制限の場合は、`maxDepth`自体を送らない）
     Dim BiDiparams As New Dictionary
-    BiDiparams.Add "maxDepth", maxDepth
+    If maxDepth >= 0 Then BiDiparams.Add "maxDepth", maxDepth
 
-    'タイマースタート
-    If doRetrySecond Then startTime = CDPHelpers.TimerCounter
-    
-    'シンプルに、`Instr`方式の検索で行う
+    '2. タイマースタートして探索を開始する
+    If doRetrySecond > 0 Then startTime = CDPHelpers.TimerCounter
     Do
-        ' 1. 指定した深さまでのツリーを取得
+        '2-1. 指定した深さまでのツリーを取得し、条件に一番合うコンテキストを探す
+        Set matchData = Nothing
         Set bidiRes = ExecuteBiDi("browsingContext.getTree", BiDiparams)
+        If Not bidiRes Is Nothing Then Set matchData = FindBestContext(bidiRes.NodeKey("contexts"), maxDepth, Url, bestScore, bestDepth)
+        If Not matchData Is Nothing Then Exit Do
 
-        If Not bidiRes Is Nothing Then
-            Set contexts = bidiRes.NodeKey("contexts")
-
-            ' 2. 再帰関数を呼び出して全階層からマッチするものを探す
-            Set matchData = FindContextRecursive(contexts, Url)
-
-            ' 3. 見つかったらオブジェクト化して返す
-            If Not matchData Is Nothing Then
-                EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
-                Set getTab = New WebDriverBiDiContext
-                With getTab
-                    '4. アクティブなプロトコルオブジェクトを渡す
-                    .Init Me, m_BiDiCore
-
-                    '5. 先ほど得た`context`を渡す
-                    .context = matchData("context")
-
-                    '6. メイン化する場合は、Excelに記録しておく
-                    If setMain Then serializeMainTab = matchData("context")
-                End With
-
-                Exit Do
-            End If
-        End If
-
-        If Not doRetrySecond Then Exit Do
+        '2-2. 見つからなければ、時間内は少し待ってから取り直す
+        If doRetrySecond <= 0 Then Exit Do
         If CDPHelpers.TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
+        CDPHelpers.Sleep 0.1
+    Loop
+
+    '3. 見つからない場合は`Nothing`を返す
+    If matchData Is Nothing Then
+        printMsg WARN_, "Unable to find the context: " & IIf(LenB(Url), Url, "(no context found)"), FromProcedureName
+        Exit Function
+    End If
+
+    '4. 見つかったらオブジェクト化して返す
+    EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
+    Set getTab = New WebDriverBiDiContext
+    With getTab
+        '4-1. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, m_BiDiCore
+
+        '4-2. 先ほど得た`context`を渡す
+        .context = matchData.StringKey("context")
+
+        '4-3. メイン化する場合は、Excelに記録しておく
+        If setMain Then serializeMainTab = .context
+    End With
+    printMsg info_, "Found the context: " & matchData.StringKey("context") & " at level " & bestDepth & ". (Certainty：" & bestScore & "%)", FromProcedureName
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`browsingContext.getTree`の`contexts`を浅い階層から順に辿り（幅優先）、条件に一番合うコンテキストを返します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：見つかった`browsingContext.Info`。無ければ`Nothing`
+'* 引数　　：topContexts  `browsingContext.getTree`の`contexts`（トップレベルのタブの一覧）
+'            maxDepth     探索する階層の上限（0でトップレベルのみ。負の値で無制限）
+'            Url          URL。空ならトップレベルの最初のタブ
+'            bestScore    見つかったコンテキストの点数を返します（無ければ-1）
+'            bestDepth    見つかったコンテキストの階層を返します（トップレベルのタブ=0、その直下のiframe=1）
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・浅い階層を全て見てから深い階層へ進むため、同点なら浅い方が残り、最高点が出た時点で打ち切れます
+'            ・`maxDepth`に達した階層の`children`は`null`（=`NodeKey`が`Nothing`）で返るため、その場合は潜りません
+'***************************************************************************************************
+Private Function FindBestContext(topContexts As BiDiCDPJConv, maxDepth As Long, Url As String, _
+                                 ByRef bestScore As Long, ByRef bestDepth As Long) As BiDiCDPJConv
+    Dim pending As New Collection, Item As Variant
+    Dim ctxList As BiDiCDPJConv, ctxInfo As BiDiCDPJConv, childList As BiDiCDPJConv
+    Dim Depth As Long, token As Long, score As Long, topScore As Long
+
+    bestScore = -1
+    bestDepth = 0
+
+    'この条件で取りうる最高点（URL指定ありなら先頭一致の90、なしなら80）
+    If LenB(Url) Then topScore = 90 Else topScore = 80
+
+    '1. 待ち行列に「コンテキストの一覧, その一覧の階層」を積んで、先頭から順に処理する
+    pending.Add Array(topContexts, 0)
+    Do While pending.Count > 0
+        Item = pending(1)
+        pending.Remove 1
+        Set ctxList = Item(0)
+        Depth = Item(1)
+
+        '2. この階層の各コンテキストを採点し、さらに潜る分（children）を待ち行列の末尾へ積む
+        token = ctxList.FirstChildToken
+        Do While token > 0
+            Set ctxInfo = ctxList.NodeFromToken(token)
+
+            score = ScoreContext(ctxInfo, Url)
+            If score > bestScore Then
+                bestScore = score
+                bestDepth = Depth
+                Set FindBestContext = ctxInfo
+                If bestScore = topScore Then Exit Function
+            End If
+
+            If maxDepth < 0 Or Depth < maxDepth Then
+                Set childList = ctxInfo.NodeKey("children")
+                If Not childList Is Nothing Then
+                    If childList.Count > 0 Then pending.Add Array(childList, Depth + 1)
+                End If
+            End If
+
+            token = ctxList.NextToken(token)
+        Loop
     Loop
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`browsingContext.getTree`の再帰処理による検索処理です
+'* 機能　　：1つのコンテキストが、検索条件にどれだけ合うかを採点します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：contexts   browsingContext.InfoList
-'* 引数　　：Url        URL
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：再帰処理のため、深すぎるとエラーになりますが多分問題ないはずです
+'* 返り値　：90(URL先頭一致) / 80(条件なし) / 40(URL部分一致) / -1(不一致)
 '***************************************************************************************************
-Private Function FindContextRecursive(contexts As BiDiCDPJson, Url As String) As BiDiCDPJson
-    Dim ctxData As BiDiCDPJson
-    Dim childMatch As BiDiCDPJson
-    Dim contextCount As Long
+Private Function ScoreContext(ctxInfo As BiDiCDPJConv, Url As String) As Long
+    ScoreContext = -1
 
-    ' contextsはCollection（配列）としてループ
-    Dim i As Long
-    contextCount = contexts.Count
-    For i = 0 To contextCount
-        Set ctxData = contexts.NodeIndex(i)
+    '条件なし：最初に見つかったコンテキスト
+    If LenB(Url) = 0 Then ScoreContext = 80: Exit Function
 
-
-        ' A. このコンテキスト自体がマッチするかチェック
-        Dim isMatch As Boolean
-        If LenB(Url) = 0 Then
-            isMatch = True ' 空なら最初に見つかったヤツ
-        Else
-            If InStr(1, ctxData.StringKey("url"), Url) > 0 Then isMatch = True
-        End If
-
-        If isMatch Then
-            Set FindContextRecursive = ctxData
-            Exit Function
-        End If
-
-        ' B. 子要素（children）があれば、さらにその中を探索
-        If ctxData.NodeKey("children").Count > 0 Then
-            Set childMatch = FindContextRecursive(ctxData.NodeKey("children"), Url)
-            If Not childMatch Is Nothing Then
-                Set FindContextRecursive = childMatch
-                Exit Function
-            End If
-        End If
-    Next
-
-    Set FindContextRecursive = Nothing
+    'URL：先頭一致を優先
+    Dim StartPos As Long: StartPos = InStr(1, ctxInfo.StringKey("url"), Url)
+    If StartPos = 1 Then
+        ScoreContext = 90
+    ElseIf StartPos Then
+        ScoreContext = 40
+    End If
 End Function
 
 
@@ -410,7 +440,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを送信後、ID返却されるまで待機します。
 '***************************************************************************************************
-Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJConv
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDi"
 
 
@@ -432,8 +462,8 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     ResultJsonStr = AutoWaitTakeResultBiDi(RunID, StopBiDiError)
 
     '4. 結果を、Node変換
-    Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
+    Dim resultJson As BiDiCDPJConv
+    Set resultJson = BiDiCDPJConv.Parse(ResultJsonStr)
 
     '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
@@ -598,7 +628,7 @@ End Property
 '* 返り値　：エラー有無論理値
 '* 引数　　：ResultsObj         パース処理済みのCDP-Jsonコマンド実行結果
 '***************************************************************************************************
-Private Function ExecuteError(ResultsObj As BiDiCDPJson) As Boolean
+Private Function ExecuteError(ResultsObj As BiDiCDPJConv) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -869,12 +899,12 @@ End Sub
 '* 注意事項：・CDPのパイプ通信で1対1で直接繋がってしまっている都合上、一部項目は空となります
 '            ・ログレベル - DEBUG のみ表示します
 '***************************************************************************************************
-Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
+Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJConv)
     Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
 
 
     '1. VBA用にキャッシュする
-    Dim Node_capabilities As BiDiCDPJson: Set Node_capabilities = ResultSessionNew.NodeKey("capabilities")
+    Dim Node_capabilities As BiDiCDPJConv: Set Node_capabilities = ResultSessionNew.NodeKey("capabilities")
     With br
         'オリジナルのまま
         .acceptInsecureCerts = Node_capabilities.BoolKey("acceptInsecureCerts")
@@ -927,7 +957,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
 '***************************************************************************************************
-Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJson
+Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJConv
     '`session.new`の`Parameters`が省略されてる場合は、空規定値を作成する
     If params Is Nothing Then
         Set params = New Dictionary
@@ -948,7 +978,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-status
 '***************************************************************************************************
-Private Function sessionStatus() As BiDiCDPJson
+Private Function sessionStatus() As BiDiCDPJConv
     Set sessionStatus = ExecuteBiDi("session.status")
 End Function
 
@@ -962,7 +992,7 @@ End Function
 '* 機能説明：ブラウザを閉じずに、デバッグだけ終らせる後始末用にどうぞ
 '* 注意事項：WebSocket切断も同時に発生するためここは、エラー無視として働きます
 '***************************************************************************************************
-Public Function sessionEnd() As BiDiCDPJson
+Public Function sessionEnd() As BiDiCDPJConv
     Set sessionEnd = ExecuteBiDi("session.end", , False)
 End Function
 

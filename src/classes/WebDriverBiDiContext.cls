@@ -40,7 +40,7 @@ End Type
 Private InfoList As browsingContextInfo
 
 'その他
-Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
+Private lastExceptionDetailsJS  As BiDiCDPJConv 'JavaScript実行時の最後のエラー情報(Node情報方式)
 Private m_LogID              As String     'ログ識別ID
 
 
@@ -94,10 +94,10 @@ Private Sub InitAttachToContext(InitURL As String)
 
     '2. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
     Dim result
-    Dim boolFound As Boolean, FirstTab As BiDiCDPJson
+    Dim boolFound As Boolean, FirstTab As BiDiCDPJConv
     For Each result In FirstTabs
         '2-1. Jsonパース処理
-        Set FirstTab = BiDiCDPJson.Parse(CStr(result)).NodeKey("params")
+        Set FirstTab = BiDiCDPJConv.Parse(CStr(result)).NodeKey("params")
 
         '2-2. URL検索で、目的のページを見つける
         '※Tree情報となってるがTOP層(普段目にするタブとして)の接続しか考慮しないことにする
@@ -150,7 +150,7 @@ Public Function reattach(reattachInfo As ReattachOptions) As Boolean
     InfoList.context = m_BiDiMode.serializeMainTab
 
     '4. 生存確認
-    Dim BiDiparams As New Dictionary, BiDiResult As BiDiCDPJson
+    Dim BiDiparams As New Dictionary, BiDiResult As BiDiCDPJConv
     BiDiparams.Add "root", InfoList.context
     BiDiparams.Add "maxDepth", 0
     Set BiDiResult = m_BiDiMode.ExecuteBiDi("browsingContext.getTree", BiDiparams, False)
@@ -181,28 +181,28 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
 
     '------------------ この`Context`のステータスの更新を行います ------------------
-    Dim BiDiEventNode As BiDiCDPJson
+    Dim BiDiEventNode As BiDiCDPJConv
     Select Case methodName
         '------------------ `Context`自体の生存ステータス ------------------
         '`context`が消えた
         Case "browsingContext.contextDestroyed"
             '1. 自分の`context`か確認し、そうであれば、フラグ更新
-            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Set BiDiEventNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params")
             If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
 
         '------------------ `Context`のページ読み込み状況 ------------------
         Case "browsingContext.navigationStarted"
             '※CDPと違いこちらは、1遷移1回
-            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Set BiDiEventNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params")
             If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.ReadState = isLoading
 
         Case "browsingContext.domContentLoaded"
-            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Set BiDiEventNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params")
             If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.ReadState = isInteractive
 
         Case "browsingContext.load"
-            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Set BiDiEventNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params")
             If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.ReadState = isComplete
 
     End Select
@@ -223,7 +223,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`params`に、`context`を付け足した上で実行されます
 '***************************************************************************************************
-Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJConv
     '`context`情報の追加
     If params Is Nothing Then Set params = New Dictionary
     params.Add "context", InfoList.context
@@ -309,7 +309,7 @@ End Property
 '            RealmTarget                    `iframe`内で、JavaScript実行をしたいときに指定します。
 '
 '            Ownership                      True ：script.ResultOwnership = "root"として扱い、type:"object" 等の場合は、`{"handle": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。`objectArguments`で`{"handle": ...}`として指定すると、再度`jsEval`で利用できます。※nodeの場合は、`script.SharedId`が優先して返ります「このJSコードは`SET`で...」という意識は不要です。
-'                                           False：script.ResultOwnership = "none"として扱い、type:"object" 等の場合でも、`value`で受け取れるように試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`True`に切り替えてください。
+'                                           False：script.ResultOwnership = "none"として扱い、type:"object" 等の場合でも、`value`で受け取れるように試みます。実行コードによっては、`BiDiCDPJConv.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`True`に切り替えてください。
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
 '                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます
@@ -364,7 +364,7 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptSharedId As Strin
                        Optional StopBiDiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
-    Dim scriptEvaluateResult As BiDiCDPJson
+    Dim scriptEvaluateResult As BiDiCDPJConv
     Dim BiDiCommand  As New Dictionary
     Dim BiDiparams   As New Dictionary, scriptTarget As New Dictionary
 
@@ -892,6 +892,19 @@ End Function
 '***************************************************************************************************
 Property Get isContextClosed() As Boolean
     isContextClosed = InfoList.contextDestroyed
+End Property
+
+'***************************************************************************************************
+'* 機能　　：同期モードでの JavaScript結果のうち、最後の例外情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：最後の「例外（Exception）」情報
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、「最後」の例外情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            ・これはあくまでも、`例外`のみ扱います。「try { ... } catch(e) { return e }」系統の取得は対象外です。
+'            ・非同期によるあとで取り出したパターンとは、連動しません。
+'***************************************************************************************************
+Property Get LastJavaScriptException() As BiDiCDPJConv
+    Set LastJavaScriptException = lastExceptionDetailsJS
 End Property
 
 

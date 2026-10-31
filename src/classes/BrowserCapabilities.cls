@@ -85,8 +85,8 @@ Property Let Set_UseWebSocket(Flag As Boolean)
     m_UseWebSocket = Flag
 End Property
 
-Property Let Set_StartWindowMode(Mode As WinState)
-    m_StartWindowMode = Mode
+Property Let Set_StartWindowMode(mode As WinState)
+    m_StartWindowMode = mode
 End Property
 
 Property Let Set_StartURL(Url As String)

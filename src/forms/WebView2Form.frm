@@ -211,12 +211,12 @@ End Sub
 
 Private Sub fCDPEvent_CDPBrowserEvent(methodName As String, RawJson As String)
     '------------------ 1. 各種非同期イベントの処理 ------------------
-    Dim tmp As BiDiCDPJson
+    Dim tmp As BiDiCDPJConv
     Select Case methodName
         Case "Target.targetInfoChanged"
             '1-1. 自分の`targetId`か確認し、そうであれば、ウィンドウタイトル更新
             '※SPA遷移では効果はありません
-            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
+            Set tmp = BiDiCDPJConv.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
             If tmp.StringKey("targetId") = fCDPContext.CurrentTargetID Then
                 'ウィンドウタイトルを変更
                 Me.Caption = tmp.StringKey("title")

@@ -129,6 +129,63 @@ ChromiumDashのリリース日程（2026-10-19時点）です。今はStableが2
 
 **2026-11-03以降**にStableで実行して、`history.log` の最後が `(cft)` になっていれば、CfTから直接取れるようになっています。
 
+## VBA経由でのオンラインアップデート方法
+
+`WebDriverBiDiOnlineUpdater.bas` を使うと、ブックの中だけで `mapperTab.js` を更新できます。**実行している端末にインストールされているブラウザのバージョン**に合わせて版を選ぶので、`track-bidi.bat` のようにCfTのAPIへ問い合わせる必要がありません。
+
+### 使い方
+
+1. VBEの［ファイルのインポート］で、`WebDriverBiDiOnlineUpdater.bas` をブックに取り込む
+2. ワークシート「ブラウザ起動設定」で、使うブラウザ（8つのプリセットか、カスタムパス）を選ぶ
+3. マクロ `RunUpdateWebDriverBiDi` を実行する
+
+成功すると、選ばれた版がメッセージボックスのタイトルに表示され、ワークシート「JavaScript置き場」の版の欄が更新されます。イミディエイトウィンドウには、インストールされているブラウザのバージョンと、選んだ `mapperTab.js` の版が出力されます。
+
+### バージョンの調べ方
+
+ブラウザを起動せずに、exeファイルのバージョン情報（メタ情報）から読み取ります。
+
+- `CDPHost.getBrowserVersion` が、ワークシートの設定から決まるexeのパス（`getBrowserPath`）に対して、`Scripting.FileSystemObject` の `GetFileVersion` を呼ぶ
+- exeのバージョン情報には、ブラウザのバージョン（例：`156.0.4314.42`）がそのまま入っている
+
+### 版の選び方
+
+jsDelivrの `https://data.jsdelivr.com/v1/package/npm/chromium-bidi` から版の一覧を取り、次の順で選びます。
+
+| 順 | 照合のしかた | 例 |
+|---|---|---|
+| 1 | **完全一致**：ブラウザの `A.B.C.D` を `A.B.C-D` に変えた版があれば使う | Chrome `157.0.8103.20` → `157.0.8103-20` |
+| 2 | **2番目まで一致**：`A.B.` で始まる版のうち、数値として最大のものを使う | Edge `157.0.4341.10` → `157.0.8103-N` の最新 |
+| 3 | **該当なし**：下限の `157.0.8090-0` を使う | Stable 156 以前 |
+
+- Edgeはビルド番号（3番目以降）がChromeと違うので、完全一致は起きず、2番目まで一致で選ばれます
+- 版の比較は数値で行います。文字列のまま比べると、`157.0.8103-8` が `157.0.8103-15` より大きいと判定されてしまうためです
+- `17.0.2` のような旧形式の版は、候補から外します
+- 下限の `157.0.8090-0` は、Puppeteerが初めて採用した版です
+
+### 取得と保存
+
+1. `https://cdn.jsdelivr.net/npm/chromium-bidi@<版>/out/Default/gen/src/mapperTab.js` を取得する
+2. `WebDriverBiDiCore.UpdateWebDriverBiDi` で、ブックに保存する
+   - GoogleとMicrosoftのライセンス表記（`Copyright 2021 Google LLC.` と `Copyright (c) Microsoft Corporation.`）が無いものは取り込まない
+   - ワークシート「JavaScript置き場」のテーブルに書き込み、読み戻して一致を確かめる。一致しなければテーブルの中身を消す
+   - 成功したら、版の欄に版を記録する。失敗したら空欄にする
+
+### `track-bidi.bat` との違い
+
+| | `track-bidi.bat` | `WebDriverBiDiOnlineUpdater.bas` |
+|---|---|---|
+| バージョンの基準 | CfTのAPIにある、各チャンネルの最新版 | 端末にインストールされているブラウザ |
+| バージョンの調べ方 | CfTのAPIに問い合わせる | exeのバージョン情報を読む（ブラウザを起動しない） |
+| 対応するブラウザ | Chrome（4つのチャンネル） | ワークシートで選べるもの（Edge・Chromeの8つのプリセットと、カスタムパス） |
+| 該当する版がないとき | 最新の `puppeteer-core` が依存している版 | 下限の `157.0.8090-0` |
+| 保存先 | このフォルダの `mapperTab.js` | ブックのワークシート「JavaScript置き場」 |
+
+### 注意事項
+
+- `ShLibrary01_JS.TableMapperTabJS` の「`=` 始まり対策」（`PrefixCharacter` を使った文字列としての書き込み）が入っているブックで使ってください。対策前のブックでは、32,767文字ずつに区切ったかたまりが偶然 `=` で始まる版（`157.0.8090-0` など）を保存するときに、「メモリが不足しています」になります
+- 当然ですが、jsDelivr（`data.jsdelivr.com` と `cdn.jsdelivr.net`）に接続できる環境が必要です
+
 ## 補足
 
 ### BiDiを試すだけならnpmは要らない
