@@ -154,7 +154,7 @@ VBA には JSON パーサーが標準搭載されていません。CDP は全て
 
 | | 採用したもの | 方式 |
 | --- | --- | --- |
-| **StarterWebScrapingKit** | `BiDiCDPJson.cls`（UesleiDev 製、約 3,000 行） | トークンツリー + 遅延ノード。パース時に `Dictionary` を作らない |
+| **StarterWebScrapingKit** | `BiDiCDPJConv.cls`（UesleiDev 製、約 3,000 行） | トークンツリー + 遅延ノード。パース時に `Dictionary` を作らない |
 | **VBAChromeDevProtocol** | `JsonConverter.bas`（VBA-JSON / Tim Hall） | フルパースして `Dictionary` / `Collection` を構築 |
 | **vba-cdp-webdriver** | `htmlfile` COM に JScript を流し込む | `JSON.parse` をブラウザエンジンに委譲 |
 
@@ -175,7 +175,7 @@ document.getValueFromObjectBySetKey = function(targetJson, key) {
 
 自前でパーサーを書かずに済むのは賢い割り切りですが、代償があります。`GetValue(json, "result", "sessionId")` のようにパスを辿るとき、**中間の階層ごとに `JSON.parse` と `JSON.stringify` が走り直します**。CDP のように1回の往復で何度も値を取り出す用途では、この再パースが積み上がります。
 
-一方 `BiDiCDPJson.cls` は「パース時にノードごとのオブジェクト割り当てをしない」ことを設計目標に掲げていて、[バッファ管理](/core-comparison/transport)と同じく**割り当てを減らす方向**に振られています。JSON という同じ問題に対しても、力の入れどころが違っていたことが見えます。
+一方 `BiDiCDPJConv.cls` は「パース時にノードごとのオブジェクト割り当てをしない」ことを設計目標に掲げていて、[バッファ管理](/core-comparison/transport)と同じく**割り当てを減らす方向**に振られています。JSON という同じ問題に対しても、力の入れどころが違っていたことが見えます。
 
 ## 236 分割は「良くない仕組み」だったのか
 

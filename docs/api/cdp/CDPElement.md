@@ -62,20 +62,40 @@ Property Let checked(boolChecked As Boolean)
 t.getElementByQuery("input[type='checkbox']").checked = True
 ```
 
-### `selected`
+### `SelectOption` / `GetSelection`
 
 ```vb
-Property Get selected() As String
-Property Let selected(selectedOption As String)
+Public Sub SelectOption( _
+    Optional value As String, _
+    Optional Label As String, _
+    Optional Index As Long = -1)
+
+Public Function GetSelection(mode As SelectOptionMode) As Variant
 ```
 
-`<select>` の選択状態です。取得は先頭の選択中 option の表示テキスト（`selectedOptions[0].text`）、代入は `selectedIndex`（0 始まりの**位置**）での切り替えです。option の `value` 属性で選びたい場合は [`setSelection`](#setselection) を使ってください。
+`<select>` の項目を選ぶ（`SelectOption`）、選択中の項目を取り出す（`GetSelection`）メソッドです。どちらも、次の3通りの基準で指定できます。
+
+| 基準 | `SelectOption` の引数 | `GetSelection` の `mode` | 中身 |
+| --- | --- | --- | --- |
+| value 属性 | `value` | `seValue` | option の `value` 属性の値 |
+| 表示文字 | `Label` | `seLabel` | 画面に見えている文字（前後の空白は取り除いて比べる） |
+| 番号 | `Index` | `seIndex` | 0 始まりの番号 |
+
+- `SelectOption` は、3つのうち**どれか1つだけ**を指定します。2つ以上、または1つも指定しないとエラーです。名前付き引数を使わずに1つだけ渡した場合は、`value` として扱います
+- `SelectOption` で選んだあとは、`change` イベントを発火します。指定した項目が無い場合は、JavaScript の例外で止まります
+- `GetSelection` の戻り値は、`seIndex` のとき数値、それ以外は文字列です。何も選ばれていない場合は、`seValue` / `seLabel` で空文字、`seIndex` で `-1` です。複数選択（`multiple`）の場合は、先頭の選択項目を返します
 
 ```vb
-Debug.Print t.getElementByQuery("select#country").selected
+Dim sel As CDPElement
+Set sel = t.getElementByQuery("select#pref")
 
-' 2番目（index=1）の option を選ぶ
-t.getElementByQuery("select#country").selected = 1
+sel.SelectOption "13"                 ' value 属性で選ぶ
+sel.SelectOption Label:="東京都"      ' 表示文字で選ぶ
+sel.SelectOption Index:=1             ' 2番目を選ぶ
+
+Debug.Print sel.GetSelection(seLabel) ' 東京都
+Debug.Print sel.GetSelection(seValue) ' 13
+Debug.Print sel.GetSelection(seIndex) ' 番号
 ```
 
 ## 操作
@@ -210,8 +230,8 @@ box.sendString "新しい値"
 ### `focus` / `selectText`
 
 ```vb
-Public Function focus()
-Public Function selectText()
+Public Sub focus()
+Public Sub selectText()
 ```
 
 フォーカス付与／要素内テキスト全選択です。
@@ -227,7 +247,7 @@ box.selectText
 Public Function fireEvent(strEventName As String) As Boolean
 ```
 
-DOM イベントを発火します。React 等で `setAttribute` だけでは状態が同期されないときに使います。
+DOM イベントを発火します。React 等で [`PageAttribute`](#pageattribute) などの代入だけでは状態が同期されないときに使います。
 
 | 引数 | 意味 |
 | --- | --- |
@@ -245,39 +265,23 @@ el.fireEvent "input"
 
 デモ: `Demo_CDP.fillReactForm`
 
-### `getAttribute` / `setAttribute`
+### `PageAttribute`
 
 ```vb
-Public Function getAttribute(strAttributeName As String) As String
-Public Function setAttribute(strAttributeName As String, strValue As String)
+Property Get PageAttribute(strAttributeName As String) As String
+Property Let PageAttribute(strAttributeName As String, strValue As String)
 ```
 
-属性の取得／設定です。
+HTML の属性の取得／設定です（`getAttribute` / `setAttribute` 相当）。属性が無い場合は、空文字を返します。
 
 | 引数 | 意味 |
 | --- | --- |
 | `strAttributeName` | 属性名（例: `"href"` / `"data-x"`） |
-| `strValue` | 設定する値（`setAttribute` のみ） |
+| `strValue` | 設定する値（代入するとき） |
 
 ```vb
-Debug.Print el.getAttribute("href")
-el.setAttribute "data-x", "1"
-```
-
-### `setSelection`
-
-```vb
-Public Function setSelection(strOptionName As String)
-```
-
-`<select>` でオプションを選び、`change` を発火します。
-
-| 引数 | 意味 |
-| --- | --- |
-| `strOptionName` | 選択する option の value |
-
-```vb
-t.getElementByQuery("select#country").setSelection "JP"
+Debug.Print el.PageAttribute("href")
+el.PageAttribute("data-x") = "1"
 ```
 
 ### `SetFileInputFiles`
@@ -512,7 +516,7 @@ XPath は Shadow Root そのものを起点にできないため、内部では 
 Public Function getIFrame() As CDPElement
 ```
 
-`<iframe>` 要素の `contentDocument` を `CDPElement` として返します。**同一オリジン**の iframe 向けです。別ドメインの場合は機能しないため、[`CDPBrowser.getTab`](./CDPBrowser#gettab) でターゲット接続するか、Context 側の [`CDPContext.getIFrameContextID`](./CDPContext#getiframecontextid) / [`getIFrame`](./CDPContext#getiframe) を検討してください。
+`<iframe>` 要素の `contentDocument` を `CDPElement` として返します。**同一オリジン**の iframe 向けです。別ドメインの場合は機能しないため、[`CDPBrowser.getTab`](./CDPBrowser#gettab) でターゲット接続するか、Context 側の [`CDPContext.getElementByIframe`](./CDPContext#getelementbyiframe) を検討してください。
 
 ```vb
 Dim frame As CDPElement
@@ -570,10 +574,10 @@ el.ExposeDevTools "el"
 サイトによっては不自然なグローバル変数を検知する対策があります。本番スクレイピングでは使わないでください。
 :::
 
-### `CurrentObjectId`
+### `CurrentElementId`
 
 ```vb
-Property Get CurrentObjectId() As String
+Property Get CurrentElementId() As String
 ```
 
 内部で保持している CDP の `objectId` です。空なら検索未ヒットです。日常利用では通常不要です。

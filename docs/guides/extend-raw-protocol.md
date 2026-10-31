@@ -31,7 +31,7 @@ t.ExecuteCDP "Page.navigate", params
 
 ## CDP — 同期（`ExecuteCDP`）
 
-コマンドを実行し、結果が返るまで内部で自動待機します。成功時は `result`（Return Object）の中身を [vbacollective-json](https://github.com/vbacollective/json)（`BiDiCDPJson`）として返します。
+コマンドを実行し、結果が返るまで内部で自動待機します。成功時は `result`（Return Object）の中身を [vbacollective-json](https://github.com/vbacollective/json)（`BiDiCDPJConv`）として返します。
 
 CDP ドキュメントを見るときの対応関係:
 
@@ -51,7 +51,7 @@ Set t = ShSetting01_StartBrowser.StartCDPModeContext
 Dim params As New Dictionary
 params.Add "url", "https://example.com"
 
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = t.ExecuteCDP("Page.navigate", params)
 
 ' 必要に応じて NodeKey / StringKey などで取り出す
@@ -74,7 +74,7 @@ Debug.Print result.StringKey("loaderId")
 その場合、エラー時は `Nothing` が返るので、これで判定できます（`{ "result": {} }` でもオブジェクト自体は存在するため、`Nothing` と区別できます）。
 
 ```vb
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = t.ThisCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", params, False)
 
 If result Is Nothing Then
@@ -147,7 +147,7 @@ params.Add "url", "https://example.com"
 params.Add "wait", "complete"
 ' ※ WebDriverBiDiContext.ExecuteBiDi は内部で context を自動付与します
 
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = t.ExecuteBiDi("browsingContext.navigate", params)
 ```
 
@@ -164,7 +164,7 @@ extData.Add "type", "path"
 extData.Add "path", "C:\path\to\unpacked-extension"
 params.Add "extensionData", extData
 
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = t.ExecuteBiDi("webExtension.install", params, False)
 
 If result Is Nothing Then
@@ -202,7 +202,7 @@ Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 
 Dim params As New Dictionary
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = t.ExecuteBiDi("goog:cdp.getSession", params)
 Dim sessionId As String
 sessionId = result("session")

@@ -112,7 +112,7 @@ Private Const WebSocketTest As Boolean = True
 2. その Base64 文字列を **JS のソースコードに直接埋め込んで** `jsEval` で送る
 3. ページ内の zip.js が解凍し、全エントリを `{ filename, base64 }` の配列で返す
 4. `awaitPromise:=True` / `returnByValue:=True` で、その巨大な配列を一発で受け取る
-5. `BiDiCDPJson` でトークンを辿りながら、1ファイルずつ Base64 デコードしてディスクへ書き出す
+5. `BiDiCDPJConv` でトークンを辿りながら、1ファイルずつ Base64 デコードしてディスクへ書き出す
 
 ```vb
 ZipDataBin = CharConv.BytesFromSavedFile(Environ("UserProfile") & "\Downloads", "twinBASIC_IDE_BETA_983.zip")
@@ -141,7 +141,7 @@ Set resCDP = ZIPテスト.jsEval(jsCode, awaitPromise:=True, returnByValue:=True
 | バッファ | `InitialBuffer` からの倍々拡張、`Mid$` によるその場書き換え |
 | フレーミング | 巨大 JSON 1件を `InStr` で正しく切り出せるか |
 | 文字コード | UTF-8 バイト列 ⇄ VBA 文字列の可逆性 |
-| JSON | `BiDiCDPJson` の巨大ドキュメントに対するトークン走査 |
+| JSON | `BiDiCDPJConv` の巨大ドキュメントに対するトークン走査 |
 
 ### それでも残る差
 
@@ -291,7 +291,7 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 | 必要な機能 | Node | StarterWebScrapingKit |
 | --- | --- | --- |
 | WebSocket | `ws` パッケージ | `CDPCoreViaWebSocket`（1,499行、WinSock から自作） |
-| JSON | `JSON.parse` / `stringify`（ネイティブ） | `BiDiCDPJson`（2,998行、自作パーサ） |
+| JSON | `JSON.parse` / `stringify`（ネイティブ） | `BiDiCDPJConv`（2,998行、自作パーサ） |
 | UTF-8 変換 | `Buffer` | `CharacterCodeConversion`（279行） |
 | 非同期 I/O | libuv | `PeekNamedPipe` / `ioctlsocket` を直接呼ぶ |
 | Windows API エラー | 不要 | `WinApiError` |

@@ -223,6 +223,25 @@ Debug.Print r.ResultType, r.sharedId          ' node / (sharedId)
 
 例外時は `IsError(result)` で判定します。詳細は [JavaScript 実行](/guides/javascript)。
 
+### `LastJavaScriptException`
+
+```vb
+Property Get LastJavaScriptException() As BiDiCDPJConv
+```
+
+同期の `jsEval` で起きた、**最後の JavaScript 例外**です。`Err.LastDllError` と同様、成功しても消えません。CDP 版の [`CDPContext.LastJavaScriptException`](/api/cdp/CDPContext#lastjavascriptexception) と同じ使い方です。
+
+```vb
+Dim result As Variant
+result = t.jsEval("notDefined.x")
+If IsError(result) Then Debug.Print t.LastJavaScriptException.Stringify
+```
+
+::: tip 注意
+- 対象は **例外**のみです。`try { ... } catch (e) { return e }` のように JS 側で捕まえて返した値は対象外です
+- 非同期で後から取り出した結果とは連動しません
+:::
+
 ## 要素の取得
 
 検索結果を [`WebDriverBiDiElement`](./WebDriverBiDiElement) で返します。クリック・入力・存在待ちなど、`CDPElement` とほぼ同じメソッドで操作できます。
@@ -311,7 +330,7 @@ t.SubscribeBiDiEvent = Array("network.beforeRequestSent", "network.responseCompl
 ```vb
 Public Function ExecuteBiDi(methodName As String, _
     Optional params As Dictionary, _
-    Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+    Optional StopBiDiError As Boolean = True) As BiDiCDPJConv
 
 Public Function ExecuteBiDiAsync(methodName As String, _
     Optional params As Dictionary, _
@@ -333,7 +352,7 @@ Dim params As New Dictionary
 params.Add "url", "https://example.com"
 params.Add "wait", "complete"
 
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = t.ExecuteBiDi("browsingContext.navigate", params)
 
 ' 非同期

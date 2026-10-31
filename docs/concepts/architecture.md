@@ -44,7 +44,7 @@ flowchart TB
 | `CDPBrowser` | プロセス起動・タブ一覧・ブラウザ単位の `ExecuteCDP` |
 | `CDPContext` | 1 タブ分のナビ・JS・要素検索・イベント |
 | `CDPElement` | クリック・入力・属性・Shadow DOM / iframe |
-| `BiDiCDPJson` | CDP / BiDi 応答の高速 JSON ビュー |
+| `BiDiCDPJConv` | CDP / BiDi 応答の高速 JSON ビュー |
 
 起動は `BrowserCapabilities`、再接続は `ReattachOptions` という、設定保持専用のオプションオブジェクトを起動系／再接続系メソッドに渡します。通信経路（Pipe / Port / WebView2）は、再接続では `ReattachOptions` の `Set_PipeMode` / `Set_WebSocketMode` / `Set_WebView2Mode` で指定します（詳細は [再接続 (reattach)](/guides/reattach)）。
 

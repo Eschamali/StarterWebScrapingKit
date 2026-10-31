@@ -53,9 +53,9 @@ End If
 | `isException` | `Boolean` | JavaScript の例外が起きたか |
 | `ExceptionText` | `String` | 例外のメッセージ |
 | `ExceptionLineNumber` / `ExceptionColumnNumber` | `Long` | 例外の行・列 |
-| `ExceptionStackTrace` | `BiDiCDPJson` | スタックトレース |
+| `ExceptionStackTrace` | `BiDiCDPJConv` | スタックトレース |
 | `ExceptionResultObject` | `JsEvalResult` | 投げられた例外オブジェクトそのものを、`JsEvalResult` として |
-| `rawException` | `BiDiCDPJson` | 例外情報の JSON ノード |
+| `rawException` | `BiDiCDPJConv` | 例外情報の JSON ノード |
 
 ## CDP だけのプロパティ
 
@@ -66,8 +66,8 @@ End If
 | `Description` | `String` | 文字列表現 |
 | `ResultSubtype` | `String` | `node` / `array` / `error` などのサブタイプ |
 | `UnserializableValue` | `String` | `NaN` / `Infinity` / `-0` / BigInt など、JSON にできない値 |
-| `Preview` / `CustomPreview` | `BiDiCDPJson` | オブジェクトのプレビュー（`generatePreview:=True` のとき） |
-| `DeepSerializedValue` | `BiDiCDPJson` | `serializationOptions` でディープシリアライズした値 |
+| `Preview` / `CustomPreview` | `BiDiCDPJConv` | オブジェクトのプレビュー（`generatePreview:=True` のとき） |
+| `DeepSerializedValue` | `BiDiCDPJConv` | `serializationOptions` でディープシリアライズした値 |
 
 ## WebDriver BiDi だけのプロパティ
 

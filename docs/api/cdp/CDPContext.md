@@ -459,7 +459,7 @@ Debug.Print r.ResultType, r.ResultSubtype, r.ClassName   ' object / node / HTMLB
 ### `LastJavaScriptException`
 
 ```vb
-Property Get LastJavaScriptException() As BiDiCDPJson
+Property Get LastJavaScriptException() As BiDiCDPJConv
 ```
 
 同期の `jsEval` で起きた、**最後の JavaScript 例外**（CDP の `exceptionDetails`）です。`Err.LastDllError` と同様、成功しても消えません。
@@ -525,86 +525,97 @@ alert / confirm / prompt への応答。
 
 ## iframe
 
-ページに埋め込まれた iframe へ入るための一連の API です。流れは **一覧 → `executionContextId` 取得 → `CDPElement` 化** です。
+ページに埋め込まれた iframe へ入るための API です。名前か URL で iframe を探し、その中の `document` を [`CDPElement`](./CDPElement) として返します。内部では `Page.getFrameTree` で iframe を探し、`Page.createIsolatedWorld` でその iframe に JavaScript の実行環境を作っています。
 
-同一オリジンの `<iframe>` 要素から直接入りたい場合は、要素側の [`CDPElement.getIFrame`](./CDPElement#getiframe) もあります。
+同一オリジンの `<iframe>` 要素がすでに手元にある場合は、要素側の [`CDPElement.getIFrame`](./CDPElement#getiframe) でも入れます。
 
-### `printChildFrames`
-
-```vb
-Public Sub printChildFrames()
-```
-
-現時点で開いている **直下の子 iframe** 情報をログに出します（`Page.getFrameTree`）。名前・URL・frameID などを確認するときに使います。
+### `printChildIframes`
 
 ```vb
-t.printChildFrames
-' Immediate ウィンドウに title / url / frameID などが並ぶ
+Public Sub printChildIframes(Optional MaxNestLevel As Long)
 ```
 
-::: tip 注意
-検索範囲は **親の直下の子 iframe まで**です。子 iframe の中の iframe… といった多重ネスト表示には対応していません。
-:::
-
-### `getIFrameContextID`
-
-```vb
-Public Function getIFrameContextID( _
-    Optional iframeName As String, _
-    Optional Url As String, _
-    Optional doRetrySecond As Double _
-) As Long
-```
-
-埋め込み iframe の `executionContextId` を返します。[`jsEval`](#jseval) の `contextId` に渡せます。見つからない場合は `0` です。
+現時点で開いている iframe の情報（名前・URL・frameId など）をログに出します。探す前に、名前や URL を確かめるときに使います。
 
 | 引数 | 意味 |
 | --- | --- |
-| `iframeName` | iframe 名（第一優先。`<iframe name="…">`。完全一致 → 部分一致） |
-| `Url` | URL（第二優先。先頭一致 → 部分一致） |
+| `MaxNestLevel` | iframe の中の iframe（`childFrames`）を、どこまで潜って表示するか。省略で、親ページの直下まで |
+
+```vb
+t.printChildIframes      ' 直下の iframe だけ
+t.printChildIframes 3    ' 3 階層下まで
+```
+
+### `getElementByIframe`
+
+```vb
+Public Function getElementByIframe( _
+    Optional iframeName As String, _
+    Optional Url As String, _
+    Optional MaxNestLevel As Long, _
+    Optional doRetrySecond As Double _
+) As CDPElement
+```
+
+条件に合う iframe の `document` を、[`CDPElement`](./CDPElement) として返します。見つからない場合や、iframe が1つもない場合は `Nothing` です。
+
+| 引数 | 意味 |
+| --- | --- |
+| `iframeName` | iframe 名（第一優先。`<iframe name="…">`） |
+| `Url` | URL（第二優先） |
+| `MaxNestLevel` | iframe の中の iframe を、どこまで潜って探すか。省略で、親ページの直下まで |
 | `doRetrySecond` | 指定秒以内に見つかるまでリトライ。`0`（既定）なら 1 回のみ |
 
 ```vb
-' 名前で探す
-Dim ctxId As Long
-ctxId = t.getIFrameContextID(iframeName:="app-frame")
+' 名前で探す（3 階層下まで）
+Dim frame As CDPElement
+Set frame = t.getElementByIframe("FR_DISP", , 3)
+frame.getElementByXPath("//input[@type='SUBMIT']").SimpleClick
 
-' URL 部分一致 + 最大 5 秒リトライ
-ctxId = t.getIFrameContextID(Url:="https://example.com/embed", doRetrySecond:=5)
-
-' 両方省略 → 最初の iframe
-ctxId = t.getIFrameContextID()
-
-' jsEval で直接使う
-Debug.Print t.jsEval("document.title", contextId:=ctxId)
+' URL で探し、最大 30 秒リトライ
+Set frame = t.getElementByIframe(Url:="https://example.com/embed", doRetrySecond:=30)
 ```
 
 ::: tip 注意
-- `iframeName` と `Url` を両方省略すると、最初の iframe の `executionContextId` を返します
-- `CDPElement` として扱いたい場合は [`getIFrame`](#getiframe) に渡してください
-- 検索範囲は **親の直下の子 iframe まで**です。多重ネストは非対応です。その場合は自力で `ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")` から目的の frame を取り出してください
+`iframeName` と `Url` を両方省略すると、最初の iframe を返します。
 :::
 
-### `getIFrame`
+## ポップアップ（子ウィンドウ）
+
+### `PopupCatch`
 
 ```vb
-Public Function getIFrame(ExecutionContextId As Long) As CDPElement
+Public Function PopupCatch(Optional doRetrySecond As Double) As CDPContext
 ```
 
-[`getIFrameContextID`](#getiframecontextid) で得た `executionContextId` を、[`CDPElement`](./CDPElement) として扱えるようにします（その context 上の `document`）。
+このタブから開かれた新しいタブ・ウィンドウ（クリックで開くポップアップなど）を捕まえ、`CDPContext` として返します。時間内に見つからない場合は `Nothing` です。
 
 | 引数 | 意味 |
 | --- | --- |
-| `ExecutionContextId` | `getIFrameContextID` が返した `executionContextId` |
+| `doRetrySecond` | 何秒間探すか。`0`（既定）なら 1 回のみ |
+
+使う前と後に、[`CDPBrowser`](./CDPBrowser) 側でタブが作られたことの記録を始めて、終わらせる必要があります（[`CDPBrowser.getTabForOpenerID`](./CDPBrowser#gettabforopenerid) の手順と同じ）。
 
 ```vb
-Dim ctxId As Long
-ctxId = t.getIFrameContextID(iframeName:="app-frame")
+' 1. タブが作られたことの記録を始める
+Set t.ThisCDPBrowser.RunCollect_TargetCreated = New Collection
 
-Dim frame As CDPElement
-Set frame = t.getIFrame(ctxId)
-frame.getElementByQuery("button").click
+' 2. 新しいウィンドウが開く操作をして、5 秒以内に開いたものを捕まえる
+t.getElementByXPath("//input[@value='参照']").onExist.SimpleClick
+Dim popup As CDPContext
+Set popup = t.PopupCatch(5)
+
+' 3. 記録を終わらせる
+Set t.ThisCDPBrowser.RunCollect_TargetCreated = Nothing
+
+popup.getElementByXPath("//input[@value='決定']").SimpleClick
 ```
+
+::: tip 待機と組み合わせるとき
+捕まえたタブのページの読み込みを待つ場合は、[`Wait`](#wait)（JavaScript による待機）を使ってください。[`WaitEvents`](#waitevents) は、イベントの届く順番の都合で、ここでは機能しません。
+:::
+
+一通りの流れは、デモ `Demo_CDP.PopupWindowDemo` で試せます。iframe の中のボタンで子ウィンドウを開き、その中の `<select>` を選んで閉じるまでを扱っています。
 
 ## スクリーンショット
 
@@ -675,7 +686,7 @@ Property Get LastCDPJsonError() As Dictionary
 `StopCDPError:=False` で例外停止を抑えたとき、戻り値が `Nothing` なら本プロパティで詳細を確認します。キーは主に `"code"` / `"message"` です。
 
 ```vb
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = t.ExecuteCDP("Page.navigate", params, False)
 
 If result Is Nothing Then
@@ -766,24 +777,25 @@ t.Url = "https://example.com"   ' t.navigate "https://example.com" と同じ
 ### `Title`
 
 ```vb
-Property Get Title() As String
-Property Let Title(newName As String)
+Property Get Title(Optional refresh As Boolean) As String
+Property Let Title(Optional refresh As Boolean, newName As String)
 ```
 
-タブのタイトル（`document.title` 相当）です。`jsEval("document.title")` で取得します。代入するとタイトルを書き換えます。
+タブのタイトルです。取得では、ブラウザから届いたタブ情報（`Target.TargetInfo`）で記録しているタイトルを返します。`refresh:=True` にすると、`jsEval("document.title")` で取り直してから返します。代入すると、`document.title` を書き換えます。
 
 ```vb
-Debug.Print t.Title
+Debug.Print t.Title                 ' 記録しているタイトル
+Debug.Print t.Title(refresh:=True)  ' ページから取り直す
 t.Title = "作業用タブ"
 ```
 
 ### `html`
 
 ```vb
-Property Get html() As String
+Public Function html() As String
 ```
 
-ページ全体の HTML 文字列です。内部では `jsEval("document.documentElement.innerHTML")` を実行します（Get 専用）。
+ページ全体の HTML 文字列です。内部では `jsEval("document.documentElement.innerHTML")` を実行します。
 
 ```vb
 Debug.Print Left$(t.html, 200)   ' 先頭だけ確認する例
@@ -816,6 +828,22 @@ Debug.Print t.CurrentBrowserContextId
 [再接続 (reattach)](/guides/reattach) やメインタブ記録で Excel テーブルに残る値と対応します。日常のページ操作では意識不要です。
 
 `CurrentBrowserContextId` は、`Target.createBrowserContext` で作成した独立プロファイル（シークレット相当）を複数並行運用するときに使います。
+
+### `OpenerID` / `ParentId`
+
+```vb
+Property Get OpenerID(Optional Strict As Boolean) As String
+Property Get ParentId(Optional Strict As Boolean) As String
+```
+
+このタブがどこから来たかを表す ID です。ない場合は空文字です。
+
+| プロパティ | `Strict:=False`（既定） | `Strict:=True` |
+| --- | --- | --- |
+| `OpenerID` | このタブを開いた元のタブの `TargetID`（`openerId`） | このタブを開いた元の、iframe などの描画枠の `FrameId`（`openerFrameId`）。埋め込まれた iframe の中から開かれたことを区別したいときに使う |
+| `ParentId` | このタブが埋め込まれた元の `TargetID`（`parentId`） | 埋め込まれた元の `FrameId`（`parentFrameId`）。iframe の中の iframe（ネスト）を区別したいときに使う |
+
+[`CDPBrowser.getTabForOpenerID`](./CDPBrowser#gettabforopenerid) で、子ウィンドウを探すときの手がかりにもなっています。
 
 ## タブ生存について
 
@@ -895,7 +923,7 @@ End Sub
 
 ## デバッグ
 
-`printParams` / `getSessionInfo` / `printMsg`
+`printParams` / `printMsg`
 
 ## 関連
 
