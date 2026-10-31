@@ -405,24 +405,76 @@ Property Get checked() As Boolean
 
 End Property
 
-Property Let selected(selectedOption As String)
-'----------------------------------------------------------
-' Change the selected value of an html select element type.
-' eg. br.getElementbyId("list").selected = 2
-' Updated: 06/03/2025
-'----------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：<select> タグの項目を選択します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：Value    option の value 属性値で指定する場合（例: Value:="13"）
+'  　　　　　Label    画面に見えている表示文字で指定する場合（例: Label:="東京都"）
+'  　　　　　Index    0始まりの番号で指定する場合（例: Index:=1）
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：名前付き引数なしの1つの場合は、`Value`側として扱います
+'* 注意事項：どれか【1つだけ】を名前付き引数で指定してください（重複指定はエラーになります）
+'***************************************************************************************************
+Public Sub SelectOption(Optional value As String, Optional Label As String, Optional Index As Long = -1)
+    Const FromProcedureName As String = ThisClassName & ".SelectOption"
 
-    If checkExist Then If Not isExist Then Exit Property
+
+    If checkExist Then If Not isExist Then Exit Sub
 
 
+    ' --- 1. 【実質1択チェック】指定された個数を数える ---
+    Dim targetVal As String, searchMode As SelectOptionMode
+    Dim specifiedCount As Long
+    If StrPtr(value) Then specifiedCount = specifiedCount + 1:  targetVal = value: searchMode = SelectOptionMode.seValue
+    If StrPtr(Label) Then specifiedCount = specifiedCount + 1:  targetVal = Label: searchMode = SelectOptionMode.seLabel
+    If Index > -1 Then specifiedCount = specifiedCount + 1:     targetVal = Index: searchMode = SelectOptionMode.seIndex
+
+    If specifiedCount > 1 Then printMsg ERROR_, "This procedure accepts only one argument.", FromProcedureName, doRaiseError:=True: Exit Sub
+    If specifiedCount = 0 Then printMsg ERROR_, "Please specify one of the arguments.", FromProcedureName, doRaiseError:=True: Exit Sub
+
+
+    ' --- 2. 実行用 JavaScript を組み立てる ---
+    '2-1. 反映タイプに応じて、Selectに反映させるJavaScript文を生成
+    '※存在しない物を選ぶを例外エラーで止まります
+    Dim UseJs As String
+    Select Case searchMode
+        Case SelectOptionMode.seValue
+            ' value 属性値で探して選択する
+            UseJs = "function(val) {" & _
+                    "  const opt = Array.from(this.options).find(o => o.value === String(val));" & _
+                    "  if (!opt) throw new Error('Option with value \' + val + \' not found.');" & _
+                    "  opt.selected = true;" & _
+                    "}"
+
+        Case SelectOptionMode.seLabel
+            ' 表示文字（前後の空白トリム付き）で探して選択する
+            UseJs = "function(txt) {" & _
+                    "  const opt = Array.from(this.options).find(o => o.text.trim() === String(txt));" & _
+                    "  if (!opt) throw new Error('Option with label \' + txt + \' not found.');" & _
+                    "  opt.selected = true;" & _
+                    "}"
+
+        Case SelectOptionMode.seIndex
+            ' 0始まりのインデックス番号で直接選択する
+            UseJs = "function(idx) {" & _
+                    "  const i = parseInt(idx, 10);" & _
+                    "  if (i < 0 || i >= this.options.length) throw new Error('Index ' + i + ' is out of bounds (length: ' + this.options.length + ').');" & _
+                    "  this.selectedIndex = i;" & _
+                    "}"
+    End Select
+
+    '2-2. 引数部分を組み立て
     Dim args(0) As Dictionary
-    Dim arg As New Dictionary
-    arg.Add "value", selectedOption: arg.Add "type", "string"
-    Set args(0) = arg
-    jsEval "function(v){ this.selectedIndex = v }", args
-    fireEvent "change"
+    Dim arg As New Dictionary: arg.Add "value", targetVal: arg.Add "type", "string": Set args(0) = arg
 
-End Property
+    '3. 反映
+    '※存在しない選択肢の場合は、エラー停止します
+    '※BiDiの例外情報(`script.ExceptionDetails`)は、`text`にメッセージが入ります
+    If IsError(jsEval(UseJs, args)) Then printMsg ERROR_, "No candidates were found for the specified SelectOption. > " & main.LastJavaScriptException.StringKey("text"), FromProcedureName
+
+    '4. SPAにも対応すべく、`change`イベントを発火
+    fireEvent "change"
+End Sub
 
 Property Get selected() As String
 '----------------------------------------------------------
