@@ -350,7 +350,7 @@ Public Sub OpenBrowserAndConnectTab(caps As BrowserCapabilities)
 
     '5. Complete initialization ------------------------------------------------------
     InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
-    getSessionInfo                                                  'Store initial session info for printParams debugging
+    Activation                                                      'Store initial session info for printParams debugging
     BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
@@ -532,7 +532,7 @@ Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession 
     End If
 
     '5. sessionId生存check
-    If refreshTargetInfo Is Nothing Then
+    If checkCurrentTargetInfo Is Nothing Then
         reattach = False
 
 
@@ -545,7 +545,7 @@ Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession 
         BrowserCore.EnableDiscoverTargets = True
 
         'ステータス更新
-        getSessionInfo
+        Activation
         printParams
     End If
 
@@ -1742,16 +1742,15 @@ Public Sub printParams()
 
 End Sub
 
-Public Sub getSessionInfo()
-'----------------------------------------------------------------------------------
-' Obtain session info on the fly for printParams.
-' Updated: 22/03/2023
-'----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
+'***************************************************************************************************
+'* 機能　　：このClassが正しく機能するように、必要な処理を行います
+'***************************************************************************************************
+Private Sub Activation()
+    Const FromProcedureName As String = ThisClassName & ".Activation"
 
 
     'Get infos
-    Dim TargetInfo As BiDiCDPJConv: Set TargetInfo = refreshTargetInfo
+    Dim TargetInfo As BiDiCDPJConv: Set TargetInfo = checkCurrentTargetInfo
 
     '--------------- 各種パラメーター更新 ---------------
     '＜自身のタブ(ページ)＞
@@ -1795,7 +1794,7 @@ End Sub
 '* 引数　　：MaxNestLevel   `childFrames`をどこまで潜るかを指定します。省略で、親ページの直下までとなります
 '***************************************************************************************************
 Public Sub printChildIframes(Optional MaxNestLevel As Long)
-    exInternal_mIframe.printChildFrames MaxNestLevel
+    exInternal_mIframe.printChildFrames ExecuteCDP("Page.getFrameTree"), Title, MaxNestLevel
 End Sub
 
 
@@ -2278,13 +2277,13 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：`Target.TargetInfo`オブジェクト。　※取得失敗時は、`Nothing`で返ります。大抵は、context(タブ等)が消えてることが多いです
 '***************************************************************************************************
-Private Function refreshTargetInfo() As BiDiCDPJConv
+Private Function checkCurrentTargetInfo() As BiDiCDPJConv
     '1. このClassで設定中の`SessionID`を基に情報取得を試みる
     Dim TargetInfo As BiDiCDPJConv
     Set TargetInfo = ExecuteCDP("Target.getTargetInfo")
 
     '2. エラーがなければ、`targetInfo`の中身を返却
-    If TargetInfo.ExistsKey("targetInfo") Then Set refreshTargetInfo = TargetInfo.NodeKey("targetInfo")
+    If TargetInfo.ExistsKey("targetInfo") Then Set checkCurrentTargetInfo = TargetInfo.NodeKey("targetInfo")
 
 End Function
 
@@ -2434,24 +2433,46 @@ End Function
 '* 注意事項：これらの引数を両方とも省略すると、`getElementByIframe`は最初のiframe要素として返却します
 '***************************************************************************************************
 Public Function getElementByIframe(Optional iframeName As String, Optional Url As String, Optional MaxNestLevel As Long, Optional doRetrySecond As Double) As CDPElement
-    '1. 検索依頼し、ない場合は即抜け
-    If Not exInternal_mIframe.InitPageGetFrameTree(iframeName, Url, MaxNestLevel, doRetrySecond) Then Exit Function
+    Const FromProcedureName As String = ThisClassName & ".InitPageGetFrameTree"
 
-    '2. JavaScript実行環境を構築する
+
+    '1. 検索依頼し、一定時間、ない場合は、抜ける
+    Dim timerStart As Double
+    Dim discovery As Boolean
+    If doRetrySecond > 0 Then timerStart = CDPHelpers.TimerCounter
+    Do
+        '1-1. 探索依頼
+        discovery = exInternal_mIframe.InitPageGetFrameTree(ExecuteCDP("Page.getFrameTree"), iframeName, Url, MaxNestLevel)
+
+        '1-2. 発見したなら、ループを抜ける
+        If discovery Then printMsg info_, "The specified iframe was found.", FromProcedureName: Exit Do
+
+        '1-3. タイムアウトなら、関数ごと抜ける
+        If CDPHelpers.TimerCounter - timerStart > doRetrySecond * 1000 Then printMsg WARN_, "The specified iframe was not found within the time limit.", FromProcedureName: Exit Function
+
+        '1-4. iframeが後から作られる場合に備えて、少し待ってから取り直す
+        CDPHelpers.Sleep 0.1
+    Loop
+
+    '2. JavaScript実行環境を構築するコマンド準備
+    Dim CDPparams As New Dictionary
+    CDPparams.Add "frameId", exInternal_mIframe.id
+
+    '3. JavaScript実行環境を構築する
     Dim ExecutionContextId As Long
-    ExecutionContextId = exInternal_mIframe.getPageFrameContextID
+    ExecutionContextId = ExecuteCDP("Page.createIsolatedWorld", CDPparams).NumberKey("executionContextId")
 
-    '3. TOP要素として返却するように`document`を実行
+    '4. TOP要素として返却するように`document`を実行
     Dim SearchJS As String, resultSearch As Variant
     SearchJS = "document"
     resultSearch = jsEval(SearchJS, contextId:=ExecutionContextId)
 
-    '4. 結果を判定。文字型なら、ObjectIDを確保
+    '5. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
-    '5. 結果を`CDPElement.cls`に格納
+    '6. 結果を`CDPElement.cls`に格納
     Set getElementByIframe = New CDPElement
     getElementByIframe.Init Me, JsResultVarType, objectId, SearchJS
 End Function
@@ -2652,7 +2673,7 @@ Property Let CurrentSessionID(newSessionID As String)
     End With
 
     '更新した`SessionID`として情報を再更新
-    getSessionInfo
+    Activation
 
     'ログ化
     printMsg info_, m_LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
@@ -2867,7 +2888,7 @@ Private Sub Class_Initialize()
     Set ResultCommandCDP_Context = New Dictionary
 
     '内部ヘルパー拡張Classを用意
-    Set exInternal_mIframe = New CDPiframe: exInternal_mIframe.Init Me
+    Set exInternal_mIframe = New CDPiframe
 End Sub
 
 '***************************************************************************************************

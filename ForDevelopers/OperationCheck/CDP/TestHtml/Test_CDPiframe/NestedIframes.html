@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Nested iframes test</title>
+<style>
+  body { font-family: sans-serif; margin: 12px; }
+  #info { font-weight: bold; color: #06c; }
+</style>
+</head>
+<body>
+<h1>入れ子 iframe テスト</h1>
+<p>layout: <span id="info"></span></p>
+<div id="host"></div>
+<script>
+  // ?layout=3,0,1 … 親直下のiframe(A,B,C...)ごとに、その下に何段ぶら下げるか(0～3)
+  // 省略時はランダム（親直下 1～3 本、各々 0～3 段）
+  // ?mode=url     … iframe を about:blank ではなく、固有のURL(data:text/html;frame=A1,...)で作る
+  //                  URLでの検索(WebDriverBiDiMode.getTab 等)の確認用。各iframeは別オリジンになるため、
+  //                  ボタンは top.postMessage で親ページへ自分の名前を知らせる
+  const q = new URLSearchParams(location.search);
+  const urlMode = q.get('mode') === 'url';
+  let layout;
+  if (q.get('layout')) {
+    layout = q.get('layout').split(',').map(Number);
+  } else {
+    const n = 1 + Math.floor(Math.random() * 3);
+    layout = Array.from({ length: n }, () => Math.floor(Math.random() * 4));
+  }
+
+  window.__layout = [];   // 作ったiframe: {name, depth}
+  window.__clicked = [];  // 押されたボタンのiframe名（押された順）
+
+  // doc の中に、名前 name・深さ depth の iframe を作り、残り remaining 段をさらにぶら下げる
+  function build(doc, container, base, depth, remaining) {
+    const name = depth === 1 ? base : base + (depth - 1);   // A, A1, A2, A3
+    const f = doc.createElement('iframe');
+    f.name = name;
+    f.style.cssText = 'display:block;width:' + (560 - depth * 60) + 'px;height:' + (90 + remaining * 70) + 'px;margin:4px;border:1px solid #888';
+    container.appendChild(f);
+
+    const d = f.contentDocument;
+    d.open();
+    d.write('<!DOCTYPE html><html><body style="font:12px sans-serif;margin:4px">' +
+            '<span>' + name + ' (level ' + depth + ')</span> ' +
+            '<button id="btn" onclick="top.__clicked.push(\'' + name + '\')">' + name + '</button>' +
+            '</body></html>');
+    d.close();
+    window.__layout.push({ name: name, depth: depth });
+
+    if (remaining > 0) build(d, d.body, base, depth + 1, remaining - 1);
+  }
+
+  // mode=url 用：深さ depth の iframe の中身(HTML)。残り remaining 段の子 iframe も、URL として中に埋め込む
+  function frameName(base, depth) { return depth === 1 ? base : base + (depth - 1); }
+  function frameHtml(base, depth, remaining) {
+    const name = frameName(base, depth);
+    let child = '';
+    if (remaining > 0) {
+      child = '<iframe name="' + frameName(base, depth + 1) + '" src="' + frameUrl(base, depth + 1, remaining - 1) + '"' +
+              ' style="display:block;width:' + (560 - (depth + 1) * 60) + 'px;height:' + (90 + (remaining - 1) * 70) + 'px;margin:4px;border:1px solid #888"></iframe>';
+    }
+    return '<!DOCTYPE html><html><body style="font:12px sans-serif;margin:4px">' +
+           '<span>' + name + ' (level ' + depth + ')</span> ' +
+           '<button id="btn" onclick="top.postMessage(\'' + name + '\',\'*\')">' + name + '</button>' + child +
+           '</body></html>';
+  }
+  // 自分の名前を URL の先頭に置く（例：data:text/html;frame=A1,...）。子の URL は中で符号化されるため、親の URL には現れない
+  function frameUrl(base, depth, remaining) {
+    return 'data:text/html;frame=' + frameName(base, depth) + ',' + encodeURIComponent(frameHtml(base, depth, remaining));
+  }
+
+  const host = document.getElementById('host');
+  if (urlMode) {
+    window.addEventListener('message', function (e) { window.__clicked.push(String(e.data)); });
+    layout.forEach(function (nested, i) {
+      const base = String.fromCharCode(65 + i);
+      for (let d = 1; d <= nested + 1; d++) window.__layout.push({ name: frameName(base, d), depth: d });
+      const f = document.createElement('iframe');
+      f.name = base;
+      f.src = frameUrl(base, 1, nested);
+      f.style.cssText = 'display:block;width:500px;height:' + (90 + nested * 70) + 'px;margin:4px;border:1px solid #888';
+      host.appendChild(f);
+    });
+    document.getElementById('info').textContent = layout.join(',') + '  (' + window.__layout.length + ' iframes, mode=url)';
+    window.addEventListener('load', function () { window.__ready = true; });   //入れ子のiframeまで全て読み込まれてから
+  } else {
+    layout.forEach((nested, i) => build(document, host, String.fromCharCode(65 + i), 1, nested));
+    document.getElementById('info').textContent = layout.join(',') + '  (' + window.__layout.length + ' iframes)';
+    window.__ready = true;
+  }
+</script>
+</body>
+</html>

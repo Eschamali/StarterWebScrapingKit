@@ -523,7 +523,7 @@ Public Sub SelectOption(Optional value As String, Optional Label As String, Opti
 
     '3. 反映
     '※存在しない選択肢の場合は、エラー停止します
-    If IsError(jsEval(UseJs, args)) Then printMsg ERROR_, "No candidates were found for the specified SelectOption. > " & main.LastJavaScriptException.NodeKey("exception").StringKey("description"), FromProcedureName
+    If IsError(jsEval(UseJs, args)) Then printMsg ERROR_, "No candidates were found for the specified SelectOption. > " & main.LastJavaScriptException.NodeKey("exception").StringKey("description"), FromProcedureName, doRaiseError:=True
 
     '4. SPAにも対応すべく、`change`イベントを発火
     fireEvent "change"
@@ -540,7 +540,7 @@ End Sub
 '* 機能説明：`SelectOption`で選んだ項目を、同じ基準(Value/Label/Index)で確認できます
 '* 注意事項：複数選択(multiple)の場合は、先頭の選択項目を返します
 '***************************************************************************************************
-Public Function getSelection(mode As SelectOptionMode) As Variant
+Public Function GetSelection(mode As SelectOptionMode) As Variant
     '※JavaScript側の`m`は、`SelectOptionMode`の値(0:seValue / 1:seLabel / 2:seIndex)
     Const GetSelectionJS As String = "function(m) {" & _
                                      "  if (m === 2) return this.selectedIndex;" & _
@@ -560,7 +560,7 @@ Public Function getSelection(mode As SelectOptionMode) As Variant
     '2. 取得して、Indexは数値、それ以外は文字列で返却
     Dim result As Variant
     result = jsEval(GetSelectionJS, args)
-    If mode = SelectOptionMode.seIndex Then getSelection = CLng(result) Else getSelection = CStr(result)
+    If mode = SelectOptionMode.seIndex Then GetSelection = CLng(result) Else GetSelection = CStr(result)
 End Function
 
 '---------------------------------------------------------------------------------------------------
@@ -1782,11 +1782,16 @@ End Property
 '                                   ■■■ 後始末 ■■■
 '***************************************************************************************************
 Private Sub Class_Terminate()
+    Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
+
+
     '不要になった objectId をリリースします(あれば)
     '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
     If StrPtr(CurrentElement.objectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", CurrentElement.objectId
         main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
+
+        printMsg Debug_, "Destroyed ObjectID: " & CurrentElement.objectId, FromProcedureName
     End If
 End Sub
