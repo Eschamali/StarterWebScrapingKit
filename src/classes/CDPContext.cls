@@ -2574,19 +2574,18 @@ Property Let Url(newURL As String)
 
 End Property
 
-Property Get Title() As String
+Property Get Title(Optional refresh As Boolean) As String
 '------------------------------------------------------------
 ' Get the title of the current document/tab
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    '※イベント経由での`Target.targetInfoChanged`の`title`は、ほぼ機能しないためここは素直に、JavaScript経由で取ります
-    brTab.Title = jsEval("document.title")
+    If refresh Then brTab.Title = jsEval("document.title")
     Title = brTab.Title
 
 End Property
 
-Property Let Title(newName As String)
+Property Let Title(Optional refresh As Boolean, newName As String)
 '------------------------------------------------------------
 ' Set the title of the current document/tab
 ' Added 02/03/2023
@@ -2644,7 +2643,7 @@ Property Let CurrentSessionID(newSessionID As String)
 
 End Property
 
-Property Get html() As String
+Public Function html() As String
 '------------------------------------------------------------
 ' Get the html text of the entire document
 ' Added 02/03/2023
@@ -2652,7 +2651,7 @@ Property Get html() As String
 
     html = jsEval("document.documentElement.innerHTML")
 
-End Property
+End Function
 
 '***************************************************************************************************
 '* 機能　　：このクラスで定義中のtargetIDを取得します
