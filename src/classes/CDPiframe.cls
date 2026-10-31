@@ -25,9 +25,6 @@ Private Const ThisClassName As String = "CDPIframe"    'ログのトレース用
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'コンテキスト(タブ)制御クラスオブジェクト
-Private main            As CDPContext
-
 '最後に`InitPageGetFrameTree`を実行した際に見つけたiframe情報
 Private LastPageFrame   As BiDiCDPJConv
 Private LastDeepLevel   As Long         'どこの深さか？
@@ -38,23 +35,13 @@ Private m_LogID         As String       'ログ識別ID
 
 
 '***************************************************************************************************
-'                                   ■■■ 継承処理 ■■■
-'***************************************************************************************************
-'* 機能　　：`CDPContext.cls`を確保します
-'---------------------------------------------------------------------------------------------------
-Public Sub Init(ThisCDPContext As CDPContext)
-    Set main = ThisCDPContext
-End Sub
-
-
-
-'***************************************************************************************************
 '                                 ■■■ 分析処理の入口 ■■■
 '***************************************************************************************************
 '* 機能　　：検索条件に紐づくiframe情報(Page.Frame)を1つ、グローバル変数に確保します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：検索条件にあうiframe情報があれば、`True`を返します
-'* 引数　　：iframeName     iframe名    第一優先(<iframe name="[これを指定]")
+'* 引数　　：frameTree      `Page.getFrameTree`のRETURN OBJECTの中身を渡します
+'            iframeName     iframe名    第一優先(<iframe name="[これを指定]")
 '            Url            URL         第二優先
 '            NestLevel      `childFrames`をどこまで潜るか。0(省略)/1で親ページの直下のみ、nでn階層目まで、負の値で無制限
 '            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
@@ -62,59 +49,51 @@ End Sub
 '* 詳細説明：浅い階層から順に探します（幅優先）。同じ確からしさなら、浅い方のiframeを採用します
 '* 注意事項：これらの引数を全て省略すると、最初の`Page.Frame`を返却します
 '***************************************************************************************************
-Public Function InitPageGetFrameTree(Optional iframeName As String, Optional Url As String, Optional NestLevel As Long, Optional doRetrySecond As Double) As Boolean
+Public Function InitPageGetFrameTree(frameTree As BiDiCDPJConv, Optional iframeName As String, Optional Url As String, Optional NestLevel As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".InitPageGetFrameTree"
 
 
     Dim frameTreeNode As BiDiCDPJConv, foundFrame As BiDiCDPJConv
     Dim bestScore As Long, bestDepth As Long
-    Dim timerStart As Double
 
     '1. 各種初期化
     Set LastPageFrame = Nothing
     LastDeepLevel = 0
 
-    '2. タイマースタートして探索を開始する
-    If doRetrySecond > 0 Then timerStart = CDPHelpers.TimerCounter
-    Do
-        '3. `frameTree`を取得して、条件に一番合う`Page.Frame`を探す
-        Set frameTreeNode = ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")
-        Set foundFrame = FindBestFrame(frameTreeNode, ResolveMaxDepth(NestLevel), iframeName, Url, bestScore, bestDepth)
+    '2. `frameTree`を取得して、条件に一番合う`Page.Frame`を探す
+    Set frameTreeNode = frameTree.NodeKey("frameTree")
+    Set foundFrame = FindBestFrame(frameTreeNode, ResolveMaxDepth(NestLevel), iframeName, Url, bestScore, bestDepth)
 
-        '4. 目的の物っぽいのがあったら見つけたとします
-        If bestScore > 0 Then
-            Set LastPageFrame = foundFrame
-            LastDeepLevel = bestDepth
-            InitPageGetFrameTree = True
-        ElseIf doRetrySecond > 0 Then
-            CDPHelpers.Sleep 0.1    'iframeが後から作られる場合に備えて、少し待ってから取り直す
-        End If
-
-    '5. Do retry as long as not timeout
-    Loop Until InitPageGetFrameTree Or CDPHelpers.TimerCounter - timerStart > doRetrySecond * 1000
-
-    '6. Returns nothing if not found
-    If Not InitPageGetFrameTree Then
+    '3. 目的の物っぽいのがなかったら、その旨を出して、抜けます
+    If bestScore = -1 Then
         Dim info As String
         info = IIf(LenB(iframeName), iframeName, IIf(LenB(Url), Url, "(no iframe found)"))
         printMsg WARN_, "Unable to find the iframe: " & info, FromProcedureName
-    Else
-        printMsg info_, "Found the iframe with ID: " & LastPageFrame.StringKey("id") & " at level " & LastDeepLevel & ". (Certainty：" & bestScore & "%)", FromProcedureName
+        
+        Exit Function
     End If
+
+    '4. 目的の物っぽいのがあったのでその記録
+    Set LastPageFrame = foundFrame
+    LastDeepLevel = bestDepth
+    InitPageGetFrameTree = True
+    printMsg info_, "Found the iframe with ID: " & LastPageFrame.StringKey("id") & " at level " & LastDeepLevel & ". (Certainty：" & bestScore & "%)", FromProcedureName
 End Function
 
 '***************************************************************************************************
 '* 機能　　：現時点で開いている全てのiframe情報を、入れ子の深さに応じて字下げしてログに表示します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：NestLevel      `InitPageGetFrameTree`と同じ
+'* 引数　　：frameTree      `Page.getFrameTree`のRETURN OBJECTの中身を渡します
+'            TabName        タブの名前 ※デバッグ用
+'            NestLevel      `InitPageGetFrameTree`と同じ
 '***************************************************************************************************
-Public Sub printChildFrames(Optional NestLevel As Long)
+Public Sub printChildFrames(frameTree As BiDiCDPJConv, tabName As String, Optional NestLevel As Long)
     Const FromProcedureName As String = ThisClassName & ".printChildFrames"
 
 
     Dim frameTreeNode As BiDiCDPJConv
-    Set frameTreeNode = ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")
-    If Not frameTreeNode.ExistsKey("childFrames") Then printMsg info_, "'" & main.Title & "' does not have an iframe.", FromProcedureName: Exit Sub
+    Set frameTreeNode = frameTree.NodeKey("frameTree")
+    If Not frameTreeNode.ExistsKey("childFrames") Then printMsg info_, "'" & tabName & "' does not have an iframe.", FromProcedureName: Exit Sub
 
     printMsg info_, "---------------------------------------------------", FromProcedureName
     printMsg info_, "childFrames Information", FromProcedureName
@@ -247,21 +226,6 @@ End Sub
 
 
 '***************************************************************************************************
-'                                   ■■■ 操作準備 ■■■
-'***************************************************************************************************
-'* 機能　　：`LastPageFrame`を基に、JavaScript操作(Runtime.callFunctionOn)ができるようにする`Runtime.ExecutionContextId`を返却します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：`LastPageFrame`に紐づく、`Runtime.ExecutionContextId`
-'***************************************************************************************************
-Public Function getPageFrameContextID() As Long
-    Dim CDPparams As New Dictionary
-    CDPparams.Add "frameId", LastPageFrame.StringKey("id")
-    getPageFrameContextID = ExecuteCDP("Page.createIsolatedWorld", CDPparams).NumberKey("executionContextId")
-End Function
-
-
-
-'***************************************************************************************************
 '                              ■■■ よく使う`Page.Frame`の中身確認 ■■■
 '***************************************************************************************************
 Property Get id() As String
@@ -292,14 +256,6 @@ Property Get DeepLevelIframe() As Long
     DeepLevelIframe = LastDeepLevel
 End Property
 
-
-
-'***************************************************************************************************
-'                             ■■■ CDPContext.cls 直通メソッド ■■■
-'***************************************************************************************************
-Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJConv
-    Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
-End Function
 
 
 
