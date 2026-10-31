@@ -1742,12 +1742,11 @@ Public Sub printParams()
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：このClassが正しく機能するように、必要な処理を行います
+'***************************************************************************************************
 Private Sub Activation()
-'----------------------------------------------------------------------------------
-' Obtain session info on the fly for printParams.
-' Updated: 22/03/2023
-'----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
+    Const FromProcedureName As String = ThisClassName & ".Activation"
 
 
     'Get infos
