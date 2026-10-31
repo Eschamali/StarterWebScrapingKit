@@ -25,30 +25,6 @@ Private Declare PtrSafe Function TerminateProcess Lib "kernel32" (ByVal hProcess
 
 
 '***************************************************************************************************
-'                                   ■■■ 各種構造体 ■■■
-'***************************************************************************************************
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] タブの種類。命名は右記に準拠します → https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22
-'---------------------------------------------------------------------------------------------------'
-Public Enum DevToolsAgentHost_KType
-    kTab = 1
-    kPage                   '普段目にするタブがこれ
-    kFrame                  'iFrameと同等
-    kDedicatedWorker
-    kSharedWorker
-    kServiceWorker
-    kWorklet
-    kBrowser
-    kGuest
-    kOther                  '非表示タブ
-    kAuctionWorklet
-    kAssistiveTechnology
-    kBrowserUI
-End Enum
-
-
-
-'***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
@@ -100,32 +76,6 @@ Private TargetInfos             As Collection   '非同期イベント`Target.ta
 Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private m_LogID                 As String       'ログ識別ID
 Private CustomUAMode            As Boolean      'このツール独自のユーザーエージェントを刻印するか？
-
-
-
-'***************************************************************************************************
-'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
-'***************************************************************************************************
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] タブの種類を文字列で返します
-'---------------------------------------------------------------------------------------------------
-Private Function EnumToStringDevToolsAgentHost_KType(param As DevToolsAgentHost_KType) As String
-    Select Case param
-        Case DevToolsAgentHost_KType.kTab:                  EnumToStringDevToolsAgentHost_KType = "tab"
-        Case DevToolsAgentHost_KType.kPage:                 EnumToStringDevToolsAgentHost_KType = "page"
-        Case DevToolsAgentHost_KType.kFrame:                EnumToStringDevToolsAgentHost_KType = "iframe"
-        Case DevToolsAgentHost_KType.kDedicatedWorker:      EnumToStringDevToolsAgentHost_KType = "worker"
-        Case DevToolsAgentHost_KType.kSharedWorker:         EnumToStringDevToolsAgentHost_KType = "shared_worker"
-        Case DevToolsAgentHost_KType.kServiceWorker:        EnumToStringDevToolsAgentHost_KType = "service_worker"
-        Case DevToolsAgentHost_KType.kWorklet:              EnumToStringDevToolsAgentHost_KType = "worklet"
-        Case DevToolsAgentHost_KType.kBrowser:              EnumToStringDevToolsAgentHost_KType = "browser"
-        Case DevToolsAgentHost_KType.kGuest:                EnumToStringDevToolsAgentHost_KType = "webview"
-        Case DevToolsAgentHost_KType.kOther:                EnumToStringDevToolsAgentHost_KType = "other"
-        Case DevToolsAgentHost_KType.kAuctionWorklet:       EnumToStringDevToolsAgentHost_KType = "auction_worklet"
-        Case DevToolsAgentHost_KType.kAssistiveTechnology:  EnumToStringDevToolsAgentHost_KType = "assistive_technology"
-        Case DevToolsAgentHost_KType.kBrowserUI:            EnumToStringDevToolsAgentHost_KType = "browser_ui"
-    End Select
-End Function
 
 
 

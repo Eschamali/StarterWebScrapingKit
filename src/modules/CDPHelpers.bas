@@ -22,8 +22,27 @@ Private Declare PtrSafe Sub OutputDebugString Lib "kernel32" Alias "OutputDebugS
 
 
 '***************************************************************************************************
-'                                   ■■■ 各種定数 ■■■
+'                                   ■■■ 各種構造体 ■■■
 '***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類。命名は右記に準拠します → https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22
+'---------------------------------------------------------------------------------------------------'
+Public Enum DevToolsAgentHost_KType
+    kTab = 1
+    kPage                   '普段目にするタブがこれ
+    kFrame                  'iFrameと同等
+    kDedicatedWorker
+    kSharedWorker
+    kServiceWorker
+    kWorklet
+    kBrowser
+    kGuest
+    kOther                  '非表示タブ
+    kAuctionWorklet
+    kAssistiveTechnology
+    kBrowserUI
+End Enum
+
 'JSの`document.readyState`の状態一式
 '※Pageイベントとして置き換えます
 Public Enum ReadyState      'Used for .wait method
@@ -94,6 +113,27 @@ Public Function EnumToStringReadyState(param As ReadyState) As String
     End Select
 End Function
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Public Function EnumToStringDevToolsAgentHost_KType(param As DevToolsAgentHost_KType) As String
+    Select Case param
+        Case DevToolsAgentHost_KType.kTab:                  EnumToStringDevToolsAgentHost_KType = "tab"
+        Case DevToolsAgentHost_KType.kPage:                 EnumToStringDevToolsAgentHost_KType = "page"
+        Case DevToolsAgentHost_KType.kFrame:                EnumToStringDevToolsAgentHost_KType = "iframe"
+        Case DevToolsAgentHost_KType.kDedicatedWorker:      EnumToStringDevToolsAgentHost_KType = "worker"
+        Case DevToolsAgentHost_KType.kSharedWorker:         EnumToStringDevToolsAgentHost_KType = "shared_worker"
+        Case DevToolsAgentHost_KType.kServiceWorker:        EnumToStringDevToolsAgentHost_KType = "service_worker"
+        Case DevToolsAgentHost_KType.kWorklet:              EnumToStringDevToolsAgentHost_KType = "worklet"
+        Case DevToolsAgentHost_KType.kBrowser:              EnumToStringDevToolsAgentHost_KType = "browser"
+        Case DevToolsAgentHost_KType.kGuest:                EnumToStringDevToolsAgentHost_KType = "webview"
+        Case DevToolsAgentHost_KType.kOther:                EnumToStringDevToolsAgentHost_KType = "other"
+        Case DevToolsAgentHost_KType.kAuctionWorklet:       EnumToStringDevToolsAgentHost_KType = "auction_worklet"
+        Case DevToolsAgentHost_KType.kAssistiveTechnology:  EnumToStringDevToolsAgentHost_KType = "assistive_technology"
+        Case DevToolsAgentHost_KType.kBrowserUI:            EnumToStringDevToolsAgentHost_KType = "browser_ui"
+    End Select
+End Function
+
 
 
 '***************************************************************************************************
@@ -107,6 +147,27 @@ Public Function StringToEnumReadyState(param As String) As ReadyState
         Case EnumToStringReadyState(isLoading):     StringToEnumReadyState = ReadyState.isLoading
         Case EnumToStringReadyState(isInteractive): StringToEnumReadyState = ReadyState.isInteractive
         Case EnumToStringReadyState(isComplete):    StringToEnumReadyState = ReadyState.isComplete
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類を文字列Enumで返します
+'---------------------------------------------------------------------------------------------------
+Public Function StringToEnumDevToolsAgentHost_KType(param As String) As DevToolsAgentHost_KType
+    Select Case param
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kTab):                 StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kTab
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kPage):                StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kPage
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kFrame):               StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kFrame
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kDedicatedWorker):     StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kDedicatedWorker
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kSharedWorker):        StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kSharedWorker
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kServiceWorker):       StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kServiceWorker
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kWorklet):             StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kWorklet
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kBrowser):             StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kBrowser
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kGuest):               StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kGuest
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kOther):               StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kOther
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kAuctionWorklet):      StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kAuctionWorklet
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kAssistiveTechnology): StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kAssistiveTechnology
+        Case EnumToStringDevToolsAgentHost_KType(DevToolsAgentHost_KType.kBrowserUI):           StringToEnumDevToolsAgentHost_KType = DevToolsAgentHost_KType.kBrowserUI
     End Select
 End Function
 
