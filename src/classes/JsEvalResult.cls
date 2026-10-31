@@ -495,7 +495,7 @@ End Property
 
 Property Get value() As Variant
 Attribute value.VB_UserMemId = 0
-    If m_VarTypeVBA = vbObject Then Set value = m_AutoValue Else value = m_AutoValue
+    CDPHelpers.SetVar(rawValue) = m_AutoValue
 End Property
 
 Property Get rawValue() As Variant

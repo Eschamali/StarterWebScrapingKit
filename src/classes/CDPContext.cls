@@ -187,6 +187,9 @@ Private WithEvents PipeCore As CDPCore      'イベント受け取りオブジ�
 Attribute PipeCore.VB_VarHelpID = -1
 Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 
+'内部拡張用
+Private exInternal_mIframe  As CDPiframe    'iframe系の操作を担う拡張ヘルパーClass
+
 '各種便利クラスオブジェクト
 Private CharConv    As New CharacterCodeConversion
 
@@ -225,8 +228,17 @@ Private Type StateTab
     Title               As String   'The focused tab name / window name of the active CDPBrowser
     Url                 As String   'The focused tab url of the active CDPBrowser
     ReadState           As ReadyState   'ページの読み込み状況(document.readyState相当)
+    kType               As DevToolsAgentHost_KType   'このタブはどういうタブか？
 End Type
 Private brTab As StateTab
+
+'親子関係情報
+Private Type ParentChild
+    targetID    As String   'タブ(ページ)単位としての識別子
+    frameID     As String   'タブ(ページ)の中の枠単位(iframe等)としての識別子。※TOPと同じなら、targetID=FrameID となります。
+End Type
+Private openerInfo As ParentChild   'どっから（外に）開いた？
+Private parentInfo As ParentChild   '埋め込み元は（中に誰がいる）？
 
 '操作中のTOP層タブとしてのJavaScript環境情報
 Private Type StateTabForJavaScript
@@ -416,7 +428,15 @@ Private Sub InitAttachToSession(InitURL As String)
     '自動蓄積機能を無効化
 3   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
-    printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
+    'ちゃんと`SessionID`が取れたか？
+4   If StrPtr(brTab.sessionID) Then
+        '成功
+        printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
+    Else
+        'エラーメッセージを取り出して､終了
+        Dim ErrMes As String: ErrMes = BrowserCore.LastCDPJsonError("message")
+        printMsg ERROR_, "Failed to retrieve `SessionID`. Reason: " & ErrMes, FromProcedureName, doRaiseError:=True
+    End If
     Exit Sub
 
 ifError:
@@ -1196,7 +1216,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As BiDiCDPJConv, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As BiDiCDPJConv, Optional ByRef ErrorCode As Long, Optional ByRef ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -1426,9 +1446,14 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
         '------------------ この`Context`(TargetID)のJavaScript実行環境ステータスの更新を行います ------------------
         'JavaScript実行環境情報の更新を行います
         Case "Runtime.executionContextCreated"
-            '2-1. このタブクラスのTargetIDと一致するか？
+            '2-1. `Runtime.ExecutionContextDescription`を取り出す
             Set tmpNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params").NodeKey("context")
-            If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
+
+            '2-2. `auxData`から、このタブクラスのTargetIDと一致するか確認する
+            '※このClassの`TargetID`と本来の住人（実ページのJS）であるかの確認
+            Dim auxData As BiDiCDPJConv
+            Set auxData = tmpNode.NodeKey("auxData")
+            If auxData.StringKey("frameId") = brTab.targetID And auxData.BoolKey("isDefault") Then
                 '2-2. 各種statusを上書き
                 With brTabRuntime
                     .IsValid = True '使えるよサイン
@@ -1728,14 +1753,27 @@ Public Sub getSessionInfo()
     'Get infos
     Dim TargetInfo As BiDiCDPJConv: Set TargetInfo = refreshTargetInfo
 
-    '各種パラメーター更新
+    '--------------- 各種パラメーター更新 ---------------
+    '＜自身のタブ(ページ)＞
     With brTab
         .Url = TargetInfo.StringKey("url")
         .Title = TargetInfo.StringKey("title")
         .targetID = TargetInfo.StringKey("targetId")
         .browserContextId = TargetInfo.StringKey("browserContextId")
+        .kType = CDPHelpers.StringToEnumDevToolsAgentHost_KType(TargetInfo.StringKey("type"))
     End With
 
+    '＜自身のタブ(ページ)の親子関係情報＞
+    '開いた元
+    openerInfo.targetID = TargetInfo.StringKey("openerId")
+    openerInfo.frameID = TargetInfo.StringKey("openerFrameId")
+
+    '埋め込み元
+    parentInfo.targetID = TargetInfo.StringKey("parentId")
+    parentInfo.frameID = TargetInfo.StringKey("parentFrameId")
+    '----------------------------------------------------
+
+    '----------------- イベント購読処理 -----------------
     'JavaScript関連の変化も捉えれるようにする
     '※`reattach`を想定して一旦OFFにして、再度ONにすることで、最新の`Runtime.executionContextCreated`等が飛んでくれる親切機能を利用してます
     runtimeEnable False
@@ -1744,6 +1782,7 @@ Public Sub getSessionInfo()
     '`document.readyState`相当も使えるように有効化
     '※こっちは、OFF→ONにしても、今の`document.readyState`状況は降ってこないので、ONのみとします
     pageEnable True
+    '----------------------------------------------------
 
     'ユーザーエージェントに刻印する場合はそれを行う
     If BrowserCore.UseCustomUAMode Then AppendVbaUserAgent
@@ -1753,49 +1792,10 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：現時点で開いている全てのiframe情報をログに表示します
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：名前またはURLに基づいて検索しヒットしたら、`executionContextId`を返却します
-'* 注意事項：検索範囲は、親の子iframeまでです。親の子iframe内のiframe...といった多重ネスト表示は非対応です
+'* 引数　　：MaxNestLevel   `childFrames`をどこまで潜るかを指定します。省略で、親ページの直下までとなります
 '***************************************************************************************************
-Public Sub printChildFrames()
-    Const FromProcedureName As String = ThisClassName & ".printChildFrames"
-
-
-    Dim NodeToken As Long
-    Dim iframeCount As Long
-    Dim childFrames As BiDiCDPJConv
-
-    '1. 実行して、まずは結果を取得
-    Dim tmp As BiDiCDPJConv
-    Set tmp = ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")
-
-    '2. iframeがない場合は即抜け
-    If Not tmp.ExistsKey("childFrames") Then printMsg info_, "'" & brTab.Title & "' does not have an iframe.", FromProcedureName: Exit Sub
-
-    '3.Read info
-    printMsg info_, "---------------------------------------------------", FromProcedureName
-    printMsg info_, "childFrames Information", FromProcedureName
-    printMsg info_, "---------------------------------------------------", FromProcedureName
-
-    With tmp.NodeKey("childFrames")
-        NodeToken = .FirstChildToken  ' 配列の先頭トークン
-        Do While NodeToken > 0
-            '`childFrames`の各`frame`要素を取り出す
-            Dim childFrame As BiDiCDPJConv
-            Set childFrame = .NodeFromToken(NodeToken).NodeKey("frame")
-            iframeCount = iframeCount + 1
-
-            With childFrame
-                printMsg info_, "#" & iframeCount & vbTab & _
-                            "type: " & .StringKey("mimeType") & " | " & _
-                            "title: " & .StringKey("name") & " | " & _
-                            "url: " & .StringKey("url") & " | " & _
-                            "frameID: " & .StringKey("id"), FromProcedureName
-            End With
-
-            '次の`Target.TargetInfo`へ
-            NodeToken = .NextToken(NodeToken)
-        Loop
-    End With
+Public Sub printChildIframes(Optional MaxNestLevel As Long)
+    exInternal_mIframe.printChildFrames MaxNestLevel
 End Sub
 
 
@@ -2301,135 +2301,20 @@ Public Sub openDevTools(Optional panelId As String)
     BrowserCore.openDevTools brTab.targetID, panelId
 End Sub
 
+
+
 '***************************************************************************************************
-'* 機能　　：現在のページに埋め込まれている`iframe`に対する`executionContextId`を返却します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：検索条件に紐づく`jsEval - ContextId`で扱える`executionContextId`    ※1つもない場合は、`0`で返却
-'* 引数　　：iframeName     iframe名    第一優先(<iframe name="[これを指定]")
-'            Url            URL         第二優先
-'            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：名前またはURLに基づいて検索しヒットしたら、`executionContextId`を返却します
-'* 注意事項：・これらの引数を両方とも省略すると、`getIFrameContextID`は最初のiframeの`executionContextId`を返却します
-'            ・返った`executionContextId`を`CDPElement`で便利に扱いたい場合は別途`getIFrame`メソッドをご利用ください
-'            ・検索範囲は、親の子iframeまでです。親の子iframe内のiframe...といった多重ネストは非対応です。その場合は自力で「ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")」をして目的のを取り出してください。
+'                          ■■■ ポップアップウィンドウ追跡系 ■■■
 '***************************************************************************************************
-Public Function getIFrameContextID(Optional iframeName As String, Optional Url As String, Optional doRetrySecond As Double) As Long
-    Const FromProcedureName As String = ThisClassName & ".getIFrameContextID"
-
-
-    Dim NodeToken_childFrames   As Long
-    Dim Node_childFrames        As BiDiCDPJConv
-    Dim frameID                 As String, candidateframeID As String
-    Dim iframefound             As Boolean
-    Dim bestScore As Long, score As Long
-    Dim timerStart              As Double
-
-
-    '1. タイマースタートして探索を開始する
-    If doRetrySecond > 0 Then timerStart = CDPHelpers.TimerCounter
-    Do
-        '2. 実行して、まずは`frameTree`を取得
-        Dim frameTreeNode As BiDiCDPJConv
-        Set frameTreeNode = ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")
-
-        '3. iframeがない場合は即抜け
-        If Not frameTreeNode.ExistsKey("childFrames") Then printMsg info_, "'" & brTab.Title & "' does not have an iframe.", FromProcedureName: Exit Function
-
-        '4. `childFrames`オブジェクトリストを取得します
-        Set Node_childFrames = frameTreeNode.NodeKey("childFrames")
-        NodeToken_childFrames = Node_childFrames.FirstChildToken  ' 配列の先頭トークン
-
-        '5. スコア方式を利用して、理想の対象iframe情報を取得します
-        Const MaxScore As Long = 100
-        bestScore = -1
-        candidateframeID = vbNullString
-        Do While NodeToken_childFrames > 0
-            '5-1. `childFrames`の各`frame`要素を取り出す
-            Dim childFrame As BiDiCDPJConv
-            Set childFrame = Node_childFrames.NodeFromToken(NodeToken_childFrames).NodeKey("frame")
-
-            '5-2. 現スコアをリセット
-            score = -1
-
-            '5-3. 入力した引数に応じた確認
-            Select Case True
-                '第一優先：iframe名
-                Case StrPtr(iframeName)
-                    Dim frameName As String: frameName = childFrame.StringKey("name")
-
-                    '完全一致
-                    If frameName = iframeName Then
-                        score = 100
-                    '部分一致
-                    ElseIf InStr(1, frameName, iframeName) Then
-                        score = 50
-                    '一致せず
-                    Else
-                        printMsg WARN_, "with name containing """ & iframeName & """", FromProcedureName
-                    End If
-
-                '第二優先：URL
-                Case StrPtr(Url)
-                    Dim frameNameUrl As String: frameNameUrl = childFrame.StringKey("url")
-
-                    '一致位置検査
-                    Dim StartPos As Long: StartPos = InStr(1, frameNameUrl, Url)
-
-                    '先頭一致
-                    If StartPos = 1 Then
-                        score = 90
-                    '部分一致
-                    ElseIf StartPos Then
-                        score = 40
-                    '一致せず
-                    Else
-                        printMsg WARN_, "with url containing """ & Url & """", FromProcedureName
-                    End If
-
-                '第三優先：直近のiframeタブ
-                Case Else
-                    score = 80
-
-            End Select
-
-            '5-4. 記録中のベストスコアを上回ったら更新
-            If score > bestScore Then
-                bestScore = score
-                candidateframeID = childFrame.StringKey("id")
-            End If
-
-            '5-5. 最大スコアが出てるなら、捜査打ち切り
-            If bestScore = MaxScore Then Exit Do
-
-            '5-6. 次の`childFrames`へ
-            NodeToken_childFrames = Node_childFrames.NextToken(NodeToken_childFrames)
-        Loop
-
-        '6. 目的の物っぽいのがあったら見つけたとします
-        If bestScore > 0 Then
-            iframefound = True
-            frameID = candidateframeID
-        End If
-
-    '7. Do retry as long as not timeout
-    Loop Until iframefound Or CDPHelpers.TimerCounter - timerStart > doRetrySecond * 1000
-
-    '8. Returns nothing if not found
-    'Nothing is preferred over throwing error
-    If Not iframefound Then
-        Dim info As String
-        info = IIf(LenB(iframeName), iframeName, IIf(LenB(Url), Url, "(no new tab found)"))
-        printMsg WARN_, "Unable to find the iframe: " & info, FromProcedureName
-        Exit Function
-    Else
-        printMsg info_, "Found the iframe with ID: " & frameID & ". (Certainty：" & bestScore & "%)", FromProcedureName
-    End If
-
-    '9. 得たIDを基に、`contextId`を生成し返却
-    Dim CDPparams As New Dictionary
-    CDPparams.Add "frameId", frameID
-    getIFrameContextID = ExecuteCDP("Page.createIsolatedWorld", CDPparams).NumberKey("executionContextId")
+'* 機能　　：このタブから開かれたタブ(主にポップアップウィンドウ等)をcatchし、`CDPContext`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - CDPContext。時間内に見つからない場合は、`nothing`です
+'* 引数　　：doRetrySecond  何秒間、探索するかを決めます。0で、1回のみです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ご利用前に、`CDPBrowser.getTabForOpenerID`にある手順を読んでください。前準備と後始末が必要です
+'***************************************************************************************************
+Public Function PopupCatch(Optional doRetrySecond As Double) As CDPContext
+    Set PopupCatch = BrowserCore.getTabForOpenerID(brTab.targetID, IIf(brTab.kType = kFrame, True, False), doRetrySecond)
 End Function
 
 
@@ -2438,6 +2323,8 @@ End Function
 '                           ■■■ `CDPElement.cls`継承準備 ■■■
 '***************************************************************************************************
 '* 機能　　：ID属性値で要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：ID属性値に対する`CDPElement`。検索自体が失敗した場合は、`Nothing`
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Get an element class from the element ID, similar to the getElementByID of JS.
 '            The element class has useful properties and methods similar to the HTML element
@@ -2450,6 +2337,8 @@ End Function
 
 '***************************************************************************************************
 '* 機能　　：XPathで要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：XPathに対する`CDPElement`。検索自体が失敗した場合は、`Nothing`
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
 '            eg.1 "//b[text()='T-BILL CURVE']": tag "b" with innertext to be 'T-BILL CURVE'
@@ -2471,6 +2360,7 @@ End Function
 '* 機能　　：XPathで要素を複数検索し、`CDPElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'---------------------------------------------------------------------------------------------------
 '* 詳細説明：For further info on the particular XPath syntax used for retrieving the elements, refer to Mozilla doc below:
 '            https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
 '* 注意事項：・コレクションのIndexは、1始まりです
@@ -2488,6 +2378,8 @@ End Function
 
 '***************************************************************************************************
 '* 機能　　：QuerySelectorで要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：QuerySelectorに対する`CDPElement`。検索自体が失敗した場合は、`Nothing`
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Refer to the below for some examples.
 '            https://www.w3schools.com/jsref/met_document_queryselector.asp
@@ -2519,6 +2411,7 @@ End Function
 '* 機能　　：QuerySelectorAllで要素を複数検索し、`CDPElement`のコレクションとして返却します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'---------------------------------------------------------------------------------------------------
 '* 注意事項：・コレクションのIndexは、1始まりです
 '            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '* 更新履歴：02/03/2023
@@ -2527,6 +2420,40 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     Set getElementsByQuery = SearchElements("document.querySelectorAll(""" & strQuery & """)", _
                                             "function(){ return this.length }", _
                                             "function(n){ return this.item(n) }")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：現在のページに埋め込まれている`iframe`に対する`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：引数に基づくiframe要素に対する`CDPElement`。ヒットしない、iframeが1つもない場合は、`Nothing`となります
+'* 引数　　：iframeName     iframe名    第一優先(<iframe name="[これを指定]")
+'            Url            URL         第二優先
+'            MaxNestLevel   `childFrames`をどこまで潜るかを指定します。省略で、親ページの直下までとなります
+'            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：これらの引数を両方とも省略すると、`getElementByIframe`は最初のiframe要素として返却します
+'***************************************************************************************************
+Public Function getElementByIframe(Optional iframeName As String, Optional Url As String, Optional MaxNestLevel As Long, Optional doRetrySecond As Double) As CDPElement
+    '1. 検索依頼し、ない場合は即抜け
+    If Not exInternal_mIframe.InitPageGetFrameTree(iframeName, Url, MaxNestLevel, doRetrySecond) Then Exit Function
+
+    '2. JavaScript実行環境を構築する
+    Dim ExecutionContextId As Long
+    ExecutionContextId = exInternal_mIframe.getPageFrameContextID
+
+    '3. TOP要素として返却するように`document`を実行
+    Dim SearchJS As String, resultSearch As Variant
+    SearchJS = "document"
+    resultSearch = jsEval(SearchJS, contextId:=ExecutionContextId)
+
+    '4. 結果を判定。文字型なら、ObjectIDを確保
+    Dim objectId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then objectId = resultSearch
+
+    '5. 結果を`CDPElement.cls`に格納
+    Set getElementByIframe = New CDPElement
+    getElementByIframe.Init Me, JsResultVarType, objectId, SearchJS
 End Function
 
 '***************************************************************************************************
@@ -2599,28 +2526,6 @@ Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS A
     ExecuteCDPAsync "Runtime.releaseObject", paramsRelease, False
 End Function
 
-'***************************************************************************************************
-'* 機能　　：`getIFrameContextID`メソッドで得た`executionContextId`を基に、`CDPElement`で扱えるようにします
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：`executionContextId`に基づく`CDPElement`
-'* 引数　　：executionContextId     `getIFrameContextID`メソッドで得た`executionContextId`
-'***************************************************************************************************
-Public Function getIFrame(ExecutionContextId As Long) As CDPElement
-    '1. 要素として返却するように`document`を実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document"
-    resultSearch = jsEval(SearchJS, contextId:=ExecutionContextId)
-
-    '2. 結果を判定。文字型なら、ObjectIDを確保
-    Dim objectId As String, JsResultVarType As VbVarType
-    JsResultVarType = VarType(resultSearch)
-    If JsResultVarType = vbString Then objectId = resultSearch
-
-    '3. 結果を`CDPElement.cls`に格納
-    Set getIFrame = New CDPElement
-    getIFrame.Init Me, JsResultVarType, objectId, SearchJS
-End Function
-
 
 
 '***************************************************************************************************
@@ -2685,19 +2590,18 @@ Property Let Url(newURL As String)
 
 End Property
 
-Property Get Title() As String
+Property Get Title(Optional refresh As Boolean) As String
 '------------------------------------------------------------
 ' Get the title of the current document/tab
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    '※イベント経由での`Target.targetInfoChanged`の`title`は、ほぼ機能しないためここは素直に、JavaScript経由で取ります
-    brTab.Title = jsEval("document.title")
+    If refresh Then brTab.Title = jsEval("document.title")
     Title = brTab.Title
 
 End Property
 
-Property Let Title(newName As String)
+Property Let Title(Optional refresh As Boolean, newName As String)
 '------------------------------------------------------------
 ' Set the title of the current document/tab
 ' Added 02/03/2023
@@ -2755,7 +2659,7 @@ Property Let CurrentSessionID(newSessionID As String)
 
 End Property
 
-Property Get html() As String
+Public Function html() As String
 '------------------------------------------------------------
 ' Get the html text of the entire document
 ' Added 02/03/2023
@@ -2763,7 +2667,7 @@ Property Get html() As String
 
     html = jsEval("document.documentElement.innerHTML")
 
-End Property
+End Function
 
 '***************************************************************************************************
 '* 機能　　：このクラスで定義中のtargetIDを取得します
@@ -2870,6 +2774,36 @@ Property Get isTargetClosed() As Boolean
     isTargetClosed = ControlStatus.targetDestroyed
 End Property
 
+'***************************************************************************************************
+'* 機能　　：このタブ(ページ)が開かれた元の`TargetID` or `FrameId`を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：Strict True ：ページ描画枠(iframe等)単位を基準として返します(Target.TargetInfo-openerFrameId)
+'                          例えば、Aページに埋め込まれた「twitterの埋め込み」から開いたといったのを区別したいときに使います
+'                   False：タブ/ウィンドウ単位を基準として返します(Target.TargetInfo-openerId)
+'
+'* 返値    ：開かれた元の`TargetID` or `FrameId`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ない場合は、`vbnullstring`です
+'***************************************************************************************************
+Property Get OpenerID(Optional Strict As Boolean) As String
+    OpenerID = IIf(Strict, openerInfo.frameID, openerInfo.targetID)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このタブ(ページ)が埋め込まれた元の`TargetID` or `FrameId`を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：Strict True ：ページ描画枠(iframe等)単位を基準として返します(Target.TargetInfo-parentFrameId)
+'                          例えば、Aページに埋め込まれたBページiframeの中に埋め込まれた物(いわゆる、iframeネスト)を区別したいときに使います
+'                   False：タブ/ウィンドウ単位を基準として返します(Target.TargetInfo-parentId)
+'
+'* 返値    ：埋め込まれた元の`TargetID` or `FrameId`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ない場合は、`vbnullstring`です
+'***************************************************************************************************
+Property Get ParentId(Optional Strict As Boolean) As String
+    ParentId = IIf(Strict, parentInfo.frameID, parentInfo.targetID)
+End Property
+
 
 
 '***************************************************************************************************
@@ -2931,6 +2865,9 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandCDP_Context = New Dictionary
+
+    '内部ヘルパー拡張Classを用意
+    Set exInternal_mIframe = New CDPiframe: exInternal_mIframe.Init Me
 End Sub
 
 '***************************************************************************************************
