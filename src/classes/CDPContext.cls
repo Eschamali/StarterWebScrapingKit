@@ -228,6 +228,7 @@ Private Type StateTab
     Title               As String   'The focused tab name / window name of the active CDPBrowser
     Url                 As String   'The focused tab url of the active CDPBrowser
     ReadState           As ReadyState   'ページの読み込み状況(document.readyState相当)
+    kType               As DevToolsAgentHost_KType   'このタブはどういうタブか？
 End Type
 Private brTab As StateTab
 
@@ -1759,6 +1760,7 @@ Public Sub getSessionInfo()
         .Title = TargetInfo.StringKey("title")
         .targetID = TargetInfo.StringKey("targetId")
         .browserContextId = TargetInfo.StringKey("browserContextId")
+        .kType = CDPHelpers.StringToEnumDevToolsAgentHost_KType(TargetInfo.StringKey("type"))
     End With
 
     '＜自身のタブ(ページ)の親子関係情報＞
