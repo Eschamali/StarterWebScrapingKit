@@ -172,6 +172,41 @@ sequenceDiagram
 * パイプのハンドルは、CRTのファイルディスクリプタ継承の仕組み（`lpReserved2`）を使って子プロセスへ渡します
 * VBA内部は UTF-16LE、CDP は UTF-8 なので、**送受信のたびに相互変換**が必要です
 
+### 🥉 WebView2 経路の流れ
+
+Excel には、WebView2 を扱う公式のコントロールがありません。  
+そこで、C++ のアプリなら WebView2 の SDK（コンパイラーと COM 用のライブラリ）が裏で用意してくれるものを、VBA で手作業で組み立てています。新しい通信方式を発明したわけではなく、**WebView2 が裏でやっていることを再現しただけ**です。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as Excel VBA
+    participant T as 自作のCOMオブジェクト<br/>（機械語サンク）
+    participant L as WebView2Loader.dll<br/>（Office同梱）
+    participant W as WebView2
+
+    Note over V,T: VirtualAlloc で確保したメモリに<br/>vtable と機械語サンクを書き込み、<br/>完了ハンドラ（COMオブジェクト）を自作
+    V->>L: CreateCoreWebView2EnvironmentWithOptions
+    L-->>T: Invoke（Environment の完成）
+    Note over T,V: どの Invoke も、サンクが VBA クラスの<br/>Handler_Invoke の呼び出しに詰め替えて届ける
+    V->>W: DispCallFunc で vtable[3] を呼ぶ<br/>CreateCoreWebView2Controller（UserForm の hWnd）
+    W-->>T: Invoke（Controller の完成）
+    V->>W: vtable[36] CallDevToolsProtocolMethod<br/>（セッション指定は vtable[99] の ForSession）
+    W-->>T: Invoke(errorCode, 結果のJson)
+    T->>V: 記録しておいたコマンドIDを足して渡す
+    Note over V: {"id":N,"result":...} に組み立て直し、<br/>Pipe と同じ受信バッファーへ
+```
+
+ポイントは次の3点です。
+
+* `WebView2Loader.dll` は、最近の Office（Microsoft 365 など）に最初から入っています。`Declare` で名前を書くだけで呼べるので、DLL を追加で入れる必要はありません
+* COM のメソッドは名前で呼べないので、vtable の**番号**を数えて `DispCallFunc` で呼んでいます。結果を受け取るコールバック用の COM オブジェクトも、メモリ上に直接組み立てています（`WebView2Thunks.bas`）
+* WebView2 の結果には、CDP の `id`（どのコマンドの結果か）や `method`（どのイベントか）が含まれません。そこで、ハンドラ側に記録しておいた値を足して、Pipe と同じ形の JSON に戻しています。ここから先は、Pipe 経路とまったく同じ処理です
+
+> [!NOTE]
+> 機械語サンク・vtable 呼び出しの心臓部は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（たーぼー氏）のロジックを移植したものです。  
+> 番号の数え方やコールバックの作り方の詳細は、[技術資料: WebView2 経路](https://eschamali.github.io/StarterWebScrapingKit/stories/DebugRouteTech/webview2-tech) にまとめています。
+
 ### 🔀 WebDriver BiDi はどうしているの？
 
 W3C で標準化が進む次世代プロトコル **WebDriver BiDi** にも対応しています。  
