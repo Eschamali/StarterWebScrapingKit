@@ -4,6 +4,8 @@ description: Windows 11 26H2 で SeleniumBasic が起動に失敗する原因を
 
 # SeleniumBasic を止めた GetTcpTable は、なぜ令和のIEを止めなかったのか
 
+<PromoMovie src="/promo/ReiwaIE_GetTcpTable.html" title="令和のIE 開発秘話 ― GetTcpTable 秘話" />
+
 ::: tip GetTcpTable 秘話
 〜他人のツールの起動エラーを掘っていたら、自分のコードの「なぜ」が一つ増えた話〜
 :::

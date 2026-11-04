@@ -14,6 +14,7 @@ promo/
 ├─ ReiwaIE_BiDiStory.html
 ├─ ReiwaIE_Policy.html
 ├─ ReiwaIE_WebView2Story.html
+├─ ReiwaIE_GetTcpTable.html
 └─ voice/
    ├─ README.md            … このファイル
    ├─ ReiwaIE_60s/         … ReiwaIE_60s.html の声
@@ -43,9 +44,13 @@ promo/
    │  ├─ narration.json
    │  ├─ op1.wav, wl1.wav, …
    │  └─ bgm.mp3
-   └─ ReiwaIE_WebView2Story/ … ReiwaIE_WebView2Story.html の声と BGM
+   ├─ ReiwaIE_WebView2Story/ … ReiwaIE_WebView2Story.html の声と BGM
+   │  ├─ narration.json
+   │  ├─ fo1.wav, ac1.wav, …, ts1.wav
+   │  └─ bgm.mp3
+   └─ ReiwaIE_GetTcpTable/ … ReiwaIE_GetTcpTable.html の声（2人の会話）と BGM
       ├─ narration.json
-      ├─ fo1.wav, ac1.wav, …, ts1.wav
+      ├─ pr1.wav, sn1.wav, …, ro8.wav
       └─ bgm.mp3
 ```
 
@@ -64,13 +69,14 @@ promo/
   ```
 
 - 声が読み込めなかった場合、ムービーはナレーションなし（BGM・効果音・字幕のみ）で再生されます
-- `ReiwaIE_History`・`ReiwaIE_DebugRoute`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story` は作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて `bgm.mp3` を置いています
+- `ReiwaIE_History`・`ReiwaIE_DebugRoute`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story`・`ReiwaIE_GetTcpTable` は作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて `bgm.mp3` を置いています
   - `ReiwaIE_DebugRoute` の `bgm.mp3` は、BGM と効果音を事前に合成したものです
-  - `ReiwaIE_History`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story` の `bgm.mp3` は曲だけです。効果音は mp3 に入れず、HTML の中で Web Audio API を使って鳴らしています。絵と同じ時刻表から鳴らすので、効果音の時刻を直したときは HTML を作り直すだけで済みます
+  - `ReiwaIE_History`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story`・`ReiwaIE_GetTcpTable` の `bgm.mp3` は曲だけです。効果音は mp3 に入れず、HTML の中で Web Audio API を使って鳴らしています。絵と同じ時刻表から鳴らすので、効果音の時刻を直したときは HTML を作り直すだけで済みます
   - `ReiwaIE_BiDiStory.html` は、記事の画像を `img/story/` から相対パス（`../img/story/1.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMGSRC` も直してください
   - `ReiwaIE_Policy.html` も、記事の画像を `img/Policy/` から相対パス（`../img/Policy/1.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMG_BASE` も直してください
   - `ReiwaIE_WebView2Story.html` は、記事の画像を `img/` の直下と `img/story/human/` から相対パス（`../img/化石コントロール.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMG_FILES` も直してください
 - `ReiwaIE_Policy` は2人の会話です。`narration.json` の各行に話し手（`speaker`）を書いています。春日部つむぎ（VOICEVOX のスタイル ID は 8）が案内役、ずんだもんが聞き役です
+- `ReiwaIE_GetTcpTable` は2人の会話です。東北イタコ（VOICEVOX のスタイル ID は 109）が案内役、ずんだもんが一緒に調べる聞き役です。記事の画像は使わず、絵はすべて Canvas で描いています
 - `ReiwaIE_WebView2Story` は、ずんだもんのひとり語りです。最後の4行（`ts1`〜`ts4`）だけ春日部つむぎがささやきます。つむぎにはささやきのスタイルがないため、合成した声に ffmpeg で響きと1オクターブ下の薄い重ねを足しています
 
 ## narration.json の書き方
