@@ -318,6 +318,9 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     If addr.sin_addr = SOCKET_ERROR Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '6. 接続実行 (TCPコネクションの確立)
+    ' TCP の LISTEN 状態の事前列挙は行わない。
+    ' 接続可否は別 API による推測ではなく、WinSock connect() の実際の成否で判定する。
+    ' その後、WebSocket Handshake と応答を各プロトコル層の成功条件として検証する。
     Dim ret As Long
     ret = Connect(m_hSocket, addr, LenB(addr))
     If ret = SOCKET_ERROR Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
