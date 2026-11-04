@@ -390,6 +390,30 @@ API リファレンス、アーキテクチャ、開発秘話などは GitHub Pa
 
 ***
 
+## IEの頃にできた3種の神器
+
+冒頭で紹介した`CreateObject("InternetExplorer.Application")`は、あくまでIEを新しく起動するための方法です。
+
+実は、IEではほかに次の2つもできました。
+
+- 起動済みIEの制御
+  - `CreateObject("Shell.Application")`による[探索](https://kouten0430.hatenablog.com/entry/2018/08/11/150052)
+- UserFormへのIEの埋め込み
+  - WebBrowserコントロールを[埋め込む](https://bimori466-1.hatenablog.com/entry/2021/04/03/061552)
+
+この2つは、プロジェクトを立ち上げた当初には実現できていませんでした。\
+しかし、AIが発展したことで、どちらも実現できてしまいました。
+
+- 起動済みChrome/Edgeの制御：[AIによるコーディングエージェントのために](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja)
+  - こちらはブラウザ側の公式対応です。**AIが発展**したからこそ対応された機能なのかもしれません。
+- UserFormへのWebView2の埋め込み：[AIがWebView2の裏側を組んでくれた](https://qiita.com/fenblen_puyo/items/4271ab7bd7c9d648d803)
+  - 人間には到底できない超低レイヤーの土台を、AIが組んでくれました。
+
+前者は、AIの発展を受けて、企業が公式に対応してしまいました。\
+後者は、AIの発展のおかげで、非公式ながらUserFormへのWebView2の埋め込みに成功しました。
+
+AIって、ある意味恐ろしいものですね。
+
 ## 🛠️ 実務で使うなら
 
 一般的なWebスクレイピングやブラウザ自動化が目的であれば、成熟した次のツールを強くおすすめします。
