@@ -35,10 +35,18 @@ box.selectText
 ## 属性・選択
 
 ```vb
-Debug.Print box.getAttribute("value")
-box.setAttribute "data-x", "1"
-t.getElementByQuery("select#country").setSelection "JP"
+Debug.Print box.PageAttribute("value")
+box.PageAttribute("data-x") = "1"
+
+' <select>：value 属性 / 表示文字 / 番号 のどれか1つで選び、同じ基準で取り出す
+Dim sel As CDPElement
+Set sel = t.getElementByQuery("select#country")
+sel.SelectOption "JP"
+sel.SelectOption Label:="日本"
+Debug.Print sel.GetSelection(seLabel)
 ```
+
+`<select>` の詳細は [`CDPElement.SelectOption` / `GetSelection`](/api/cdp/CDPElement#selectoption--getselection) を参照してください。
 
 ## キー入力
 
@@ -50,7 +58,7 @@ box.sendHover          ' 座標系ホバー相当（:hover で出現するメニ
 
 ## React など仮想 DOM
 
-単純な `setAttribute` では状態が同期されないことがあります。デモ `Demo_CDP.fillReactForm` のように、フォーカスやイベント発火（`fireEvent`）を組み合わせてください。
+単純な `PageAttribute` などの代入では状態が同期されないことがあります。デモ `Demo_CDP.fillReactForm` のように、フォーカスやイベント発火（`fireEvent`）を組み合わせてください。
 
 ```vb
 el.focus

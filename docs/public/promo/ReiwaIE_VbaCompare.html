@@ -324,7 +324,7 @@ function trainSide(x, y, w, h, c, o = {}) {
     ctx.fillStyle = '#5f7a99'; rr(dx - h * .12, y + h * .2, h * .24, h * .3, 3); ctx.fill();
     if (i < nd - 1) for (let j = 0; j < 2; j++) { ctx.fillStyle = '#5f7a99'; rr(dx + h * .24 + j * (w / nd - h * .48) / 2, y + h * .18, (w / nd - h * .62) / 2, h * .32, 4); ctx.fill(); }
   }
-  if (o.dest) { rr(x + w * .5 - 90, y + 6, 180, h * .1, 3); ctx.fillStyle = '#0b0d10'; ctx.fill(); txt(o.dest, x + w * .5, y + 6 + h * .05, { font: `800 ${Math.round(h * .07)}px ${FONT}`, align: 'center', color: COL.led }); }
+  if (o.dest) { const df = `800 ${Math.round(h * .07)}px ${FONT}`, dw = Math.max(180, measure(o.dest, df) + 28); rr(x + w * .5 - dw / 2, y + 6, dw, h * .1, 3); ctx.fillStyle = '#0b0d10'; ctx.fill(); txt(o.dest, x + w * .5, y + 6 + h * .05, { font: df, align: 'center', color: COL.led }); }
   // 車輪
   ctx.fillStyle = '#2a3140';
   for (const fx of [.12, .24, .76, .88]) { ctx.beginPath(); ctx.arc(x + w * fx, y + h + 4, h * .07, 0, 7); ctx.fill(); }
@@ -739,7 +739,9 @@ function hud(t, cur) {
   if (ci < 0) return;
   ctx.save();
   // 左上
-  rr(36, 26, 330, 58, 29); ctx.fillStyle = 'rgba(255,253,248,.92)'; ctx.fill(); ctx.strokeStyle = '#d8cfba'; ctx.lineWidth = 1.5; ctx.stroke();
+  // 札の右端は、副題の文字の終わりから左端と同じくらい空ける
+  const hw = 208 + measure('VBA 圏 CDP 三つ巴', `700 18px ${FONT}`) + 22 - 36;
+  rr(36, 26, hw, 58, 29); ctx.fillStyle = 'rgba(255,253,248,.92)'; ctx.fill(); ctx.strokeStyle = '#d8cfba'; ctx.lineWidth = 1.5; ctx.stroke();
   badge('S', 66, 55, 19);
   txt('令和のIE', 98, 55, { font: `900 24px ${FONT}`, color: COL.ink });
   txt('VBA 圏 CDP 三つ巴', 208, 56, { font: `700 18px ${FONT}`, color: COL.sub });
@@ -2376,15 +2378,24 @@ function sceneFinale(t) {
     // 技術: 線路が枝分かれして増える
     const techA = 1 - .7 * PK(t, 'nAi', .6);
     ctx.save(); ctx.globalAlpha *= techA;
-    const tech = [['Pipe', 'nPipe', -1], ['WebSocket（WinSock 自前）', 'nWs', 1], ['WebView2', 'nWs', -1], ['CDP', 'nCdp', 1], ['WebDriver BiDi', 'nBidi', -1], ['WinSock', 'nSock', 1]];
+    const tech = [['Pipe', 'nPipe', -1], ['WebSocket', 'nWs', 1], ['WebView2', 'nWs', -1], ['CDP', 'nCdp', 1], ['WebDriver BiDi', 'nBidi', -1]];
+    // 5本の枝を、線路の中央にそろえて並べる
+    const bx = i => 960 - (4 * 300 + 210) / 2 + i * 300;
     tech.forEach(([s, k, side], i) => {
-      const x0 = 260 + i * 250, p = PT(t, K(k) + (i === 2 ? .35 : 0), .7);
+      const x0 = bx(i), p = PT(t, K(k) + (i === 2 ? .35 : 0), .7);
       const pts = rounded([[x0, y], [x0 + 70, y + side * 70], [x0 + 210, y + side * 70]], 30);
       rail(pts, p, tint(LINE.S.c, .25), { w: 10, head: false });
       if (p > .6) txt(s, x0 + 90, y + side * 112, { font: `900 22px ${s.length > 10 ? FONT : MONO}`, color: COL.ink, alpha: clamp(p * 3 - 2) });
     });
+    // WebSocket の強化: winhttp.dll に線が引かれ（WinSock）、WinSock の上に自前で書いた RFC 6455 版へ（一から）
+    {
+      const x0 = bx(1), sub = clamp(PT(t, K('nWs'), .7) * 3 - 2), cut = PK(t, 'nSock', .4), up = PK(t, 'nScratch', .5);
+      if (up > 0) rail(rounded([[x0, y], [x0 + 70, y + 70], [x0 + 210, y + 70]], 30), up, LINE.S.c, { w: 14, head: false });
+      chip('winhttp.dll', x0 + 90, y + 152, COL.faint, { align: 'left', font: `700 20px ${MONO}`, h: 34, tc: COL.sub, strike: cut, alpha: sub * (1 - up) });
+      chip('RFC 6455 / WinSock', x0 + 90, y + 152, LINE.S.c, { align: 'left', solid: true, font: `900 20px ${MONO}`, h: 36, pop: up, alpha: up > 0 ? 1 : 0 });
+      chip('UPGRADE', x0 + 90 + measure('WebSocket', `900 22px ${MONO}`) + 18, y + 110, '#f59e0b', { align: 'left', solid: true, font: `900 18px ${FONT}`, h: 30, pop: PT(t, K('nScratch') + .15, .5), alpha: up > 0 ? 1 : 0 });
+    }
     ctx.restore();
-    chip('RFC 6455 を、一から', 1500, 700, LINE.S.c, { pop: PK(t, 'nScratch', .5), solid: true, font: `900 24px ${FONT}`, h: 46, alpha: 1 - PK(t, 'nAi', .4) });
     // AI: 架線に電気が流れる
     const ai = PK(t, 'nAi', .8);
     if (ai > 0) {
@@ -2530,11 +2541,19 @@ function sceneFinale(t) {
   if (a11 > 0) {
     ctx.save(); ctx.globalAlpha *= a11;
     const y = 520;
-    rail([[160, y], [1760, y]], PK(t, 'nRuler', 1.2), '#1d2433', { w: 10, casing: false, head: false });
-    // 1本の軸: 物差しが光る
+    // 軸と矢じりは1つの形にして一度に描く（別々に描くと、半透明のときに重なった所だけ濃くなる）
+    const axisShape = () => {
+      const hb = 30 * Math.cos(.45), hw = 30 * Math.sin(.45);
+      ctx.beginPath(); ctx.arc(160, y, 5, Math.PI / 2, Math.PI * 1.5);
+      ctx.lineTo(1800 - hb, y - 5); ctx.lineTo(1800 - hb, y - hw); ctx.lineTo(1800, y); ctx.lineTo(1800 - hb, y + hw); ctx.lineTo(1800 - hb, y + 5);
+      ctx.closePath();
+    };
+    const ru = PK(t, 'nRuler', 1.2);
+    if (ru < .99) rail([[160, y], [1760, y]], ru, '#1d2433', { w: 10, casing: false, head: false });
+    else { ctx.save(); ctx.fillStyle = '#1d2433'; axisShape(); ctx.fill(); ctx.restore(); }
+    // 1本の軸: 物差しが光る（光も同じ形で）
     const ax = PK(t, 'nOneAxis', .3) * (1 - PT(t, K('nOneAxis') + .3, 1.2));
-    if (ax > 0) rail([[160, y], [1760, y]], 1, '#fde68a', { w: 10, casing: false, head: false, glow: 1.5, alpha: ax });
-    arrow(1700, y, 1800, y, '#1d2433', PK(t, 'nRuler', 1.2) > .99 ? 1 : 0, { w: 10, hs: 30 });
+    if (ax > 0) { ctx.save(); ctx.globalAlpha *= ax; ctx.fillStyle = '#fde68a'; ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 33; axisShape(); ctx.fill(); ctx.restore(); }
     txt('投資を続けた量', 1790, y - 44, { font: `900 30px ${FONT}`, align: 'right', color: '#1d2433', alpha: PK(t, 'nMore', .4) });
     const pts = [['V', 360, 'nV', 'VBAChromeDevProtocol', 'コアで止まった'], ['S', 900, 'nS', 'StarterWebScrapingKit', '少人数が投資し続けた'], ['PW', 1440, 'nPw', 'Playwright / Puppeteer', '企業が何年も注ぎ込んだ']];
     pts.forEach(([k, x, key, n, d]) => {
@@ -3261,7 +3280,7 @@ window.audioChunk = function (i, size) {
 <script>
 // HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
 const VOICE_DIR = 'voice/ReiwaIE_VbaCompare/';
-const CHARS = "―…→⇄⇔≈≒␀△▶◀◆★✓✕　、。々「」』〜あいうえおかがきぎくぐけげこごさしじすずせそぞただちっつてでとどなにねのはばひびふぶへべほぼまみむめもゃやゅゆよらりるれろわをんァアィイウェエォオカガキクグケコゴサザシジスズセゼソタダチッツデトドナネノハバパビピフブプベペホポマミムメャュョラリルレロン・ー一万三上下不両並中丸主乗乱了予事二互交人今仕付代令件企休伝伴伸似位低体何作使例係信修個倍側備像元兄先光入全公具内再冒凡処出分切列初判別到券刻前割力加助効動勝包化区千半単印厳反収取受口古句叩台右号各合吊同名向告呼命和品員唯商問器回図圏土地型基場境増壁壊士変夏多夜大太奏始子字季完定宛実家寄密対小少届属層履山工左差巴帯幕年幹広度座延式引弟弦弱張強弾当形彫影往待後従復必忘応思性情意態成戻扉手打扱技投折択拍拡拾持指振探接描換揺撃操支改放散数整敷文斜断新方旅日早明映時景暗曲更書替最月朝期本札来板枚果枝枠架柱柵核格案械棒検業楽構様標模横機次止正歩歯歴残段毎比氏気決沿法波注派流消済減温源準滑火灯炎点然熱片版物状独狭率理璧環生用由画番発登白盛監盤目直相真眼着瞬矢知短確示秒秘程種積突窓立章端符等答管箱節系約紙素索細紺終組経結統絵継続維網緒線縁繊繰置群義者聞育背胸能自致良色花英落蘇蛍血行術衝表衰装補裸製複要見視覗覧親角解言計記設訳詰話詳認語説読誰調談譜資購赤走起越足路身車転軸軽載輪辺込返追送透途通速造進運道違遠選部配重量金鉄銘録鍮鍵鐘長門閉開間関降階隔際離電静非面音頃順頭題類駅骨高鳴黄黒黙！（）＋＝？";
+const CHARS = "―…→⇄⇔≈≒␀△▶◀◆★✓✕　、。々「」』〜あいうえおかがきぎくぐけげこごさしじすずせそぞただちっつてでとどなにねのはばひびふぶへべほぼまみむめもゃやゅゆよらりるれろわをんァアィイウェエォオカガキクグケコゴサザシジスズセゼソタダチッツデトドナネノハバパビピフブプベペホポマミムメャュョラリルレロン・ー一万三上下不両並中丸主乗乱了予事二互交人今仕付代令件企休伝伴伸似位低体何作使例係信修個倍側備像元兄先光入全公具内再冒凡処出分切列初判別到券刻前副割力加助効動勝包化区千半単印厳反収取受口古句叩台右号各合吊同名向告呼命和品員唯商問器回図圏土地型基場境増壁壊士変夏多夜大太央奏始子字季完定宛実家寄密対小少届属層履山工左差巴帯幕年幹広度座延式引弟弦弱張強弾当形彫影往待後従復必忘応思性情意態成戻所扉手打扱技投折択拍拡拾持指振探接描換揺撃操支改放散数整敷文斜断新方旅日早明映時景暗曲更書替最月朝期本札来板枚果枝枠架柱柵核格案械棒検業楽構様標模横機次止正歩歯歴残段毎比氏気決沿法波注派流消済減温源準滑濃火灯炎点然熱片版物状独狭率理璧環生用由画番発登白盛監盤目直相真眼着瞬矢知短確示秒秘程種積空突窓立章端符等答管箱節系約紙素索細紺終組経結統絵継続維網緒線縁繊繰置群義者聞育背胸能自致良色花英落蘇蛍血行術衝表衰装補裸製複要見視覗覧親角解言計記設訳詰話詳認語説読誰調談譜資購赤走起越足路身車転軸軽載輪辺込返追送透途通速造進運道違遠選部配重量金鉄銘録鍮鍵鐘長門閉開間関降階隔際離電静非面音頃順頭題類駅骨高鳴黄黒黙！（）＋＝？";
 const DUR = TLD.duration;
 const BG = .85, DUCK = .45;
 const $ = s => document.querySelector(s);

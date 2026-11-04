@@ -308,12 +308,14 @@ function arrow(x1, y1, x2, y2, c, p = 1, o = {}) {
 function packets(pts, t, color, o = {}) {
   const n = o.n || 4, speed = o.speed || .5, dir = o.dir || 1;
   ctx.save();
+  // 外側の透明度（場面のフェード・出てくる途中など）に掛け合わせる。上書きすると、見えないはずの所に点だけ残る
+  const base = ctx.globalAlpha;
   for (let i = 0; i < n; i++) {
     let f = ((t * speed + i / n) % 1 + 1) % 1;
     if (dir < 0) f = 1 - f;
     const [x, y] = along(pts, f);
     const a = Math.sin(f * Math.PI) * (o.alpha ?? 1);
-    ctx.globalAlpha = a;
+    ctx.globalAlpha = base * a;
     ctx.shadowColor = color; ctx.shadowBlur = 25;
     if (o.label) {
       ctx.font = `700 ${o.size || 20}px ${MONO}`;
@@ -2056,8 +2058,10 @@ function sceneFuture(t) {
       txt(label, 360, y, { font: `900 64px ${MONO}`, align: 'right', color: c });
       let x = 420;
       parts.forEach(([s, w, cc], i) => {
-        const q = clamp(p * parts.length - i);
-        rr(x, y - 55, w * E.out(q), 110, 14); ctx.fillStyle = hexA(cc, .3); ctx.fill(); ctx.strokeStyle = cc; ctx.lineWidth = 3; ctx.stroke();
+        const q = clamp(p * parts.length - i), bw = w * E.out(q);
+        // 伸び始める前は描かない。角の丸みは幅の半分まで（幅0でも角丸で描くと、左端だけが細く見える）
+        if (bw < 1) { x += w + 16; return; }
+        rr(x, y - 55, bw, 110, Math.min(14, bw / 2)); ctx.fillStyle = hexA(cc, .3); ctx.fill(); ctx.strokeStyle = cc; ctx.lineWidth = 3; ctx.stroke();
         if (q > .5) txt(s, x + w / 2, y + 2, { font: `900 46px ${FONT}`, align: 'center', color: '#fff' });
         x += w + 16;
       });
@@ -2082,10 +2086,10 @@ function sceneEnd(t) {
   const rows = [
     ['ナレーション', 'VOICEVOX:ずんだもん'],
     ['技術資料', 'docs/stories/DevHistory/bidi-story'],
-    ['主な出典', 'W3C WebDriver BiDi ／ Chromium・ChromeDriver のソースと Issue ／ chromium-bidi ／ Puppeteer'],
-    ['', 'WebDriver BiDi の実装計画書・設計文書 ／ Chrome for Developers ／ Selenium History'],
-    ['', 'The Architecture of Open Source Applications ／ WebKit Blog（Wayback Machine）'],
-    ['', 'Firefox Source Docs ／ Microsoft Learn・サポート'],
+    ['主な出典', 'W3C WebDriver BiDi ／ Chromium・ChromeDriver のソースと Issue ／ chromium-bidi'],
+    ['', 'Puppeteer ／ WebDriver BiDi の実装計画書・設計文書 ／ Chrome for Developers'],
+    ['', 'Selenium History ／ The Architecture of Open Source Applications'],
+    ['', 'WebKit Blog（Wayback Machine）／ Firefox Source Docs ／ Microsoft Learn・サポート'],
   ];
   rows.forEach(([k, v], i) => {
     const q = clamp((t - s0 - .6 - i * .25) / .6);
@@ -3150,7 +3154,8 @@ function buildScore(ac, dest, mode = 'all', off = 0) {
   // h1〜h3: 時計の刻みと、セピアのオルゴール
   for (let t = L('h1').start; t < L('h4').start - .3; t += .5) tick(t, .03, (t * 2) % 2 < 1 ? -.3 : .3);
   arp(L('h1').start, L('h4').start - .3, 92, [C, Am, F_, G], { vol: .03, bell: true, box: true, padVol: .022, padCut: 700 });
-  blip(F('h2', .4), 1, 84); blip(F('h2', .55), 1, 84);
+  // 左右のコードが打ち終わる瞬間（scenes_a.js の codeLines: 左は 1.6 秒、右は 0.4 秒遅れて 1.6 秒）
+  blip(L('h2').start + 1.6, 1, 84); blip(L('h2').start + .4 + 1.6, 1, 84);
   ding(F('h3', .3), 86, .07, .6); ding(F('h3', .45), 81, .07, -.6);
   // h4〜h9: 2004年、Selenium（ちょっとレトロな矩形波）
   whoosh(L('h4').start - .3, .6, .14);
@@ -3504,7 +3509,7 @@ window.audioChunk = function (i, size) {
 <script>
 // HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
 const VOICE_DIR = 'voice/ReiwaIE_BiDiStory/';
-const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちっつづてでとどなにねのはばびぴふぶへべほぼまみむめもゃやゆょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万三上下不与並中丸主乱了予事交人今介仕付代令件任会伴伸似位低体何余作使例依価保修個倍候値停側備像元先光入全公共典兼内再写冠処出分切列初判別刻削前力加効動務勝勧化区十半印双反取受口句台史右叶合同名向含吹告周味呼和品員問回団囲図土地型埋基場境増壁壊変外夜大央奇奏奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振探接推掲描換揺撃操改散数敷文料斜新方既日明昔星映時景暗曲書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段毎気汎決法波泥注流浮海消済渡準澄濃灯点無版物率王珀現理琥環生用由申画番異発登白的監盤目直相盾真着瞬矛矢知矩短砂砕確示社私秒秘移程種積空窓立章端符等筋筒答箱範築粒系約紋紙素索細終組経結統絵絶継続緒線縁縛縦縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧角解言計討記設許訳試話認誕語説読課調請論譜議象責資赤走起足跡跳身車軸輪込近返追退送逆透途通速進遅運過違適選部郭配重量鎖長閉開間降限除隔隠集離難雪電霊青非面音頃順頭頼題類風飛駄鬱鳴黄！（）＋／：＝？🔍";
+const CHARS = "—―…※←→⇄∞≒▌▶◀★✓✕✗　、。々「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそぞただちっつづてでとどなにねのはばびぴふぶへべほぼまみむめもゃやゆょよらりるれろわをんァアィイウェエォオカキクグケゲコゴサザシジスズセソタチッツテデトドナニネノハバパビピフブプベペボポマミムメモュョラリルレロワン・ー一万三上下不与並中丸主乱了予事交人今介仕付代令件任会伴伸似位低体何余作使例依価保修個倍候値停側備像元先光入全公共典兼内再写冠処出分切列初判別刻削前力加効動務勝勧化区十半印双反取受口句台史右叶合同名向含吹告周味呼和品員問回団囲図土地型埋基場境増壁壊変外夜大央奇奏奨始子字存守安定実家密対封専将小少届嵐左巻帯常幅幕年広底度座引張当形役待後徹心必応念思性悪想意懸成戻所扉手打扱批承技折抜押担拡指挙挟振掛探接推掲描換揺撃操改散数敷文料斜新方既日明昔星映時景暗曲書替最月朝期未末本札来枚果枠査核格案梱検業構標権横機欄次止歯歴残段毎気汎決法波泥注流浮海消済渡準澄濃灯点無版物率王珀現理琥環生用由申画番異発登白的監盤目直相盾真着瞬矛矢知矩短砂砕確示社私秒秘移程種積空窓立章端符等筋筒答箱範築粒系約紋紙素索細終組経結統絵絶継続緒線縁縛縦縮繰置義翻者育背能自臭至色落葉著蔵行術衝表装裏補製複要見規視覚覧角解言計討記設許訳試話認誕語説読課調請論譜議象責資赤走起足跡跳身車軸輪込近返追退送逆透途通速進遅運過違適選部郭配重量鎖長閉開間降限除隔隠集離難雪電霊青非面音頃順頭頼題類風飛駄鬱鳴黄！（）＋／：＝？🔍";
 const DUR = TLD.duration;
 const BG = .85, DUCK = .45;
 const $ = s => document.querySelector(s);

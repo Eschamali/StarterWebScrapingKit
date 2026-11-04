@@ -59,16 +59,13 @@ frame.getElementByID("inner").click
 
 Shadow Root 内で XPath を使うときは、`./○○`（直下）や `.//○○`（配下の子孫）のように先頭に `.` を付けてください。子要素が1つもない Shadow DOM では XPath が使えないため、CSS セレクタで探します（詳細は [`CDPElement.getElementByXPath`](/api/cdp/CDPElement#getelementbyxpath--getelementsbyxpath)）。
 
-名前 / URL で iframe を探して `executionContextId` 経由で入る場合は、[`CDPContext.printChildFrames`](/api/cdp/CDPContext#printchildframes) → [`getIFrameContextID`](/api/cdp/CDPContext#getiframecontextid) → [`getIFrame`](/api/cdp/CDPContext#getiframe) です。
+名前 / URL で iframe を探して入る場合は、[`CDPContext.printChildIframes`](/api/cdp/CDPContext#printchildiframes) で名前や URL を確かめてから、[`getElementByIframe`](/api/cdp/CDPContext#getelementbyiframe) を使います。iframe の中の iframe も、`MaxNestLevel` で潜る深さを指定すれば探せます。
 
 ```vb
-t.printChildFrames   ' 直下の子 iframe をログ確認
-
-Dim ctxId As Long
-ctxId = t.getIFrameContextID(iframeName:="app-frame")
+t.printChildIframes 3   ' 3 階層下までの iframe をログ確認
 
 Dim frame As CDPElement
-Set frame = t.getIFrame(ctxId)
+Set frame = t.getElementByIframe(iframeName:="app-frame", MaxNestLevel:=3)
 frame.getElementByQuery("button").click
 ```
 
@@ -101,7 +98,7 @@ CDP との違いは次の2点です。
 
 | 操作 | CDP | BiDi |
 | --- | --- | --- |
-| iframe | `CDPElement.getIFrame` | iframe を [`WebDriverBiDiMode.getTab`](/api/bidi/WebDriverBiDiMode) の `maxDepth:=1` で取得してから検索 |
+| iframe | `CDPElement.getIFrame` / `CDPContext.getElementByIframe` | iframe を [`WebDriverBiDiMode.getTab`](/api/bidi/WebDriverBiDiMode) の `maxDepth:=1` で取得してから検索 |
 | Shadow DOM | `GetShadowRoot(Index)` / `GetShadowRoots` | `GetShadowRoot()` で1段ずつ辿る（複数取得はなし） |
 
 ```vb
@@ -114,7 +111,7 @@ frame.getElementByQuery("#inner").click
 bidi.getElementByQuery("my-widget").GetShadowRoot.getElementByQuery("button").click
 ```
 
-CDP 独自の機能（`getIFrame` など）を使いたい場合は、[`UpgradeBiDiPlus`](/api/bidi/WebDriverBiDiContext#upgradebidiplus) で同じタブを `CDPContext` に変換して、`CDPElement` で操作することもできます。
+CDP 独自の機能（`getElementByIframe` など）を使いたい場合は、[`UpgradeBiDiPlus`](/api/bidi/WebDriverBiDiContext#upgradebidiplus) で同じタブを `CDPContext` に変換して、`CDPElement` で操作することもできます。
 
 ```vb
 Dim cdp As CDPContext

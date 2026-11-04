@@ -35,7 +35,7 @@ description: Browser / Page / Element の三層モデルは3者共通。では�
 
 | クラス | 行数 | 役割 |
 | --- | ---: | --- |
-| `BiDiCDPJson` | 2,998 | JSON パーサ／ビュー |
+| `BiDiCDPJConv` | 2,998 | JSON パーサ／ビュー |
 | `CDPContext` | 2,964 | 1タブ分の操作 |
 | `CDPCore` | 1,869 | Pipe 送受信 |
 | `CDPElement` | 1,727 | 要素操作 |
@@ -102,7 +102,7 @@ Dim text As String: text = el.innerText
 el.value = "入力値"
 ```
 
-`CDPElement` は `innerText` / `innerHTML` / `value` / `checked` / `selected` を `Property Get` と `Property Let` の両方で公開しているため、**DOM の書き味がそのまま VBA の代入文になります**。
+`CDPElement` は `innerText` / `innerHTML` / `value` / `checked` / `PageAttribute` を `Property Get` と `Property Let` の両方で公開しているため、**DOM の書き味がそのまま VBA の代入文になります**。
 
 これは VBA のプロパティ構文が「読み書き両用の見た目」を作れることによるもので、`await` が必要な JavaScript では原理的に真似できません。同期実行が前提であることが、ここでは記述性の利点として働いています。
 

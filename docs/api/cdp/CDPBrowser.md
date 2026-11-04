@@ -229,7 +229,7 @@ Set t = b.getTab( _
 
 #### `SearchTypeID`（`DevToolsAgentHost_KType`）
 
-Chromium の [DevToolsAgentHost 種別](https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22) に準拠した Enum です。種類は多いですが、覚えるのは次の 2 つで十分です。省略時は `kPage` なので、ほとんどのケースでは意識不要です。
+`DevToolsAgentHost_KType` は、`CDPHelpers` モジュールで定義している Enum です。Chromium の [DevToolsAgentHost 種別](https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22) に準拠した Enum です。種類は多いですが、覚えるのは次の 2 つで十分です。省略時は `kPage` なので、ほとんどのケースでは意識不要です。
 
 | 値 | 意味 |
 | --- | --- |
@@ -259,6 +259,47 @@ Public Sub DiscardSessionID(sessionID As String)
 
 自前でタブ管理したいときの **タブ接続（`attachToTab`）／セッション破棄（`DiscardSessionID`）** として使えます。
 
+### `getTabForOpenerID`
+
+```vb
+Public Function getTabForOpenerID( _
+    PageID As String, _
+    Optional Strict As Boolean, _
+    Optional doRetrySecond As Double _
+) As CDPContext
+```
+
+指定したタブ（または iframe）から開かれたタブ・ウィンドウ（主にポップアップ）を探し、[`CDPContext`](./CDPContext) として返します。条件に合うタブがない場合は `Nothing` です。タブ側から呼ぶ [`CDPContext.PopupCatch`](./CDPContext#popupcatch) は、このメソッドに自分の `CurrentTargetID` を渡しています（自分が iframe のターゲットなら `Strict:=True`）。
+
+| 引数 | 意味 |
+| --- | --- |
+| `PageID` | 開いた元の `TargetID`。`Strict:=True` のときは `FrameId` |
+| `Strict` | `False`（既定）で `PageID` を `TargetID` として、`True` で `FrameId` として扱う |
+| `doRetrySecond` | 何秒間探すか。`0`（既定）なら 1 回のみ |
+
+使うときは、次の手順を踏みます。
+
+1. `Set b.RunCollect_TargetCreated = New Collection` で、タブが作られたこと（`Target.targetCreated`）の記録を始める
+2. 新しいタブ・ウィンドウが開く操作（クリックなど）をする
+3. 開いた元の `CurrentTargetID` を `PageID` に渡す。iframe の中で操作した場合は、`Strict:=True` にして `FrameId` を渡す
+4. クリックの直後に `Target.targetCreated` が届かないことがあるので、必要に応じて `doRetrySecond` で待つ時間を調整する
+5. 条件に合うタブが見つかると、それを `CDPContext` として返し、記録からも取り除く
+6. 用が済んだら、`Set b.RunCollect_TargetCreated = Nothing` で記録を終わらせる
+
+```vb
+Set b.RunCollect_TargetCreated = New Collection
+t.getElementByQuery("a[target=_blank]").click
+
+Dim popup As CDPContext
+Set popup = b.getTabForOpenerID(t.CurrentTargetID, doRetrySecond:=5)
+
+Set b.RunCollect_TargetCreated = Nothing
+```
+
+::: tip 待機と組み合わせるとき
+見つけたタブのページの読み込みを待つ場合は、[`CDPContext.Wait`](./CDPContext#wait)（JavaScript による待機）を使ってください。[`CDPContext.WaitEvents`](./CDPContext#waitevents) は、イベントの届く順番の都合で、ここでは機能しません。
+:::
+
 ## プロトコル
 
 ### `ExecuteCDP` / `ExecuteCDPAsync`
@@ -266,7 +307,7 @@ Public Sub DiscardSessionID(sessionID As String)
 ```vb
 Public Function ExecuteCDP(methodName As String, _
     Optional params As Dictionary, _
-    Optional StopCDPError As Boolean = True) As BiDiCDPJson
+    Optional StopCDPError As Boolean = True) As BiDiCDPJConv
 
 Public Function ExecuteCDPAsync(...) As Long
 ```
@@ -361,6 +402,7 @@ b.TimeOutSecond = 60
 | `sleep` | 秒待ち |
 | `TimerCounter` | 経過ミリ秒。`Timer` 関数の代わりに自前ループのタイムアウト判定へ。[タイムアウト設定方法について](/guides/timeout) |
 | `serializeForMainTab` | メインタブの session/target を記録 |
+| `RunCollect_TargetCreated`（Set） | `Target.targetCreated` の記録の開始（`New Collection`）と終了（`Nothing`）。[`getTabForOpenerID`](#gettabforopenerid) の前後で使います |
 
 ## 関連
 

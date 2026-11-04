@@ -99,7 +99,7 @@ mode.CloseBrowser
 ### `sessionEnd`
 
 ```vb
-Public Function sessionEnd() As BiDiCDPJson
+Public Function sessionEnd() As BiDiCDPJConv
 ```
 
 BiDi コマンド [`session.end`](https://w3c.github.io/webdriver-bidi/#command-session-end) を実行し、**ブラウザは閉じずに**、BiDi による制御（デバッグ）だけを終わらせます。ブラウザを開いたまま後始末をしたいときに使います。WebSocket 経由の場合は、WebSocket の切断も同時に起こります。
@@ -153,12 +153,14 @@ Public Function getTab( _
 ) As WebDriverBiDiContext
 ```
 
-既に開いている browsing context を URL 部分一致などで探し、[`WebDriverBiDiContext`](./WebDriverBiDiContext) として返します。見つからない場合は `Nothing` になり得ます。
+既に開いているタブ（またはその中の iframe）の browsing context を URL で探し、[`WebDriverBiDiContext`](./WebDriverBiDiContext) として返します。見つからない場合は `Nothing` です。
+
+浅い階層から順に探し（幅優先）、同じくらい条件に合うものが複数あれば、浅い方（タブ → iframe の順）を選びます。
 
 | 引数 | 意味 |
 | --- | --- |
-| `Url` | URL 部分一致。省略時は見つかった先頭（未接続相当）の context |
-| `maxDepth` | `browsingContext.getTree` の深さ。`0`（既定）ならトップレベルのみ（iframe 除外） |
+| `Url` | URL。先頭一致を優先し、次に部分一致で探す。省略時は最初のトップレベルのタブ |
+| `maxDepth` | どこまで潜るか。`0`（既定）ならトップレベルのタブのみ、`n` なら n 階層下の iframe まで、負の値なら無制限 |
 | `setMain` | `True` で Excel に context を記録 |
 | `doRetrySecond` | 指定秒以内に見つかるまでリトライ。`0`（既定）なら 1 回のみ |
 
@@ -199,7 +201,7 @@ mode.serializeMainTab = tab.context
 ```vb
 Public Function ExecuteBiDi(methodName As String, _
     Optional params As Dictionary, _
-    Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+    Optional StopBiDiError As Boolean = True) As BiDiCDPJConv
 
 Public Function ExecuteBiDiAsync(methodName As String, _
     Optional params As Dictionary, _
@@ -222,7 +224,7 @@ params.Add "url", "https://example.com"
 params.Add "wait", "complete"
 ' ※ Context 側の ExecuteBiDi は context を自動付与
 
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = mode.ExecuteBiDi("browser.getUserContexts", New Dictionary)
 ```
 
@@ -315,7 +317,7 @@ Property Get LastBiDiJsonError() As Dictionary
 `StopBiDiError:=False` のとき、戻り値が `Nothing` なら本プロパティで詳細を確認します。
 
 ```vb
-Dim result As BiDiCDPJson
+Dim result As BiDiCDPJConv
 Set result = mode.ExecuteBiDi("webExtension.install", params, False)
 
 If result Is Nothing Then

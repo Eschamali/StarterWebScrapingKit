@@ -4,6 +4,8 @@ description: 純VBAでWebView2を埋め込めると知った衝撃、いちど�
 
 # WebView2、登場秘話
 
+<PromoMovie src="/promo/ReiwaIE_WebView2Story.html" title="令和のIE 開発秘話 ― WebView2 誕生秘話" />
+
 ::: tip 登場秘話
 〜半年前に自分で埋めた種と、たーぼーさんからの一通の報告〜
 :::

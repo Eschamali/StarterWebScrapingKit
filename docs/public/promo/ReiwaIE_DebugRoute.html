@@ -1017,7 +1017,7 @@ function scenePipe(t) {
       ctx.save(); ctx.globalAlpha *= PT(t, p8s + 1, .4) * (1 - close);
       ctx.strokeStyle = COL.red; ctx.setLineDash([6, 6]); ctx.lineWidth = 2; ctx.strokeRect(gx, y, gap - 3, 60);
       ctx.restore();
-      txt('Type だと隙間', gx + gap / 2, y + 100, { font: `700 26px ${FONT}`, align: 'center', color: COL.red, alpha: PT(t, p8s + 1, .4) * (1 - close) });
+      txt('Type だと隙間', gx + gap / 2, y + 88, { font: `700 26px ${FONT}`, align: 'center', color: COL.red, alpha: PT(t, p8s + 1, .4) * (1 - close) });
     }
     const lab = PT(t, p8s + 1.2, .5);
     const segs = [[0, 4, 'fdの数  4B', '#e2e8f0'], [4, 9, 'フラグ  1B×5', '#fbbf24'], [9, 49, 'ハンドル  8B×5', COL.pipe]];
@@ -1027,8 +1027,8 @@ function scenePipe(t) {
       ctx.beginPath(); ctx.moveTo(xa, y - 18); ctx.lineTo(xa, y - 30); ctx.lineTo(xb, y - 30); ctx.lineTo(xb, y - 18); ctx.stroke(); ctx.restore();
       txt(s0, (xa + xb) / 2, y - 60, { font: `700 ${a1 - a0 < 6 ? 22 : 30}px ${FONT}`, align: 'center', color: c, alpha: lab });
     });
-    txt('FOPEN (1) | FPIPE (8) = 9', W / 2 - 330, y + 110, { font: `700 30px ${MONO}`, align: 'center', color: '#fbbf24', alpha: PT(t, F('p8', .25), .4) });
-    txt('隙間なく、1バイトずつ手で詰める', W / 2 + 280, y + 110, { font: `700 32px ${FONT}`, align: 'center', color: '#e0f2fe', alpha: PT(t, F('p8', .55), .4) });
+    txt('FOPEN (1) | FPIPE (8) = 9', W / 2 - 330, y + 145, { font: `700 30px ${MONO}`, align: 'center', color: '#fbbf24', alpha: PT(t, F('p8', .25), .4) });
+    txt('隙間なく、1バイトずつ手で詰める', W / 2 + 280, y + 145, { font: `700 32px ${FONT}`, align: 'center', color: '#e0f2fe', alpha: PT(t, F('p8', .55), .4) });
     // Chromium が fd3/4 として受け取る
     const rp = PT(t, F('p8', .72), .5);
     if (rp > 0) {

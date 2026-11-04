@@ -1,0 +1,2904 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>令和のIE 技術秘話 ― ポリシーの壁</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400..900&family=DotGothic16&family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--jp:"Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:var(--jp);color:#fff}
+#c{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000}
+#ctl{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:14px;padding:10px 16px;background:linear-gradient(transparent,rgba(0,0,0,.85));font:14px var(--jp);z-index:10;transition:opacity .3s}
+#ctl button{background:#fff2;border:1px solid #fff4;color:#fff;border-radius:6px;padding:6px 14px;font:inherit;cursor:pointer}
+#ctl input{flex:1;accent-color:#2ee6ff}
+#ctl .hint{opacity:.6}
+body.idle #ctl{opacity:0}
+@media (pointer:coarse),(max-width:700px){#ctl .hint{display:none}}
+@media (max-width:700px){#ctl{gap:8px;padding:8px 10px}#ctl button{padding:6px 10px}}
+#start{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);cursor:pointer;font:900 40px var(--jp)}
+#start span{padding:20px 50px;border-radius:0;background:#02060a;color:#2ee6ff;border:2px solid #2ee6ff;box-shadow:0 0 30px rgba(46,230,255,.45),inset 0 0 18px rgba(46,230,255,.2);font-family:'DotGothic16',monospace;font-weight:400;letter-spacing:.08em}
+#start.loading{cursor:progress}
+#start.loading span{background:#fff2;font-size:28px}
+@media (max-width:700px){#start{font-size:24px}#start span{padding:14px 30px}}
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="ctl">
+  <button id="bPlay">▶</button><button id="bRe">⟲</button><button id="bMute">🔊</button><button id="bFull">⛶</button>
+  <span id="tm">0:00 / 0:00</span>
+  <input id="seek" type="range" min="0" max="1" step="0.05" value="0">
+  <span class="hint">Space: 再生/停止　←→: 5秒　R: 最初から　M: ミュート　F: 全画面</span>
+</div>
+<div id="start" class="loading"><span id="startLbl">読み込み中…</span></div>
+
+<script>const TLD = {"duration": 763.903, "scenes": {"open": {"start": 0.0, "end": 53.051}, "walls": {"start": 53.051, "end": 86.069}, "vbaoff": {"start": 86.069, "end": 140.32}, "scan": {"start": 140.32, "end": 231.08}, "win32": {"start": 231.08, "end": 277.565}, "anomaly1": {"start": 277.565, "end": 315.003}, "child": {"start": 315.003, "end": 347.697}, "anomaly2": {"start": 347.697, "end": 401.375}, "why": {"start": 401.375, "end": 446.984}, "rda": {"start": 446.984, "end": 485.14}, "udd": {"start": 485.14, "end": 544.383}, "dta": {"start": 544.383, "end": 595.399}, "cheat": {"start": 595.399, "end": 641.245}, "ending": {"start": 641.245, "end": 747.903}, "credits": {"start": 747.903, "end": 763.903}}, "sceneOrder": ["open", "walls", "vbaoff", "scan", "win32", "anomaly1", "child", "anomaly2", "why", "rda", "udd", "dta", "cheat", "ending", "credits"], "order": ["op1", "op2", "op3", "op4", "op5", "op6", "op7", "op8", "wl1", "wl2", "wl3", "wl4", "wl5", "wl6", "wl7", "wl8", "va1", "va2", "va3", "va4", "va5", "va6", "va7", "va8", "va9", "va10", "va11", "sc1", "sc2", "sc3", "sc4", "sc5", "sc6", "sc7", "sc8", "sc9", "sc10", "sc11", "sc12", "sc13", "sc14", "sc15", "sc16", "sc17", "sc18", "sc19", "wa1", "wa2", "wa3", "wa4", "wa5", "wa6", "wa7", "wa8", "wa9", "an1", "an2", "an3", "an4", "an5", "an6", "an7", "cp1", "cp2", "cp3", "cp4", "cp5", "cp6", "ab1", "ab2", "ab3", "ab4", "ab5", "ab6", "ab7", "ab8", "ab9", "ab10", "ab11", "wy1", "wy2", "wy3", "wy4", "wy5", "wy6", "wy7", "wy8", "wy9", "rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd7", "rd8", "ud1", "ud2", "ud3", "ud4", "ud5", "ud6", "ud7", "ud8", "ud9", "ud10", "ud11", "dt1", "dt2", "dt3", "dt4", "dt5", "dt6", "dt7", "dt8", "dt9", "wv1", "wv2", "wv3", "wv4", "wv5", "wv6", "wv7", "wv8", "wv9", "ed1", "ed2", "ed3", "ed4", "ed5", "ed6", "ed7", "ed8", "ed9", "ed10", "ed11", "ed12", "ed13", "ed14", "ed15", "ed16", "ed17", "ed18", "ed19", "ed20"], "lines": {"op1": {"start": 7.6, "end": 12.773, "spk": "z", "text": "次の1文、打ったのだ！ 会社の PC で、Edge を操るのだ！", "say": "次のいちぶん、打ったのだ！ 会社のピーシーで、エッジを操るのだ！", "scene": "open", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "op2": {"start": 13.993, "end": 19.977, "spk": "z", "text": "パイプ、ポート、WebView2。3つの道が開通した今、怖いものなしなのだ！", "say": "パイプ、ポート、ウェブビューツー。みっつの道が開通した今、怖いものなしなのだ！", "scene": "open", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "op3": {"start": 22.977, "end": 23.937, "spk": "t", "text": "…って思うじゃん？", "say": "って思うじゃん？", "scene": "open", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "op4": {"start": 24.337, "end": 25.863, "spk": "z", "text": "だ、誰なのだ!?", "say": "だ、誰なのだ！？", "scene": "open", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "op5": {"start": 26.263, "end": 32.801, "spk": "t", "text": "あーしは春日部つむぎ。好きな道で Edge を操れない会社の PC が、今の時代にはあるんだよね。", "say": "あーしは、春日部つむぎ。好きな道でエッジを操れない会社のピーシーが、今の時代にはあるんだよね。", "scene": "open", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "op6": {"start": 33.201, "end": 36.572, "spk": "z", "text": "えっ、道は開通したはずなのだ…", "say": "えっ、道は開通したはずなのだ。", "scene": "open", "p": {"speaker": 76, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "なみだめ"}, "op7": {"start": 36.972, "end": 41.057, "spk": "t", "text": "道の手前に、壁があるの。犯人は、企業ポリシー。", "say": "道の手前に、壁があるの。犯人は、企業ポリシー。", "scene": "open", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "op8": {"start": 45.477, "end": 51.451, "spk": "t", "text": "IE の頃と違って、セキュリティ意識が強くなっちゃったからね。こういう壁も考えなきゃいけないんだ。", "say": "アイイーの頃と違って、セキュリティ意識が強くなっちゃったからね。こういう壁も考えなきゃいけないんだ。", "scene": "open", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wl1": {"start": 54.451, "end": 57.245, "spk": "z", "text": "企業ポリシーって、どこで決めてるのだ？", "say": "企業ポリシーって、どこで決めてるのだ？", "scene": "walls", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wl2": {"start": 57.645, "end": 61.389, "spk": "t", "text": "グループポリシーエディターとか、レジストリエディターで設定するやつ。", "say": "グループポリシーエディターとか、レジストリエディターで設定するやつ。", "scene": "walls", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wl3": {"start": 61.609, "end": 65.983, "spk": "t", "text": "その中に、VBA から Edge を操ろうとすると引っかかる設定があるの。", "say": "その中に、ブイビーエーからエッジを操ろうとすると引っかかる設定があるの。", "scene": "walls", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wl4": {"start": 66.203, "end": 70.405, "spk": "t", "text": "あ、設定を変えるのは管理者権限がないと無理だからね？", "say": "あ、設定を変えるのは、管理者権限がないと無理だからね？", "scene": "walls", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wl5": {"start": 70.805, "end": 73.291, "spk": "z", "text": "わかってるのだ。ボクは見るだけなのだ。", "say": "わかってるのだ。ボクは見るだけなのだ。", "scene": "walls", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wl6": {"start": 73.691, "end": 79.483, "spk": "t", "text": "壁は大きく分けて3つ。Office 系のポリシー、ASR ルール、そして Edge のポリシー。", "say": "壁は大きく分けてみっつ。オフィス系のポリシー、エーエスアールルール、そしてエッジのポリシー。", "scene": "walls", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wl7": {"start": 79.883, "end": 81.483, "spk": "z", "text": "3枚も壁があるのだ…", "say": "さんまいも壁があるのだ。", "scene": "walls", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wl8": {"start": 81.883, "end": 84.869, "spk": "t", "text": "厳しい順に、1枚ずつスキャンしていこっか。", "say": "厳しい順に、いちまいずつスキャンしていこっか。", "scene": "walls", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va1": {"start": 87.669, "end": 91.243, "spk": "t", "text": "まずは、あーしが見つけた中で最も厳しいやつ。", "say": "まずは、あーしが見つけた中で、最も厳しいやつ。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va2": {"start": 91.463, "end": 94.535, "spk": "t", "text": "「Office アプリケーションの VBA を無効にする」。", "say": "オフィスアプリケーションの、ブイビーエーを無効にする。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va3": {"start": 94.935, "end": 97.26, "spk": "z", "text": "名前からして、もうヤバそうなのだ。", "say": "名前からして、もうヤバそうなのだ。", "scene": "vbaoff", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "va4": {"start": 97.66, "end": 101.276, "spk": "t", "text": "その通り。VBA の機能そのものを止めちゃうの。", "say": "その通り。ブイビーエーの機能そのものを、止めちゃうの。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va5": {"start": 101.496, "end": 106.691, "spk": "t", "text": "うちのツールはもちろん、SeleniumVBA ですら使えなくなる最強のポリシー。", "say": "うちのツールはもちろん、セレニウムブイビーエーですら使えなくなる、最強のポリシー。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va6": {"start": 107.091, "end": 110.973, "spk": "z", "text": "そ、そんなの、どうしようもないのだ！", "say": "そ、そんなの、どうしようもないのだ！", "scene": "vbaoff", "p": {"speaker": 76, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "なみだめ"}, "va7": {"start": 111.373, "end": 117.635, "spk": "t", "text": "Access を開くと、VBA を読み込めないってエラーが出て、そもそも VBE すら開けないし。", "say": "アクセスを開くと、ブイビーエーを読み込めないってエラーが出て、そもそもブイビーイーすら、ひらけないし。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va8": {"start": 117.855, "end": 124.575, "spk": "t", "text": "Excel だと、マクロの本体の vbaProject.bin が消されて、VBE のボタンも押せなくなる。", "say": "エクセルだと、マクロの本体の、ブイビーエープロジェクトドットビンが消されて、ブイビーイーのボタンも押せなくなる。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va9": {"start": 124.975, "end": 127.727, "spk": "z", "text": "ボクのマクロが、消されたのだ…", "say": "ボクのマクロが、消されたのだ。", "scene": "vbaoff", "p": {"speaker": 76, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "なみだめ"}, "va10": {"start": 128.127, "end": 132.66, "spk": "t", "text": "ただ、こういう PC って、特定の作業専用のことが多いんだよね。", "say": "ただ、こういうパソコンって、特定の作業専用のことが多いんだよね。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "va11": {"start": 132.88, "end": 139.12, "spk": "t", "text": "用意された専用ツールで、必要なことはできるようになってるはず。ここはもう、そのツールで乗り切ろ。", "say": "用意された専用ツールで、必要なことはできるようになってるはず。ここはもう、そのツールで乗り切ろ。", "scene": "vbaoff", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc1": {"start": 141.72, "end": 146.915, "spk": "t", "text": "Office 系で強力なのは、さっきの1つだけ。ほかはそこまで脅威じゃないかな。", "say": "オフィス系で強力なのは、さっきのひとつだけ。ほかは、そこまで脅威じゃないかな。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc2": {"start": 147.135, "end": 151.753, "spk": "t", "text": "強いて言うなら、「マクロ実行時のスキャンの範囲」と「自動セキュリティ」の2つ。", "say": "しいて言うなら、マクロ実行時のスキャンの範囲と、自動セキュリティのふたつ。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc3": {"start": 152.153, "end": 154.553, "spk": "z", "text": "スキャンって、何を調べてるのだ？", "say": "スキャンって、何を調べてるのだ？", "scene": "scan", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "sc4": {"start": 154.953, "end": 160.084, "spk": "t", "text": "マクロの動きを、実行しながらリアルタイムでチェックしてるの。AMSI っていう仕組み。", "say": "マクロの動きを、実行しながらリアルタイムでチェックしてるの。アムジーっていう仕組み。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc5": {"start": 160.304, "end": 165.883, "spk": "t", "text": "しかも、Win32 API や COM の呼び出しを、ぜーんぶ記録してるんだよね。", "say": "しかも、ウィンサンジュウニエーピーアイや、コムの呼び出しを、ぜーんぶ記録してるんだよね。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc6": {"start": 166.283, "end": 168.149, "spk": "z", "text": "ぜ、全部なのだ!?", "say": "ぜ、全部なのだ！？", "scene": "scan", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "sc7": {"start": 168.549, "end": 175.835, "spk": "t", "text": "だから、Dictionary の中に Dictionary を入れるような処理が遅くなることがあるの。Dictionary も COM だからね。", "say": "だから、ディクショナリーの中にディクショナリーを入れるような処理が、遅くなることがあるの。ディクショナリーも、コムだからね。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc8": {"start": 176.235, "end": 180.288, "spk": "z", "text": "Office 2016 のときは、そんなに遅くなかった気がするのだ。", "say": "オフィスにせんじゅうろくのときは、そんなに遅くなかった気がするのだ。", "scene": "scan", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "sc9": {"start": 180.688, "end": 186.011, "spk": "t", "text": "鋭い。この連携って、サブスク版の 365 にだけ入った機能なんだよ。", "say": "鋭い。この連携って、サブスク版の、さんろくごにだけ入った機能なんだよ。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc10": {"start": 186.231, "end": 194.06, "spk": "t", "text": "CopyMemory を測った記事だと、1回あたり Defender で447ナノ秒。Avira だと、たった3ナノ秒。", "say": "コピーメモリーを測った記事だと、いっかいあたり、ディフェンダーでよんひゃくよんじゅうななナノ秒。アビラだと、たったさんナノ秒。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc11": {"start": 194.46, "end": 197.372, "spk": "z", "text": "ウイルス対策ソフトで、そんなに変わるのだ…", "say": "ウイルス対策ソフトで、そんなに変わるのだ。", "scene": "scan", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "sc12": {"start": 198.072, "end": 202.467, "spk": "t", "text": "で、最近これを避ける手が出てきたの。COM 経由で起動する方法。", "say": "で、最近これを避ける手が出てきたの。コム経由で起動する方法。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc13": {"start": 202.687, "end": 207.668, "spk": "t", "text": "一番手軽なのは、Workbooks.Open でマクロのブックを開くこと。", "say": "一番手軽なのは、ワークブックス、オープンで、マクロのブックを開くこと。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc14": {"start": 208.068, "end": 210.212, "spk": "z", "text": "それだけで、速くなるのだ？", "say": "それだけで、速くなるのだ？", "scene": "scan", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "sc15": {"start": 210.612, "end": 212.137, "spk": "t", "text": "なるの。あら不思議。", "say": "なるの。あら不思議。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc16": {"start": 212.657, "end": 216.935, "spk": "t", "text": "でも、ここにもちゃんとメスが入ってる。それが「自動セキュリティ」。", "say": "でも、ここにもちゃんとメスが入ってる。それが、自動セキュリティ。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc17": {"start": 217.155, "end": 221.464, "spk": "t", "text": "「マクロを既定で無効にする」になってると、この高速化は使えない。", "say": "マクロを既定で無効にする、になってると、この高速化は使えない。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "sc18": {"start": 221.864, "end": 225.256, "spk": "z", "text": "じゃあ、遅いまま、なのだ…", "say": "じゃあ、遅いまま、なのだ。", "scene": "scan", "p": {"speaker": 75, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ヘロヘロ"}, "sc19": {"start": 225.656, "end": 229.88, "spk": "t", "text": "でも実行はできるから、遅くてもまぁいっか、なら脅威じゃないよ。", "say": "でも実行はできるから、遅くてもまぁいっか、なら脅威じゃないよ。", "scene": "scan", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wa1": {"start": 232.68, "end": 235.88, "spk": "t", "text": "ここからは、Defender の ASR ルール。", "say": "ここからは、ディフェンダーの、エーエスアールルール。", "scene": "win32", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wa2": {"start": 236.1, "end": 241.316, "spk": "t", "text": "こういう動きをするものは、どんなツールでもブロック。そういう決め打ちのルールね。", "say": "こういう動きをするものは、どんなツールでもブロック。そういう、決め打ちのルールね。", "scene": "win32", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wa3": {"start": 241.536, "end": 246.389, "spk": "t", "text": "1つ目は、「Office マクロからの Win32 API 呼び出しをブロックする」。", "say": "ひとつめは、オフィスマクロからの、ウィンサンジュウニエーピーアイ呼び出しをブロックする。", "scene": "win32", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wa4": {"start": 246.789, "end": 250.491, "spk": "z", "text": "Win32 API って、Declare で呼ぶアレなのだ？", "say": "ウィンサンジュウニエーピーアイって、デクレアで呼ぶアレなのだ？", "scene": "win32", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wa5": {"start": 250.891, "end": 257.707, "spk": "t", "text": "そう、それ。Excel の中で完結するならセーフ。Windows の機能を借りようとするとアウト。", "say": "そう、それ。エクセルの中で完結するならセーフ。ウィンドウズの機能を借りようとすると、アウト。", "scene": "win32", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wa6": {"start": 257.927, "end": 263.207, "spk": "t", "text": "どの API を禁止するかは選べないし、除外できるのもファイルとフォルダー単位だけ。", "say": "どのエーピーアイを禁止するかは選べないし、除外できるのも、ファイルとフォルダー単位だけ。", "scene": "win32", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wa7": {"start": 263.427, "end": 267.747, "spk": "t", "text": "VBA で一番使われてそうな Sleep ですら、ブロックされちゃう。", "say": "ブイビーエーで一番使われてそうな、スリープですら、ブロックされちゃう。", "scene": "win32", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wa8": {"start": 268.147, "end": 272.264, "spk": "z", "text": "Sleep もダメなのだ!? 寝ることも許されないのだ…", "say": "スリープもダメなのだ！？ 寝ることも許されないのだ。", "scene": "win32", "p": {"speaker": 76, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "なみだめ"}, "wa9": {"start": 272.664, "end": 276.365, "spk": "t", "text": "動かすことはできるけど、保存も、開くこともできないの。", "say": "動かすことはできるけど、保存も、開くこともできないの。", "scene": "win32", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "an1": {"start": 279.165, "end": 282.547, "spk": "t", "text": "でもね、調べてたら奇妙な現象を見つけたの。", "say": "でもね、調べてたら、奇妙な現象を見つけたの。", "scene": "anomaly1", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "an2": {"start": 282.767, "end": 286.767, "spk": "t", "text": "SeleniumVBA の BiDi 版のブックと、Access のマクロ。", "say": "セレニウムブイビーエーの、バイディ版のブックと、アクセスのマクロ。", "scene": "anomaly1", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "an3": {"start": 286.987, "end": 292.075, "spk": "t", "text": "どっちも Win32 API をふんだんに使ってるのに、なぜかブロックされない。", "say": "どっちも、ウィンサンジュウニエーピーアイをふんだんに使ってるのに、なぜかブロックされない。", "scene": "anomaly1", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "an4": {"start": 292.475, "end": 294.139, "spk": "z", "text": "えっ、ずるいのだ！", "say": "えっ、ずるいのだ！", "scene": "anomaly1", "p": {"speaker": 7, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ツンツン"}, "an5": {"start": 294.539, "end": 303.157, "spk": "t", "text": "うちのツールも、xlsm はブロックされるけど、Access なら動くんだよね。会社の 365 だと、Access が入ってることも多いし。", "say": "うちのツールも、エックスエルエスエムはブロックされるけど、アクセスなら動くんだよね。会社のさんろくごだと、アクセスが入ってることも多いし。", "scene": "anomaly1", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "an6": {"start": 303.557, "end": 307.024, "spk": "z", "text": "なんで SeleniumVBA は見逃されるのだ？", "say": "なんで、セレニウムブイビーエーは見逃されるのだ？", "scene": "anomaly1", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "an7": {"start": 307.424, "end": 313.803, "spk": "t", "text": "正直、分かんない。歴史のあるツールだから、信頼されてる…のかも。ここは推測ね。", "say": "正直、わかんない。歴史のあるツールだから、信頼されてる、のかも。ここは推測ね。", "scene": "anomaly1", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "cp1": {"start": 316.603, "end": 322.331, "spk": "t", "text": "ASR の2つ目は、「すべての Office アプリケーションによる子プロセスの作成をブロックする」。", "say": "エーエスアールのふたつめは、すべてのオフィスアプリケーションによる、子プロセスの作成をブロックする。", "scene": "child", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "cp2": {"start": 322.551, "end": 327.223, "spk": "t", "text": "VBA だけじゃ厳しい処理を、PowerShell やバッチに任せる手、あるでしょ？", "say": "ブイビーエーだけじゃ厳しい処理を、パワーシェルやバッチに任せる手、あるでしょ？", "scene": "child", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "cp3": {"start": 327.623, "end": 330.001, "spk": "z", "text": "ZIP の解凍とかで使うやつなのだ。", "say": "ジップの解凍とかで使うやつなのだ。", "scene": "child", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "cp4": {"start": 330.401, "end": 337.719, "spk": "t", "text": "それをやった瞬間に、このルールが働く。SeleniumVBA に欠かせない WebDriver の起動も、ここでブロック。", "say": "それをやった瞬間に、このルールが働く。セレニウムブイビーエーに欠かせない、ウェブドライバーの起動も、ここでブロック。", "scene": "child", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "cp5": {"start": 338.119, "end": 339.367, "spk": "z", "text": "動かないのだ…", "say": "動かないのだ。", "scene": "child", "p": {"speaker": 76, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "なみだめ"}, "cp6": {"start": 339.767, "end": 346.497, "spk": "t", "text": "でも止まるのは、Office から外のプログラムを起動する道だけ。WebDriver を手で起動すれば、回避できるよ。", "say": "でも止まるのは、オフィスから外のプログラムを起動する道だけ。ウェブドライバーを手で起動すれば、回避できるよ。", "scene": "child", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab1": {"start": 349.297, "end": 352.391, "spk": "t", "text": "で、またしても奇妙な現象のコーナー。", "say": "で、またしても、奇妙な現象のコーナー。", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab2": {"start": 352.611, "end": 359.245, "spk": "t", "text": "VBA の Shell で起動すると、ブロックされる。じゃあ、Shell で msedge.exe は…？", "say": "ブイビーエーのシェルで起動すると、ブロックされる。じゃあ、シェルで、エムエスエッジドットエグゼは？", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab3": {"start": 359.645, "end": 361.075, "spk": "z", "text": "ブロックされるのだ？", "say": "ブロックされるのだ？", "scene": "anomaly2", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ab4": {"start": 361.875, "end": 367.453, "spk": "t", "text": "普通に起動できちゃう！ このルールを入れた環境でも、ふつーに CDP で操れるの。", "say": "普通に起動できちゃう！ このルールを入れた環境でも、ふつーに、シーディーピーで操れるの。", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab5": {"start": 367.853, "end": 368.941, "spk": "z", "text": "なんでなのだ!?", "say": "なんでなのだ！？", "scene": "anomaly2", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ab6": {"start": 369.341, "end": 374.76, "spk": "t", "text": "Office からブラウザを開く場面って、VBA だけじゃないじゃん？ セルのハイパーリンクとか。", "say": "オフィスからブラウザを開く場面って、ブイビーエーだけじゃないじゃん？ セルのハイパーリンクとか。", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab7": {"start": 374.98, "end": 379.94, "spk": "t", "text": "このルールは、どこから起動したかは区別してない。起動される exe の場所で見てるの。", "say": "このルールは、どこから起動したかは区別してない。起動されるエグゼの場所で見てるの。", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab8": {"start": 380.16, "end": 386.059, "spk": "t", "text": "Defender の中身を抜き出したリポジトリを見ると、除外リストにブラウザがずらっと並んでるんだよね。", "say": "ディフェンダーの中身を抜き出したリポジトリを見ると、除外リストに、ブラウザがずらっと並んでるんだよね。", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab9": {"start": 386.459, "end": 387.824, "spk": "z", "text": "ホワイトリストなのだ！", "say": "ホワイトリストなのだ！", "scene": "anomaly2", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ab10": {"start": 388.224, "end": 394.336, "spk": "t", "text": "そういうこと。ただ、2022年の抜き出しだから、今とまったく同じとは限らないけどね。", "say": "そういうこと。ただ、にせんにじゅうにねんの抜き出しだから、今とまったく同じとは限らないけどね。", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ab11": {"start": 394.556, "end": 399.975, "spk": "t", "text": "ちなみに Outlook 向けの別のルールだと、Opera だけリンクを開けないって報告もあるよ。", "say": "ちなみに、アウトルック向けの別のルールだと、オペラだけリンクをひらけないって報告もあるよ。", "scene": "anomaly2", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wy1": {"start": 402.975, "end": 405.855, "spk": "z", "text": "それにしても、なんでこんなに厳しいのだ？", "say": "それにしても、なんでこんなに厳しいのだ？", "scene": "why", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wy2": {"start": 406.255, "end": 411.364, "spk": "t", "text": "Declare っていうチートのせいで、VBA を使った攻撃が長年続いたから。", "say": "デクレアっていうチートのせいで、ブイビーエーを使った攻撃が、長年続いたから。", "scene": "why", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wy3": {"start": 411.584, "end": 417.024, "spk": "t", "text": "取引先になりすましたメールの添付を開いて、「コンテンツの有効化」を押すだけで感染。", "say": "取引先になりすましたメールの添付を開いて、コンテンツの有効化を押すだけで、感染。", "scene": "why", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wy4": {"start": 417.244, "end": 421.511, "spk": "t", "text": "本物のメールのやりとりを転用して、返信を装う手口もあったし。", "say": "本物のメールのやりとりを転用して、返信を装う手口もあったし。", "scene": "why", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wy5": {"start": 421.731, "end": 426.083, "spk": "t", "text": "ディスクに何も書かずに、メモリの上でシェルコードを動かすやつまで。", "say": "ディスクに何も書かずに、メモリの上で、シェルコードを動かすやつまで。", "scene": "why", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wy6": {"start": 426.483, "end": 428.275, "spk": "z", "text": "こ、怖すぎるのだ…", "say": "こ、怖すぎるのだ。", "scene": "why", "p": {"speaker": 22, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ささやき"}, "wy7": {"start": 428.675, "end": 435.192, "spk": "t", "text": "でも VBA は、もう廃止できないくらい会社にしみわたってる。正しく使えば、時短になるしね。", "say": "でもブイビーエーは、もう廃止できないくらい、会社にしみわたってる。正しく使えば、時短になるしね。", "scene": "why", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wy8": {"start": 435.412, "end": 442.313, "spk": "t", "text": "だから、この PC は未設定、こっちは少し制限、あっちはもっと強め…って、場面に応じて強める。", "say": "だから、このパソコンは未設定、こっちは少し制限、あっちはもっと強めって、場面に応じて強める。", "scene": "why", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wy9": {"start": 442.533, "end": 445.584, "spk": "t", "text": "それが、Microsoft の出した答えかなって思うんだ。", "say": "それが、マイクロソフトの出した答えかなって思うんだ。", "scene": "why", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "rd1": {"start": 448.784, "end": 452.091, "spk": "t", "text": "さて、ようやく最後の壁。Edge のポリシー。", "say": "さて、ようやく最後の壁。エッジのポリシー。", "scene": "rda", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "rd2": {"start": 452.311, "end": 458.124, "spk": "t", "text": "最強なのが、RemoteDebuggingAllowed。CDP の制御そのものができなくなる。", "say": "最強なのが、リモートデバッギングアロウド。シーディーピーの制御そのものが、できなくなる。", "scene": "rda", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "rd3": {"start": 458.524, "end": 461.5, "spk": "z", "text": "エラーで教えてくれるなら、すぐ気付けるのだ。", "say": "エラーで教えてくれるなら、すぐ気付けるのだ。", "scene": "rda", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "rd4": {"start": 461.9, "end": 465.772, "spk": "t", "text": "それがさ、警告は標準エラー出力にしか出ないの。", "say": "それがさ、警告は、標準エラー出力にしか出ないの。", "scene": "rda", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "rd5": {"start": 465.992, "end": 471.176, "spk": "t", "text": "ツールの不具合だと思って調べてたら、実はポリシーだった、ってことがよくあるんだよね。", "say": "ツールの不具合だと思って調べてたら、実はポリシーだった、ってことがよくあるんだよね。", "scene": "rda", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "rd6": {"start": 471.396, "end": 476.921, "spk": "t", "text": "だから、このツールは制御の前にポリシーを確かめて、警告を出すようにしてるの。", "say": "だから、このツールは、制御の前にポリシーを確かめて、警告を出すようにしてるの。", "scene": "rda", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "rd7": {"start": 477.321, "end": 481.791, "spk": "z", "text": "ん？ この警告の最後、なんか気になることが書いてあるのだ。", "say": "ん？ この警告の最後、なんか気になることが書いてあるのだ。", "scene": "rda", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "rd8": {"start": 482.191, "end": 483.94, "spk": "t", "text": "ふふ、それは後でね。", "say": "ふふ、それは後でね。", "scene": "rda", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud1": {"start": 486.74, "end": 493.193, "spk": "t", "text": "次は UserDataDir。--user-data-dir を無視して、決まったフォルダーを強制するポリシー。", "say": "次は、ユーザーデータディア。ユーザーデータディアの引数を無視して、決まったフォルダーを強制するポリシー。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud2": {"start": 493.413, "end": 499.909, "spk": "t", "text": "このツールは、普段使いのデータと自動制御用のデータを分けてるんだけど、それが共用になっちゃう。", "say": "このツールは、普段使いのデータと、自動制御用のデータを分けてるんだけど、それが共用になっちゃう。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud3": {"start": 500.129, "end": 505.143, "spk": "t", "text": "しかも、使用中のデータには、あとから起動して CDP でつなげないの。", "say": "しかも、使用中のデータには、あとから起動して、シーディーピーでつなげないの。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud4": {"start": 505.543, "end": 508.551, "spk": "z", "text": "じゃあ、普段のブラウザを閉じればいいのだ。", "say": "じゃあ、普段のブラウザを閉じればいいのだ。", "scene": "udd", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ud5": {"start": 508.951, "end": 513.825, "spk": "t", "text": "そう、それでなんとかなる。でも、このポリシーには罠があってね。", "say": "そう、それでなんとかなる。でも、このポリシーには、罠があってね。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud6": {"start": 514.045, "end": 520.797, "spk": "t", "text": "値を空っぽのままでも設定できちゃうの。すると、データは普段使いの User Data に固定。", "say": "値を、空っぽのままでも設定できちゃうの。すると、データは普段使いの、ユーザーデータに固定。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud7": {"start": 521.197, "end": 523.693, "spk": "z", "text": "普段使いの…？ どこかで聞いたのだ。", "say": "普段使いの？ どこかで聞いたのだ。", "scene": "udd", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ud8": {"start": 524.093, "end": 531.069, "spk": "t", "text": "思い出した？ Chrome 136 から、普段使いのデータでのデバッグは一律禁止になったでしょ。", "say": "思い出した？ クローム、ひゃくさんじゅうろくから、普段使いのデータでのデバッグは、一律禁止になったでしょ。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud9": {"start": 531.289, "end": 537.433, "spk": "t", "text": "Edge も同じ動き。つまり、空っぽの UserDataDir は、リモートデバッグ禁止と同じになっちゃう。", "say": "エッジも同じ動き。つまり、空っぽのユーザーデータディアは、リモートデバッグ禁止と同じになっちゃう。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ud10": {"start": 537.833, "end": 538.825, "spk": "z", "text": "罠すぎるのだ！", "say": "罠すぎるのだ！", "scene": "udd", "p": {"speaker": 7, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ツンツン"}, "ud11": {"start": 539.225, "end": 543.183, "spk": "t", "text": "しかもエラーの文言が別だから、また紛らわしいんだよね。", "say": "しかも、エラーの文言が別だから、また紛らわしいんだよね。", "scene": "udd", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "dt1": {"start": 545.983, "end": 552.18, "spk": "t", "text": "最後は DeveloperToolsAvailability。ざっくり言うと、F12 が使えなくなる。", "say": "最後は、デベロッパーツールス、アベイラビリティ。ざっくり言うと、エフじゅうにが使えなくなる。", "scene": "dta", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "dt2": {"start": 552.58, "end": 555.951, "spk": "z", "text": "F12 だけなら、CDP には関係ないのだ。", "say": "エフじゅうにだけなら、シーディーピーには関係ないのだ。", "scene": "dta", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "dt3": {"start": 556.351, "end": 561.972, "spk": "t", "text": "って思うじゃん？ CDP の接続にも適用されるって、ドキュメントにはっきり書いてあるの。", "say": "って思うじゃん？ シーディーピーの接続にも適用されるって、ドキュメントにはっきり書いてあるの。", "scene": "dta", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "dt4": {"start": 562.192, "end": 567.312, "spk": "t", "text": "やっかいなのが止まり方。ブラウザ全体にはつながるのに、タブだけ止められる。", "say": "やっかいなのが、止まり方。ブラウザ全体にはつながるのに、タブだけ止められる。", "scene": "dta", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "dt5": {"start": 567.712, "end": 571.147, "spk": "z", "text": "タブを操れないなら、意味ないのだ。", "say": "タブを操れないなら、意味ないのだ。", "scene": "dta", "p": {"speaker": 75, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ヘロヘロ"}, "dt6": {"start": 571.547, "end": 577.541, "spk": "t", "text": "そう。つなぐたびにターゲットごとに確かめて、タブなら「Not allowed」って返してくるの。", "say": "そう。つなぐたびに、ターゲットごとに確かめて、タブなら、ノットアロウドって返してくるの。", "scene": "dta", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "dt7": {"start": 577.761, "end": 585.815, "spk": "t", "text": "しかも、許可リストとブロックリストまであって、判定は4段階。この2つは Edge 148 で入ったばっかり。", "say": "しかも、許可リストと、ブロックリストまであって、判定はよんだんかい。このふたつは、エッジ148で入ったばっかり。", "scene": "dta", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "dt8": {"start": 586.215, "end": 588.636, "spk": "z", "text": "判定するの、大変そうなのだ…", "say": "判定するの、大変そうなのだ。", "scene": "dta", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "dt9": {"start": 589.036, "end": 594.199, "spk": "t", "text": "ツールにはまだチェック機能がないから、どのポリシーに引っかかったか分かるエラーにしたいな。", "say": "ツールにはまだチェック機能がないから、どのポリシーに引っかかったか、分かるエラーにしたいな。", "scene": "dta", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wv1": {"start": 597.399, "end": 600.503, "spk": "t", "text": "さて、さっきの気になる文言、覚えてる？", "say": "さて、さっきの気になる文言、覚えてる？", "scene": "cheat", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wv2": {"start": 600.903, "end": 604.967, "spk": "z", "text": "「WebView2 ルートでの制御をお試しください」…なのだ。", "say": "ウェブビューツーのルートでの制御を、お試しください、なのだ。", "scene": "cheat", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wv3": {"start": 605.767, "end": 610.439, "spk": "t", "text": "そう。WebView2 ルートなら、このポリシーを全部すり抜けちゃうの。", "say": "そう。ウェブビューツーのルートなら、このポリシーを、全部すり抜けちゃうの。", "scene": "cheat", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wv4": {"start": 610.839, "end": 613.004, "spk": "z", "text": "えええ!? チートなのだ！", "say": "えええ！？ チートなのだ！", "scene": "cheat", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wv5": {"start": 613.404, "end": 618.972, "spk": "t", "text": "リモートデバッグを拒否しても、DevTools を拒否しても、ふつーに CDP で動いちゃう。", "say": "リモートデバッグを拒否しても、デブツールを拒否しても、ふつーに、シーディーピーで動いちゃう。", "scene": "cheat", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wv6": {"start": 619.192, "end": 625.496, "spk": "t", "text": "Microsoft のドキュメントにも、「Edge のポリシーは WebView2 には適用されない」って書いてあるの。", "say": "マイクロソフトのドキュメントにも、エッジのポリシーは、ウェブビューツーには適用されないって、書いてあるの。", "scene": "cheat", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wv7": {"start": 625.896, "end": 628.595, "spk": "z", "text": "WebView2 には、ポリシーはないのだ？", "say": "ウェブビューツーには、ポリシーはないのだ？", "scene": "cheat", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "wv8": {"start": 628.995, "end": 636.824, "spk": "t", "text": "あるにはある。でも、本体の場所と、通信まわりと、その他くらい。デバッグ系のポリシーは…ひとつもないの。", "say": "あるにはある。でも、本体の場所と、通信まわりと、その他くらい。デバッグ系のポリシーは、ひとつもないの。", "scene": "cheat", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "wv9": {"start": 637.224, "end": 639.645, "spk": "z", "text": "だから CDP が通っちゃうのだ！", "say": "だから、シーディーピーが通っちゃうのだ！", "scene": "cheat", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ed1": {"start": 643.645, "end": 650.291, "spk": "t", "text": "Edge も WebView2 も、中身は同じ Chromium。でも、何を優先するべきかが違うんだよね。", "say": "エッジも、ウェブビューツーも、中身は同じクロミウム。でも、何を優先するべきかが違うんだよね。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed2": {"start": 650.511, "end": 655.663, "spk": "t", "text": "Edge は、企業ファーストの引き算。WebView2 は、開発者ファーストの足し算。", "say": "エッジは、企業ファーストの引き算。ウェブビューツーは、開発者ファーストの足し算。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed3": {"start": 656.063, "end": 658.239, "spk": "z", "text": "引き算と、足し算なのだ？", "say": "引き算と、足し算なのだ？", "scene": "ending", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ed4": {"start": 658.639, "end": 665.359, "spk": "t", "text": "ブラウザって、パスワード管理にゲーム設定、デバッグ機能まで、できることがどんどん増えたじゃん？", "say": "ブラウザって、パスワード管理に、ゲーム設定、デバッグ機能まで、できることがどんどん増えたじゃん？", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed5": {"start": 665.579, "end": 671.829, "spk": "t", "text": "会社から見たら、要らない機能が多すぎる。だから、削るためのポリシーが山ほどできたの。", "say": "会社から見たら、要らない機能が多すぎる。だから、削るためのポリシーが、山ほどできたの。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed6": {"start": 672.049, "end": 677.105, "spk": "t", "text": "一方の WebView2 は、アプリの中に Web を埋め込むための、開発者向けの部品。", "say": "一方のウェブビューツーは、アプリの中にウェブを埋め込むための、開発者向けの部品。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed7": {"start": 677.325, "end": 682.179, "spk": "t", "text": "ブラウザで JavaScript を止めたら、アプリまで動かなくなった…なんて困るでしょ？", "say": "ブラウザでジャバスクリプトを止めたら、アプリまで動かなくなった、なんて困るでしょ？", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed8": {"start": 682.579, "end": 685.064, "spk": "z", "text": "開発者も、ぷんすこぷんぷんなのだ！", "say": "開発者も、ぷんすこぷんぷんなのだ！", "scene": "ending", "p": {"speaker": 7, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ツンツン"}, "ed9": {"start": 685.464, "end": 692.611, "spk": "t", "text": "だから WebView2 のポリシーは必要最小限。でも、中身は Chromium だから、ネットサーフィンもできちゃう。", "say": "だから、ウェブビューツーのポリシーは必要最小限。でも、中身はクロミウムだから、ネットサーフィンもできちゃう。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed10": {"start": 692.831, "end": 697.183, "spk": "t", "text": "昔なら、Visual Studio で exe を作らないと無理だったんだけど。", "say": "昔なら、ビジュアルスタジオでエグゼを作らないと、無理だったんだけど。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed11": {"start": 697.403, "end": 702.96, "spk": "t", "text": "vtable やサンクの配線みたいな面倒な土台を、AI がさくっと用意してくれた。", "say": "ブイテーブルや、サンクの配線みたいな面倒な土台を、エーアイがさくっと用意してくれた。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed12": {"start": 703.18, "end": 706.753, "spk": "t", "text": "そうして生まれちゃったのが、第三のルート、WebView2。", "say": "そうして生まれちゃったのが、第三のルート、ウェブビューツー。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed13": {"start": 707.153, "end": 715.185, "spk": "z", "text": "Access なら、VBA の無効化さえなければ。Excel なら、Win32 API のブロックもなければ、動くのだ！", "say": "アクセスなら、ブイビーエーの無効化さえなければ。エクセルなら、ウィンサンジュウニエーピーアイのブロックもなければ、動くのだ！", "scene": "ending", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ed14": {"start": 715.585, "end": 720.065, "spk": "t", "text": "そう。Edge のポリシーは、WebView2 では無力化されるの。", "say": "そう。エッジのポリシーは、ウェブビューツーでは、無力化されるの。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed15": {"start": 720.885, "end": 727.104, "spk": "t", "text": "今までのセキュリティって、「理論上はできるけど、手を動かすと超面倒」で守られてたのかもね。", "say": "今までのセキュリティって、理論上はできるけど、手を動かすと超面倒、で守られてたのかもね。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed16": {"start": 727.324, "end": 731.484, "spk": "t", "text": "でも今は、理論さえひらめけば、あとは AI が土台を作ってくれる。", "say": "でも今は、理論さえひらめけば、あとはエーアイが土台を作ってくれる。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed17": {"start": 731.884, "end": 735.617, "spk": "z", "text": "土台さえあれば、ボクでもちゃっちゃと完成しちゃうのだ。", "say": "土台さえあれば、ボクでも、ちゃっちゃと完成しちゃうのだ。", "scene": "ending", "p": {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "ed18": {"start": 736.817, "end": 739.975, "spk": "t", "text": "その完成品が、良となるか、悪となるか。", "say": "その完成品が、良となるか、悪となるか。", "scene": "ending", "p": {"speaker": 8, "speed": 1.15, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "ed19": {"start": 740.975, "end": 742.127, "spk": "z", "text": "…どっちになるのだ？", "say": "どっちになるのだ？", "scene": "ending", "p": {"speaker": 22, "speed": 1.2, "pitch": 0.0, "intonation": 1.1}, "style": "ささやき"}, "ed20": {"start": 743.727, "end": 745.903, "spk": "t", "text": "結局は、作り手しだい。", "say": "結局は、作り手しだい。", "scene": "ending", "p": {"speaker": 8, "speed": 1.0, "pitch": 0.0, "intonation": 1.0}, "style": "ノーマル"}}};
+</script>
+<script>// 描画の土台: CRT モニターに映るセキュリティ監査コンソール（走査線・グリッチ・ドット文字・チャットログ）
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const W = 1920, H = 1080;
+let SC = 1;
+
+const JP = "'Noto Sans JP','Yu Gothic UI','Meiryo',sans-serif";
+const DOT = "'DotGothic16','MS Gothic',monospace";
+const HUD = "'Share Tech Mono','Consolas',monospace";
+const CODE = "'JetBrains Mono','Consolas',monospace";
+const IMG_BASE = '../img/Policy/';
+
+// 色: 監査コンソールのシアン、警報の赤、侵入のマゼンタ。話し手はつむぎ＝黄、ずんだもん＝緑
+const C = {
+  bg: '#02060a', bg2: '#06141b', cy: '#2ee6ff', cyd: '#0e4655', red: '#ff3355', redd: '#5a0f1c', mag: '#ff3df2',
+  wht: '#e8fcff', dim: '#6c8a95', dim2: '#2a3d45', pass: '#7dfcd8', yel: '#ffd23f', grn: '#86e05a',
+  // DebugRoute から引き継ぐ3つの道の色
+  pipe: '#22d3ee', port: '#f59e0b', wv2: '#a855f7',
+};
+
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const PT = (t, t0, d) => d <= 0 ? (t >= t0 ? 1 : 0) : clamp((t - t0) / d);
+const E = {
+  out: p => 1 - Math.pow(1 - p, 3),
+  in: p => p * p * p,
+  inOut: p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2,
+  back: p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); },
+  expo: p => p >= 1 ? 1 : 1 - Math.pow(2, -10 * p),
+};
+// 同じ番号なら同じ値を返す乱数（フレームごとに揺れないように）
+const hr = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const hexA = (hex, a) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+};
+
+// 時刻表（timeline.py の tld.json）
+const L = id => { const l = TLD.lines[id]; if (!l) throw new Error('no line ' + id); return l; };
+const S = id => TLD.scenes[id];
+const F = (id, f) => { const l = L(id); return l.start + (l.end - l.start) * f; };
+
+// ---------- 文字と図形 ----------
+function txt(s, x, y, o = {}) {
+  ctx.save();
+  ctx.font = o.font || `700 44px ${JP}`;
+  ctx.textAlign = o.align || 'left';
+  ctx.textBaseline = o.base || 'middle';
+  ctx.globalAlpha *= (o.alpha ?? 1);
+  if (o.ls) ctx.letterSpacing = o.ls + 'px';
+  if (o.stroke) { ctx.lineWidth = o.sw || 6; ctx.strokeStyle = o.stroke; ctx.lineJoin = 'round'; ctx.strokeText(s, x, y); }
+  if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = o.blur || 22; }
+  ctx.fillStyle = o.color || C.wht;
+  ctx.fillText(s, x, y);
+  ctx.restore();
+}
+function tw(s, font) { ctx.save(); ctx.font = font; const w = ctx.measureText(s).width; ctx.restore(); return w; }
+function twl(s, font, ls) { ctx.save(); ctx.font = font; ctx.letterSpacing = ls + 'px'; const w = ctx.measureText(s).width; ctx.restore(); return w; }
+
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// 角を落とした枠（監査コンソールの窓）
+function chamfer(x, y, w, h, c = 18) {
+  ctx.beginPath();
+  ctx.moveTo(x + c, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h - c); ctx.lineTo(x + w - c, y + h);
+  ctx.lineTo(x, y + h); ctx.lineTo(x, y + c); ctx.closePath();
+}
+function frame(x, y, w, h, o = {}) {
+  const a = o.alpha ?? 1;
+  if (a <= 0) return;
+  const col = o.color || C.cy;
+  ctx.save(); ctx.globalAlpha *= a;
+  chamfer(x, y, w, h, o.c ?? 18);
+  ctx.fillStyle = o.fill || 'rgba(2,14,20,.86)'; ctx.fill();
+  ctx.shadowColor = col; ctx.shadowBlur = o.blur ?? 16;
+  ctx.strokeStyle = hexA(col, o.edge ?? .9); ctx.lineWidth = o.lw || 2; ctx.stroke();
+  ctx.shadowBlur = 0;
+  // 角の目盛り
+  ctx.fillStyle = col;
+  ctx.fillRect(x + w - 34, y - 3, 34, 6); ctx.fillRect(x - 3, y + h - 34, 6, 34);
+  if (o.title) {
+    ctx.fillStyle = hexA(col, .14); ctx.fillRect(x + (o.c ?? 18), y + 2, w - (o.c ?? 18) - 2, 38);
+    // 題名と右端のステータスが重ならないよう、題名の文字を詰める
+    const tx = x + (o.c ?? 18) + 14;
+    const room = x + w - 18 - (o.status ? twl(o.status, `400 20px ${HUD}`, 2) + 24 : 0) - tx;
+    let fs = 22;
+    while (fs > 14 && twl(o.title, `400 ${fs}px ${HUD}`, 2) > room) fs--;
+    if (fs < 22 && typeof window !== 'undefined') (window.__fit ||= {})[o.title] = fs;
+    txt(o.title, tx, y + 22, { font: `400 ${fs}px ${HUD}`, color: col, ls: 2 });
+    if (o.status) txt(o.status, x + w - 18, y + 22, { font: `400 20px ${HUD}`, color: o.statusColor || col, align: 'right', ls: 2 });
+  }
+  ctx.restore();
+}
+function line(x1, y1, x2, y2, col, w = 2, a = 1, dash) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = col; ctx.lineWidth = w;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+}
+function flash(color, a) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = clamp(a); ctx.fillStyle = color; ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+
+// 文字が1文字ずつ打たれる（p: 0〜1）。カーソルは打っている間と、点滅
+function typed(s, x, y, p, o = {}) {
+  const n = Math.floor(s.length * clamp(p));
+  const show = s.slice(0, n);
+  txt(show, x, y, o);
+  if (o.cursor !== false && (p < 1 || Math.floor((o.t ?? 0) * 2.4) % 2 === 0) && (o.alpha ?? 1) > 0) {
+    const w = tw(show, o.font || `700 44px ${JP}`);
+    const fs = parseFloat((o.font || '44px').match(/(\d+)px/)[1]);
+    const ax = o.align === 'center' ? x + w / 2 : x + w;
+    ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1); ctx.fillStyle = o.ccol || o.color || C.cy;
+    ctx.fillRect(ax + 6, y - fs * .45, fs * .5, fs * .9); ctx.restore();
+  }
+  return n;
+}
+// 端末の行を順に打つ。rows: [[文字, 色], ...]、t0 から rate 行/秒
+function term(rows, x, y, t, t0, o = {}) {
+  const lh = o.lh || 40, rate = o.rate || 6, font = o.font || `400 28px ${HUD}`;
+  const maxRows = o.max || 99;
+  const shown = rows.filter((r, i) => t >= t0 + i / rate);
+  const start = Math.max(0, shown.length - maxRows);
+  shown.slice(start).forEach((r, k) => {
+    const i = start + k;
+    const p = PT(t, t0 + i / rate, Math.min(.5, .9 / rate));
+    const s = typeof r === 'string' ? r : r[0];
+    const col = typeof r === 'string' ? (o.color || C.cy) : r[1] || o.color || C.cy;
+    txt(s.slice(0, Math.ceil(s.length * p)), x, y + k * lh, { font, color: col, alpha: o.alpha ?? 1, glow: o.glow ? col : null, blur: 10 });
+  });
+}
+
+// ずらした赤と青を重ねた見出し（グリッチ文字）
+function gtext(s, x, y, o = {}, amt = 0, seed = 0) {
+  const k = Math.floor(seed * 24);
+  if (amt > 0) {
+    const d = 4 + amt * 14;
+    txt(s, x - d * (hr(k) - .3), y, { ...o, color: '#ff2a6d', glow: null, alpha: (o.alpha ?? 1) * .7 });
+    txt(s, x + d * (hr(k + 7) - .3), y + (hr(k + 3) - .5) * 4, { ...o, color: '#21e6ff', glow: null, alpha: (o.alpha ?? 1) * .7 });
+  }
+  txt(s, x, y, o);
+}
+
+// はんこ（BLOCKED / PASS など）。t0 で押される
+function stamp(s, x, y, t, t0, o = {}) {
+  const p = PT(t, t0, .22);
+  if (p <= 0) return;
+  const col = o.color || C.red;
+  const sc = lerp(2.2, 1, E.out(p));
+  ctx.save(); ctx.translate(x, y); ctx.rotate((o.rot ?? -8) * Math.PI / 180); ctx.scale(sc, sc);
+  ctx.globalAlpha *= clamp(p * 1.6) * (o.alpha ?? 1);
+  const font = `400 ${o.size || 60}px ${o.font || HUD}`, ls = o.ls ?? 6;
+  // 枠の幅は文字間隔込みの実幅から決める（末尾の字間は除く）
+  // 高さも、内側の線（9px 内側）が文字に掛からない分を確保する
+  const w = twl(s, font, ls) - ls + (o.size || 60) * .9 + 18, h = (o.size || 60) + 34;
+  ctx.shadowColor = col; ctx.shadowBlur = 24;
+  ctx.strokeStyle = col; ctx.lineWidth = 6; rr(-w / 2, -h / 2, w, h, 6); ctx.stroke();
+  ctx.lineWidth = 2; rr(-w / 2 + 9, -h / 2 + 9, w - 18, h - 18, 3); ctx.stroke();
+  ctx.fillStyle = hexA(col, .14); rr(-w / 2, -h / 2, w, h, 6); ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.rotate((o.rot ?? -8) * Math.PI / 180); ctx.scale(sc, sc);
+  txt(s, ls / 2, 3, { font, color: col, align: 'center', glow: col, blur: 18, alpha: clamp(p * 1.6) * (o.alpha ?? 1), ls });
+  ctx.restore();
+}
+// 小さな札
+function badge(s, x, y, o = {}) {
+  const a = o.alpha ?? 1;
+  if (a <= 0) return;
+  const font = o.font || `400 24px ${HUD}`;
+  const col = o.color || C.cy;
+  // 幅は文字間隔込みの実幅に、左右の余白（文字の大きさに合わせる）を足して決める
+  const ls = o.ls ?? 1, fs = +(font.match(/(\d+)px/) || [0, 24])[1];
+  const w = twl(s, font, ls) - ls + Math.max(28, fs * 1.3), h = o.h || Math.max(40, fs + 16);
+  const x0 = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x;
+  ctx.save(); ctx.globalAlpha *= a;
+  ctx.fillStyle = o.fill || hexA(col, .16); chamfer(x0, y - h / 2, w, h, 8); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+  txt(s, x0 + w / 2 + ls / 2, y + 1, { font, color: o.tcol || col, align: 'center', alpha: a, ls });
+  return w;
+}
+
+// 囲みの角かっこが寄ってきて、注目させる
+function focus(x, y, w, h, t, t0, o = {}) {
+  const p = E.out(PT(t, t0, .35));
+  if (p <= 0) return;
+  const col = o.color || C.red, k = lerp(60, 0, p), L0 = o.arm || 28;
+  ctx.save(); ctx.globalAlpha *= p * (o.alpha ?? 1);
+  ctx.strokeStyle = col; ctx.lineWidth = o.lw || 4; ctx.shadowColor = col; ctx.shadowBlur = 16;
+  const xs = [[x - k, y - k, 1, 1], [x + w + k, y - k, -1, 1], [x - k, y + h + k, 1, -1], [x + w + k, y + h + k, -1, -1]];
+  for (const [cx, cy, sx, sy] of xs) {
+    ctx.beginPath(); ctx.moveTo(cx, cy + sy * L0); ctx.lineTo(cx, cy); ctx.lineTo(cx + sx * L0, cy); ctx.stroke();
+  }
+  if (o.fill) { ctx.globalAlpha *= .12 + .06 * Math.sin(t * 8); ctx.fillStyle = col; ctx.fillRect(x, y, w, h); }
+  ctx.restore();
+}
+
+// ---------- 画像（記事のスクリーンショット） ----------
+const IMGS = {};
+for (let i = 1; i <= 9; i++) { const im = new Image(); im.src = IMG_BASE + i + '.png'; IMGS[i] = im; }
+// 画像を窓の中に描く。crop: [sx, sy, sw, sh]。走査線を薄く重ねて、モニター越しに見えるようにする
+function shot(n, x, y, w, h, o = {}) {
+  const im = IMGS[n], a = o.alpha ?? 1;
+  if (a <= 0) return;
+  frame(x - 10, y - 50, w + 20, h + 60, { title: o.title || `EVIDENCE_${String(n).padStart(2, '0')}.PNG`, status: o.status || 'CAPTURE', alpha: a, color: o.color || C.cy });
+  ctx.save(); ctx.globalAlpha *= a;
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, h);
+  if (im.complete && im.naturalWidth) {
+    const [sx, sy, sw, sh] = o.crop || [0, 0, im.naturalWidth, im.naturalHeight];
+    ctx.drawImage(im, sx, sy, sw, sh, x, y, w, h);
+  }
+  ctx.globalAlpha *= .1; ctx.fillStyle = C.cy; ctx.globalCompositeOperation = 'multiply'; ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+// 画像の座標（元画像の画素）を、shot で描いた位置へ移す
+const shotMap = (o, x, y, w, h) => {
+  const [sx, sy, sw, sh] = o.crop;
+  return [x + (o.r[0] - sx) / sw * w, y + (o.r[1] - sy) / sh * h, o.r[2] / sw * w, o.r[3] / sh * h];
+};
+
+// ---------- ドット絵のアバター ----------
+// 1文字 = 1ドット。. は透明
+const SPRITES = {
+  tsumugi: {
+    pal: { y: '#ffd23f', Y: '#c99a12', s: '#ffe0c2', e: '#3a2a1a', p: '#ff7aa8', w: '#ffffff', o: '#7a4b00', m: '#e05a7a' },
+    rows: [
+      '....YYYYYY....',
+      '..YYyyyyyyYY..',
+      '.YyyyyyyyyyyY.',
+      'YyyyyyyyyyyyyY',
+      'YyyysssssssyyY',
+      'Yyyssssssssp.Y',
+      'Yyysewssewsssy',
+      'Yyyseesseessyy',
+      'Yyyssssssssyyy',
+      '.yyspsssspsyyy',
+      '.yysssmmsssyy.',
+      '.yy.ssssss.yy.',
+      '.Y....ss....Y.',
+      '......oo......',
+    ],
+  },
+  zundamon: {
+    pal: { g: '#86e05a', G: '#3f8f2a', s: '#fff1e6', e: '#2b2b2b', w: '#ffffff', b: '#c6f58f', m: '#e0607a', r: '#ff9aa8' },
+    rows: [
+      '.bb........bb.',
+      'bGGb......bGGb',
+      '.bGGbgggggbGb.',
+      '...gggggggggg.',
+      '..gggggggggggg',
+      '.ggssssssssssg',
+      '.ggseeesseeesg',
+      '.ggsewesseweg.',
+      '.ggsssssssssg.',
+      '.ggrsssmmssrg.',
+      '..gsssssssssg.',
+      '..gg.ssssss.gg',
+      '..G...ssss..G.',
+      '.......ss.....',
+    ],
+  },
+};
+function sprite(name, x, y, px, o = {}) {
+  const sp = SPRITES[name];
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = 24; }
+  sp.rows.forEach((row, j) => {
+    [...row].forEach((ch, i) => {
+      if (ch === '.') return;
+      if (o.scan && (j + Math.floor((o.t || 0) * 30)) % 7 === 0) return;
+      ctx.fillStyle = sp.pal[ch];
+      ctx.fillRect(Math.round(x + i * px), Math.round(y + j * px), Math.ceil(px), Math.ceil(px));
+    });
+  });
+  ctx.restore();
+}
+const SPK = {
+  t: { name: 'tsumugi', tag: 'TSUMUGI@soc', col: C.yel },
+  z: { name: 'zundamon', tag: 'ZUNDAMON@guest', col: C.grn },
+};
+
+// ---------- 背景: 方眼の盤面と、流れる16進の列 ----------
+function bgBoard(t, o = {}) {
+  const acc = o.acc || C.cy;
+  const g = ctx.createRadialGradient(W / 2, H * .42, 80, W / 2, H * .5, W * .72);
+  g.addColorStop(0, o.c1 || '#071a22'); g.addColorStop(1, o.c2 || C.bg);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  // 方眼
+  ctx.globalAlpha = o.grid ?? .14; ctx.strokeStyle = acc; ctx.lineWidth = 1;
+  const off = (t * 12) % 60;
+  ctx.beginPath();
+  for (let x = -60 + off; x < W; x += 60) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = 0; y < H; y += 60) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.globalAlpha = (o.grid ?? .14) * 2.2; ctx.fillStyle = acc;
+  for (let x = -60 + off; x < W; x += 60) for (let y = 0; y < H; y += 60) ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+  // 流れる16進の列
+  if (o.hex !== 0) {
+    ctx.font = `400 18px ${HUD}`; ctx.textBaseline = 'top';
+    for (let c = 0; c < 26; c++) {
+      const x = hr(c + 3) * W, sp = 20 + hr(c + 9) * 60;
+      const y0 = (t * sp + hr(c) * H) % (H + 400) - 400;
+      for (let k = 0; k < 14; k++) {
+        ctx.globalAlpha = (o.hex ?? .16) * (1 - k / 14);
+        ctx.fillStyle = k === 0 ? '#ffffff' : acc;
+        const v = Math.floor(hr(c * 31 + k + Math.floor(t * 6 + k)) * 256).toString(16).padStart(2, '0').toUpperCase();
+        ctx.fillText(v, x, y0 - k * 22);
+      }
+    }
+  }
+  // 横に走る走査帯
+  const sy = (t * 140) % (H + 300) - 150;
+  const sg = ctx.createLinearGradient(0, sy - 80, 0, sy + 80);
+  sg.addColorStop(0, hexA(acc, 0)); sg.addColorStop(.5, hexA(acc, .06)); sg.addColorStop(1, hexA(acc, 0));
+  ctx.globalAlpha = 1; ctx.fillStyle = sg; ctx.fillRect(0, sy - 80, W, 160);
+  ctx.restore();
+}
+
+// 区画の見出し（LAYER 1 // OFFICE GPO など）
+function header(code, title, t, t0, o = {}) {
+  const p = E.out(PT(t, t0, .5));
+  if (p <= 0) return;
+  const col = o.color || C.cy;
+  const x = 80, y = 118;
+  ctx.save(); ctx.globalAlpha *= p * (o.alpha ?? 1);
+  ctx.fillStyle = col; ctx.fillRect(x, y - 26, 8, 52);
+  ctx.restore();
+  gtext(code, x + 26, y - 6, { font: `400 26px ${HUD}`, color: col, alpha: p * (o.alpha ?? 1), ls: 4 }, (1 - p) * 1.2, t);
+  txt(title, x + 26, y + 26, { font: `400 40px ${DOT}`, color: C.wht, alpha: p * (o.alpha ?? 1), glow: col, blur: 12 });
+}
+
+// ---------- 地図: ノードと道 ----------
+function node(x, y, label, sub, o = {}) {
+  const a = o.alpha ?? 1;
+  if (a <= 0) return;
+  const col = o.color || C.cy, w = o.w || 230, h = o.h || 120;
+  frame(x - w / 2, y - h / 2, w, h, { color: col, alpha: a, c: 14 });
+  txt(label, x, y - (sub ? 14 : 0), { font: `400 ${o.size || 32}px ${HUD}`, color: col, align: 'center', alpha: a, glow: col, blur: 10, ls: 1 });
+  if (sub) txt(sub, x, y + 26, { font: `500 22px ${JP}`, color: C.dim, align: 'center', alpha: a });
+}
+function along(pts, f) {
+  let len = 0; const segs = [];
+  for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); segs.push(d); len += d; }
+  let r = len * clamp(f);
+  for (let i = 0; i < segs.length; i++) {
+    if (r <= segs[i]) { const k = r / segs[i]; return [lerp(pts[i][0], pts[i + 1][0], k), lerp(pts[i][1], pts[i + 1][1], k)]; }
+    r -= segs[i];
+  }
+  return pts[pts.length - 1];
+}
+function bezierPts(x1, y1, cx1, cy1, cx2, cy2, x2, y2, n = 40) {
+  const a = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n, v = 1 - u;
+    a.push([v * v * v * x1 + 3 * v * v * u * cx1 + 3 * v * u * u * cx2 + u * u * u * x2, v * v * v * y1 + 3 * v * v * u * cy1 + 3 * v * u * u * cy2 + u * u * u * y2]);
+  }
+  return a;
+}
+// 光る道（p: 引き終わりの割合、cut: 道の途中で止まる割合）
+function beam(pts, color, width, p = 1, o = {}) {
+  if (p <= 0) return;
+  const segs = []; let len = 0;
+  for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); segs.push(d); len += d; }
+  let rem = len * Math.min(p, o.cut ?? 1);
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length && rem > 0; i++) {
+    const f = Math.min(1, rem / segs[i - 1]);
+    ctx.lineTo(lerp(pts[i - 1][0], pts[i][0], f), lerp(pts[i - 1][1], pts[i][1], f));
+    rem -= segs[i - 1];
+  }
+  ctx.globalAlpha *= (o.alpha ?? 1);
+  if (o.dash) ctx.setLineDash(o.dash);
+  ctx.strokeStyle = hexA(color, .35); ctx.lineWidth = width * 3; ctx.shadowColor = color; ctx.shadowBlur = 26; ctx.stroke();
+  ctx.shadowBlur = 0; ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = Math.max(1, width / 3); ctx.stroke();
+  ctx.restore();
+}
+// 道を流れるパケット。stop を渡すと、その割合の位置で止まって砕ける
+function packets(pts, t, color, o = {}) {
+  const n = o.n || 4, speed = o.speed || .5;
+  ctx.save();
+  for (let i = 0; i < n; i++) {
+    let f = ((t * speed + i / n) % 1 + 1) % 1;
+    const stop = o.stop ?? 2;
+    if (f > stop) continue;
+    const [x, y] = along(pts, f);
+    const a = Math.min(1, Math.sin(Math.min(f / (stop < 1 ? stop : 1), 1) * Math.PI) * 2) * (o.alpha ?? 1);
+    ctx.globalAlpha = clamp(a);
+    ctx.shadowColor = color; ctx.shadowBlur = 22;
+    if (o.label) {
+      ctx.font = `400 ${o.size || 20}px ${HUD}`;
+      const w = ctx.measureText(o.label).width + 20;
+      ctx.fillStyle = color; rr(x - w / 2, y - 15, w, 30, 4); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = '#02060a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(o.label, x, y + 1);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.fillRect(x - (o.r || 6), y - (o.r || 6), (o.r || 6) * 2, (o.r || 6) * 2);
+    }
+  }
+  ctx.restore();
+}
+// 防火壁（六角のマス目が縦に並ぶ）。state: 'on' / 'off' / 'ghost'
+function wall(x, y0, y1, label, t, o = {}) {
+  const a = o.alpha ?? 1;
+  if (a <= 0) return;
+  const col = o.color || C.red, w = o.w || 70;
+  ctx.save(); ctx.globalAlpha *= a;
+  const g = ctx.createLinearGradient(x - w, 0, x + w, 0);
+  g.addColorStop(0, hexA(col, 0)); g.addColorStop(.5, hexA(col, o.ghost ? .08 : .28)); g.addColorStop(1, hexA(col, 0));
+  ctx.fillStyle = g; ctx.fillRect(x - w, y0, w * 2, y1 - y0);
+  ctx.strokeStyle = hexA(col, o.ghost ? .25 : .75); ctx.lineWidth = 1.5;
+  const r = 13, dy = r * 1.5;
+  for (let j = 0; y0 + j * dy < y1; j++) {
+    for (let i = -1; i <= 1; i++) {
+      const cx = x + i * r * 1.732 + (j % 2) * r * .866, cy = y0 + j * dy + r;
+      if (cy > y1 - r * .5) continue;
+      const fl = .55 + .45 * Math.sin(t * 3 + i * 1.7 + j * .9);
+      ctx.globalAlpha = a * fl * (o.ghost ? .4 : 1);
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++) { const an = Math.PI / 3 * k + Math.PI / 6; ctx[k ? 'lineTo' : 'moveTo'](cx + r * Math.cos(an), cy + r * Math.sin(an)); }
+      ctx.closePath(); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = a; ctx.shadowColor = col; ctx.shadowBlur = 20; ctx.fillStyle = col;
+  ctx.fillRect(x - 2, y0, 4, y1 - y0);
+  ctx.restore();
+  if (label) txt(label, x, y0 - 30, { font: `400 26px ${HUD}`, color: col, align: 'center', alpha: a, glow: col, blur: 10, ls: 2 });
+}
+
+// ---------- ゲージ・数字 ----------
+function bar(x, y, w, h, p, col, o = {}) {
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  ctx.strokeStyle = hexA(col, .6); ctx.lineWidth = 1.5; ctx.strokeRect(x, y, w, h);
+  const n = Math.max(1, Math.floor(w / 16)), k = Math.round(n * clamp(p));
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10;
+  for (let i = 0; i < k; i++) ctx.fillRect(x + 4 + i * (w - 8) / n, y + 4, (w - 8) / n - 4, h - 8);
+  ctx.restore();
+}
+
+// ---------- 画面の揺れ・グリッチ（main.js の HITS / GLITCH） ----------
+// 自分自身の一部を切り取って、横にずらして描き直す
+function grab(y, h, dx) {
+  const sy = Math.max(0, y), sh = Math.min(H - sy, h);
+  if (sh <= 0) return;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(cv, 0, sy * SC, cv.width, sh * SC, dx * SC, sy * SC, cv.width, sh * SC);
+  ctx.restore();
+}
+function sliceGlitch(amt, seed) {
+  if (amt <= 0) return;
+  const k = Math.floor(seed * 30);
+  for (let i = 0; i < 12; i++) {
+    if (hr(k * 3 + i) > .25 + amt * .6) continue;
+    const y = hr(k * 11 + i) * H, h = 6 + hr(k * 5 + i) * 80;
+    grab(y, h, (hr(k * 19 + i) - .5) * 180 * amt);
+  }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = .1 * amt; ctx.fillStyle = '#ff2a6d'; ctx.fillRect((hr(k) - .5) * 40, 0, W, H);
+  ctx.globalAlpha = .08 * amt; ctx.fillStyle = '#21e6ff'; ctx.fillRect((hr(k + 1) - .5) * 40, 0, W, H);
+  ctx.restore();
+}
+
+// ---------- CRT（走査線・周辺減光・ノイズ） ----------
+const CRT = (() => {
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const scan = mk(W, H); { const g = scan.getContext('2d'); g.fillStyle = 'rgba(0,0,0,.28)'; for (let y = 0; y < H; y += 4) g.fillRect(0, y, W, 2); }
+  const vig = mk(W, H);
+  {
+    const g = vig.getContext('2d');
+    const r = g.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * 1.05);
+    r.addColorStop(0, 'rgba(0,0,0,0)'); r.addColorStop(1, 'rgba(0,0,0,.78)');
+    g.fillStyle = r; g.fillRect(0, 0, W, H);
+  }
+  const noise = [];
+  for (let k = 0; k < 4; k++) {
+    const c = mk(256, 256), g = c.getContext('2d'), d = g.createImageData(256, 256);
+    for (let i = 0; i < d.data.length; i += 4) { const v = hr(i * .37 + k * 9999) * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+    g.putImageData(d, 0, 0); noise.push(c);
+  }
+  return {
+    draw(t, amt = 1, extraNoise = 0) {
+      if (amt <= 0) return;
+      ctx.save();
+      ctx.globalAlpha = amt; ctx.drawImage(scan, 0, 0);
+      const n = noise[Math.floor(t * 24) % 4];
+      ctx.globalAlpha = (.045 + extraNoise) * amt; ctx.globalCompositeOperation = 'overlay';
+      const ox = Math.floor(hr(Math.floor(t * 24)) * 256), oy = Math.floor(hr(Math.floor(t * 24) + 5) * 256);
+      for (let x = -ox; x < W; x += 256) for (let y = -oy; y < H; y += 256) ctx.drawImage(n, x, y);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = amt; ctx.drawImage(vig, 0, 0);
+      // ほんの少しのちらつき
+      ctx.globalAlpha = .025 * amt * (1 + Math.sin(t * 50)); ctx.fillStyle = '#9ff'; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    },
+  };
+})();
+
+// シーンの表と、時刻に結びつく出来事（揺れ・グリッチ・効果音）。各シーンのファイルが書き足す
+const SCN = {}, POST = {}, HITS = [], GLITCH = [], SEQ = [];
+// 効果音の予約: cue(時刻, 種類, 設定)
+const cue = (t, kind, o = {}) => SEQ.push([t, kind, o]);
+
+// シーン: 冒頭（DebugRoute の続き → 乗っ取り → 題名）/ 3枚の壁
+
+// CRT（走査線など）が効き始める時刻。冒頭は DebugRoute の続きなので、乗っ取られるまではかけない
+const T_CRT = L('op3').start - .5;
+
+// ---------- DebugRoute の絵（冒頭だけ、前作と同じ見た目で始める） ----------
+function drBg(t) {
+  const g = ctx.createRadialGradient(W / 2, H * .45, 50, W / 2, H * .5, W * .75);
+  g.addColorStop(0, '#0b1730'); g.addColorStop(1, '#020409');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.globalAlpha = .5;
+  const hy = H * .58;
+  const vg = ctx.createLinearGradient(0, hy, 0, H);
+  vg.addColorStop(0, hexA(C.pipe, 0)); vg.addColorStop(.35, hexA(C.pipe, .12)); vg.addColorStop(1, hexA(C.pipe, .3));
+  ctx.strokeStyle = vg; ctx.lineWidth = 1.5;
+  for (let i = -24; i <= 24; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + i * 22, hy); ctx.lineTo(W / 2 + i * 260, H + 40); ctx.stroke(); }
+  ctx.strokeStyle = hexA(C.pipe, .22);
+  const sp = (t * .35) % 1;
+  for (let j = 0; j < 14; j++) {
+    const z = (j + sp) / 14, y = hy + Math.pow(z, 2.2) * (H - hy + 60);
+    ctx.globalAlpha = .5 * z * z; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.save();
+  for (let i = 0; i < 70; i++) {
+    const x = (hr(i) * W + t * (8 + hr(i + 50) * 30)) % W;
+    const y = (hr(i + 100) * H - t * (4 + hr(i + 150) * 14) % H + H) % H;
+    ctx.globalAlpha = .15 + .35 * Math.sin(t * (1 + hr(i + 200)) + i) ** 2;
+    ctx.fillStyle = hr(i + 300) < .7 ? C.pipe : '#ffffff';
+    ctx.fillRect(x, y, 2 + hr(i + 400) * 2, 2 + hr(i + 400) * 2);
+  }
+  ctx.restore();
+}
+function excelIcon(x, y, s = 1, a = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.globalAlpha *= a;
+  ctx.shadowColor = '#22c55e'; ctx.shadowBlur = 50;
+  rr(-90, -90, 180, 180, 30); ctx.fillStyle = '#0f3d22'; ctx.fill();
+  ctx.shadowBlur = 0; ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 5; ctx.stroke();
+  ctx.strokeStyle = 'rgba(187,247,208,.45)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-62, -58 + i * 26); ctx.lineTo(62, -58 + i * 26); ctx.stroke(); }
+  for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-62 + i * 41.3, -58); ctx.lineTo(-62 + i * 41.3, 20); ctx.stroke(); }
+  txt('VBA', 0, 52, { font: `900 44px ${CODE}`, align: 'center', color: '#dcfce7' });
+  ctx.restore();
+  txt('Excel', x, y + 130 * s, { font: `800 ${34 * s}px ${JP}`, align: 'center', color: '#bbf7d0', alpha: a });
+}
+function browserIcon(x, y, s = 1, a = 1, label = 'Edge') {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.globalAlpha *= a;
+  ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 50;
+  rr(-100, -85, 200, 170, 18); ctx.fillStyle = '#0a2540'; ctx.fill();
+  ctx.shadowBlur = 0; ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 5; ctx.stroke();
+  ctx.fillStyle = 'rgba(125,211,252,.25)'; ctx.fillRect(-100, -85, 200, 34);
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-80 + i * 20, -68, 6, 0, 7); ctx.fillStyle = ['#f87171', '#fbbf24', '#4ade80'][i]; ctx.fill(); }
+  const g = ctx.createLinearGradient(-45, -30, 45, 70);
+  g.addColorStop(0, '#2dd4bf'); g.addColorStop(1, '#3b82f6');
+  ctx.lineWidth = 16; ctx.strokeStyle = g; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(0, 18, 46, Math.PI * .85, Math.PI * 2.55); ctx.stroke();
+  ctx.restore();
+  txt(label, x, y + 130 * s, { font: `800 ${34 * s}px ${JP}`, align: 'center', color: '#bae6fd', alpha: a });
+}
+// 前作の3つの道（上: Pipe / 中: Port / 下: WebView2）
+const ROUTES = [
+  [C.pipe, bezierPts(500, 500, 800, 260, 1120, 260, 1420, 500), 'PIPE'],
+  [C.port, bezierPts(500, 520, 800, 520, 1120, 520, 1420, 520), 'PORT'],
+  [C.wv2, bezierPts(500, 540, 800, 780, 1120, 780, 1420, 540), 'WebView2'],
+];
+// 道の上で、x 座標に最も近い位置の割合
+function fracAtX(pts, x) {
+  let best = 0, bd = 1e9;
+  for (let i = 0; i <= 200; i++) { const [px] = along(pts, i / 200); const d = Math.abs(px - x); if (d < bd) { bd = d; best = i / 200; } }
+  return best;
+}
+
+// ---------- 冒頭 ----------
+const CMD = '会社の PC で、Edge を操る';
+const T_TYPE0 = 1.6, T_TYPE1 = 5.4, T_ENTER = 6.4;
+const T_WALL = L('op2').end + .25;
+const T_TITLE = L('op7').end + .7;
+for (let i = 0; i < CMD.length; i++) cue(T_TYPE0 + (T_TYPE1 - T_TYPE0) * i / CMD.length, 'key', { i });
+cue(T_ENTER, 'enter');
+cue(L('op1').start - .3, 'whoosh');
+ROUTES.forEach((r, i) => cue(F('op2', [.03, .16, .3][i]), 'blip', { n: 72 + i * 5 }));
+cue(T_WALL - .05, 'slam'); HITS.push([T_WALL, 26]);
+[0, 1, 2].forEach(i => cue(T_WALL + .25 + i * .18, 'deny', { i }));
+cue(T_WALL + 1.0, 'alarm');
+GLITCH.push([T_WALL + .9, 1.6, 1]);
+cue(T_CRT - .1, 'crtOn');
+cue(L('op3').start - .15, 'connect');
+cue(F('op7', .58), 'impact'); HITS.push([F('op7', .62), 18]); GLITCH.push([F('op7', .6), .5, .8]);
+cue(T_TITLE, 'title'); HITS.push([T_TITLE + .05, 30]); GLITCH.push([T_TITLE, .9, 1]);
+
+SCN.open = function (t, s) {
+  // 1) 前作の最後の画面: 「>」とカーソル → 次の1文を打つ
+  if (t < 7.0) {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    const g = ctx.createRadialGradient(W / 2, 470, 10, W / 2, 470, 800);
+    g.addColorStop(0, 'rgba(148,163,184,.12)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const k = PT(t, T_TYPE0 - .5, .5);
+    if (k < 1) {
+      txt('>', 760, 470, { font: `800 140px ${CODE}`, align: 'center', color: '#e2e8f0', alpha: 1 - k });
+      if (Math.floor(t * 2.4) % 2 === 0) { ctx.save(); ctx.globalAlpha = 1 - k; ctx.fillStyle = '#e2e8f0'; ctx.shadowColor = '#fff'; ctx.shadowBlur = 30; ctx.fillRect(860, 520, 120, 16); ctx.restore(); }
+    }
+    if (k > 0) {
+      const up = E.inOut(PT(t, T_ENTER + .1, .45));
+      const x = 360, y = 410 - up * 500, w = 1200;
+      ctx.save(); ctx.globalAlpha = k * (1 - up);
+      ctx.shadowColor = '#e2e8f0'; ctx.shadowBlur = 40;
+      rr(x, y, w, 130, 24); ctx.fillStyle = 'rgba(15,23,42,.92)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(226,232,240,.7)'; ctx.lineWidth = 2; ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.restore();
+      const p = PT(t, T_TYPE0, T_TYPE1 - T_TYPE0);
+      typed(CMD, x + 40, y + 65, p, { font: `600 40px ${JP}`, color: '#f8fafc', alpha: k * (1 - up), ccol: '#e2e8f0', t });
+      if (t > T_ENTER) badge('ENTER ⏎', x + w - 30, y + 65, { align: 'right', color: '#e2e8f0', alpha: (1 - PT(t, T_ENTER + .1, .3)), font: `400 24px ${HUD}` });
+      flash('#e2e8f0', (1 - PT(t, T_ENTER, .5)) * (t > T_ENTER ? .25 : 0));
+    }
+    return;
+  }
+  // 2) 前作の地図: Excel から Edge へ、3つの道が開通する
+  if (t < T_CRT) {
+    drBg(t);
+    const ap = PT(t, 7.0, .8);
+    excelIcon(380, 520, 1, ap);
+    browserIcon(1540, 520, 1, ap);
+    const wallX = 1250;
+    ROUTES.forEach(([c, pts, n], i) => {
+      const pulse = 1 + 2.5 * Math.max(0, 1 - Math.abs(t - F('op2', [.03, .16, .3][i])) * 2);
+      const blocked = t > T_WALL + .25 + i * .18;
+      const col = blocked ? C.red : c;
+      beam(pts, col, 5 * Math.min(2, pulse), E.inOut(PT(t, 7.4 + i * .35, 1.1)));
+      if (t < T_WALL) packets(pts, t + i * .3, col, { n: 3, speed: .42, label: 'CDP', size: 18, alpha: PT(t, 8.6, .5) });
+      else packets(pts, t + i * .3, col, { n: 3, speed: .42, label: 'CDP', size: 18, stop: fracAtX(pts, wallX - 40) });
+      const [mx, my] = along(pts, .5);
+      txt(n, mx, my + (i === 0 ? -40 : i === 2 ? 46 : -36), { font: `800 36px ${CODE}`, align: 'center', color: col, alpha: PT(t, 8.0 + i * .35, .4) });
+    });
+    txt('ALL ROUTES OPEN', W / 2, 150, { font: `900 64px ${CODE}`, align: 'center', color: '#e0f2fe', glow: C.pipe, blur: 30, alpha: PT(t, F('op2', .62), .4) * (1 - PT(t, T_WALL, .2)) });
+    // 壁が落ちてくる
+    if (t > T_WALL - .2) {
+      const dp = E.out(PT(t, T_WALL - .2, .22));
+      wall(wallX, lerp(-700, 180, dp), lerp(-700, 180, dp) + 680, null, t, { color: C.red, w: 90 });
+      ROUTES.forEach(([c, pts], i) => {
+        const [bx, by] = along(pts, fracAtX(pts, wallX));
+        stamp('BLOCKED', bx, by, t, T_WALL + .25 + i * .18, { size: 34, color: C.red, rot: -6 + i * 4 });
+      });
+      flash('#ff0033', (1 - PT(t, T_WALL, .5)) * .35);
+    }
+    // 色が抜けて、警告で埋まる
+    const drain = PT(t, T_WALL + .9, .7);
+    if (drain > 0) {
+      ctx.save(); ctx.globalCompositeOperation = 'saturation'; ctx.globalAlpha = drain; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
+      flash('#000', drain * .55);
+      for (let i = 0; i < 18; i++) {
+        const tt = T_WALL + 1.0 + i * .06;
+        if (t < tt) break;
+        txt('POLICY ENFORCED // ACCESS DENIED // 0x80070005', 60 + (i % 3) * 30, 90 + i * 52, { font: `400 34px ${HUD}`, color: C.red, alpha: .9, glow: C.red, blur: 8 });
+      }
+    }
+    return;
+  }
+  // 3) 監査コンソールに切り替わる。CRT が点く
+  const on = PT(t, T_CRT, .35);
+  if (t < T_CRT + .35) {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    const h = Math.max(2, E.in(on) * H);
+    ctx.fillStyle = '#d8fbff'; ctx.shadowColor = C.cy; ctx.shadowBlur = 40;
+    ctx.fillRect(0, H / 2 - h / 2, W * Math.min(1, on * 3), h); ctx.shadowBlur = 0;
+    return;
+  }
+  bgBoard(t, { acc: C.cy, grid: .12, hex: .14 });
+  // 地図の線画（壁つき）
+  const mapA = PT(t, L('op6').start - .3, .6) * (1 - PT(t, T_TITLE - .3, .3));
+  if (mapA > 0) {
+    ctx.save(); ctx.globalAlpha = mapA * .9;
+    node(380, 600, 'EXCEL.EXE', 'VBA', { color: C.cy, alpha: mapA });
+    node(1540, 600, 'MSEDGE.EXE', 'Edge', { color: C.cy, alpha: mapA });
+    const sad = t > L('op6').start && t < L('op7').start;
+    [[480, 600, 760, 420, 1160, 420, 1430, 590], [490, 600, 800, 600, 1120, 600, 1425, 600], [480, 610, 760, 780, 1160, 780, 1430, 610]].forEach((b, i) => {
+      const pts = bezierPts(...b);
+      const flick = sad && Math.floor(t * 12 + i) % 3 === 0;
+      beam(pts, flick ? C.red : [C.pipe, C.port, C.wv2][i], 3, 1, { alpha: .7, cut: fracAtX(pts, 1180) });
+    });
+    ctx.restore();
+    const zoom = E.inOut(PT(t, L('op7').start, .8));
+    wall(1240, 360, 840, 'POLICY', t, { color: C.red, alpha: mapA, w: 60 + zoom * 40 });
+  }
+  // つむぎの端末（接続してくる）
+  const tA = PT(t, L('op3').start - .1, .25) * (1 - PT(t, T_TITLE - .3, .3));
+  if (tA > 0) {
+    const x = 1130, y = 140, w = 600, h = 330;
+    frame(x, y, w, h, { title: 'INCOMING // tsumugi@soc', status: 'CONNECTED', color: C.yel, alpha: tA });
+    const gl = 1 - PT(t, L('op3').start, .6);
+    ctx.save(); if (gl > 0) ctx.translate((hr(Math.floor(t * 30)) - .5) * 30 * gl, 0);
+    sprite('tsumugi', x + 30, y + 70, 16, { alpha: tA, glow: C.yel, scan: gl > 0, t });
+    ctx.restore();
+    term([['> whoami', C.yel], ['tsumugi', C.wht], ['role: policy audit', C.dim], ['clearance: ADMIN', C.pass]], x + 290, y + 100, t, L('op3').start + .3, { rate: 5, font: `400 28px ${HUD}`, alpha: tA });
+  }
+  // ずんだもん（見る側）
+  const zA = PT(t, L('op4').start - .1, .25) * (1 - PT(t, T_TITLE - .3, .3));
+  if (zA > 0) {
+    const shake = t < L('op4').end ? Math.sin(t * 60) * 6 : 0;
+    frame(190, 140, 560, 330, { title: 'LOCAL // zundamon@guest', status: 'READ-ONLY', color: C.grn, alpha: zA });
+    sprite('zundamon', 230 + shake, 210, 16, { alpha: zA, glow: C.grn });
+    txt('?!', 600, 300, { font: `400 90px ${DOT}`, color: C.grn, alpha: zA * (t < L('op5').start ? 1 : 0), glow: C.grn, align: 'center' });
+  }
+  // 身分証
+  const idA = PT(t, F('op5', .12), .4) * (1 - PT(t, L('op6').start, .4));
+  if (idA > 0) {
+    frame(660, 520, 600, 250, { title: 'ID CARD', color: C.yel, alpha: idA });
+    [['NAME', '春日部つむぎ'], ['ROLE', '案内役（監査）'], ['TARGET', '会社 PC のポリシー']].forEach(([k, v], i) => {
+      txt(k, 700, 600 + i * 56, { font: `400 24px ${HUD}`, color: C.dim, alpha: idA });
+      typed(v, 830, 600 + i * 56, PT(t, F('op5', .18 + i * .12), .5), { font: `400 34px ${DOT}`, color: C.wht, alpha: idA, cursor: false });
+    });
+  }
+  // 犯人は、企業ポリシー
+  const cA = PT(t, F('op7', .6), .2) * (1 - PT(t, T_TITLE - .2, .2));
+  if (cA > 0) {
+    flash('#200008', cA * .5);
+    gtext('企業ポリシー', W / 2, 520, { font: `400 190px ${DOT}`, color: C.red, align: 'center', glow: C.red, blur: 40, alpha: cA }, .6 + .4 * Math.sin(t * 20), t);
+    txt('SUSPECT IDENTIFIED', W / 2, 680, { font: `400 34px ${HUD}`, color: C.red, align: 'center', alpha: cA, ls: 10 });
+  }
+  // 題名
+  const ti = PT(t, T_TITLE, .3);
+  if (ti > 0) {
+    const shrink = E.inOut(PT(t, F('op8', .05), .9));
+    const y = lerp(470, 250, shrink), sc = lerp(1, .62, shrink);
+    flash('#ffffff', (1 - PT(t, T_TITLE, .35)) * .6);
+    txt('令和のIE 技術秘話', W / 2, y - 175 * sc, { font: `400 ${44 * sc}px ${DOT}`, color: C.cy, align: 'center', alpha: ti, ls: 6, glow: C.cy, blur: 12 });
+    gtext('ポリシーの壁', W / 2, y, { font: `400 ${220 * sc}px ${DOT}`, color: C.wht, align: 'center', glow: C.red, blur: 50, alpha: ti }, (1 - PT(t, T_TITLE, 1.2)) + .15 * (Math.sin(t * 3) > .97 ? 1 : 0), t);
+    txt('POLICY WALL ― OFFICE GPO / DEFENDER ASR / EDGE POLICY + 1 BYPASS', W / 2, y + 160 * sc, { font: `400 ${30 * sc}px ${HUD}`, color: C.red, align: 'center', alpha: ti * PT(t, T_TITLE + .4, .5), ls: 4 });
+    // あの頃（IE）と、いま
+    const cmp = PT(t, F('op8', .2), .5);
+    if (cmp > 0) {
+      frame(220, 470, 680, 300, { title: 'THEN // IE', status: 'NO POLICY', color: C.pass, alpha: cmp });
+      const ieCode = 'CreateObject("InternetExplorer.Application")';
+      const ieFs = Math.min(25, Math.floor(25 * 620 / tw(ieCode, `400 25px ${CODE}`)));
+      txt(ieCode, 250, 560, { font: `400 ${ieFs}px ${CODE}`, color: C.pass, alpha: cmp });
+      typed('→ そのまま動いた', 250, 640, PT(t, F('op8', .25), .4), { font: `400 40px ${DOT}`, color: C.wht, alpha: cmp, cursor: false });
+      frame(1020, 470, 680, 300, { title: 'NOW // Edge', status: 'POLICY ×3', statusColor: C.red, color: C.red, alpha: PT(t, F('op8', .5), .5) });
+      ['OFFICE GPO', 'DEFENDER ASR', 'EDGE POLICY'].forEach((n, i) => {
+        const a = PT(t, F('op8', .55 + i * .1), .3);
+        badge('■ ' + n, 1060, 550 + i * 64, { color: C.red, alpha: a, font: `400 28px ${HUD}` });
+        stamp('LOCK', 1590, 550 + i * 64, t, F('op8', .58 + i * .1), { size: 26, rot: 0 });
+      });
+    }
+  }
+};
+
+// ---------- 3枚の壁 ----------
+const WALLX = [620, 960, 1300];
+const WALLN = [['L1', 'OFFICE GPO'], ['L2', 'DEFENDER ASR'], ['L3', 'EDGE POLICY']];
+['wl2', 'wl3'].forEach(id => cue(L(id).start, 'pop'));
+cue(L('wl4').start + .2, 'lock');
+[.32, .55, .8].forEach((f, i) => { cue(F('wl6', f), 'wallUp', { i }); HITS.push([F('wl6', f) + .05, 8]); });
+HITS.push([L('wl7').start, 14]);
+cue(L('wl8').start + .4, 'scan');
+
+SCN.walls = function (t, s) {
+  bgBoard(t, { acc: C.cy });
+  header('MAP // EXCEL.EXE → MSEDGE.EXE', '会社 PC の通り道', t, s.start + .2);
+  const mapA = PT(t, s.start + .3, .6);
+  node(260, 560, 'EXCEL.EXE', 'VBA', { alpha: mapA });
+  node(1660, 560, 'MSEDGE.EXE', 'Edge', { alpha: mapA });
+  const route = [[375, 560], [1545, 560]];
+  beam(route, C.cy, 4, E.inOut(PT(t, s.start + .5, 1)), { alpha: .8 });
+  const anyWall = t > F('wl6', .32);
+  packets(route, t, C.cy, { n: 4, speed: .35, label: 'CDP', stop: anyWall ? (WALLX[0] - 40 - 375) / 1170 : 2 });
+  // 設定する場所（グループポリシーエディター / レジストリエディター）
+  const toolA = PT(t, L('wl2').start, .35) * (1 - PT(t, L('wl6').start, .4));
+  if (toolA > 0) {
+    frame(360, 200, 560, 250, { title: 'gpedit.msc', status: 'LOCAL GPO', alpha: toolA });
+    ['管理用テンプレート', '├ Microsoft Office', '├ Windows Defender', '└ Microsoft Edge'].forEach((r, i) => txt(r, 390, 290 + i * 40, { font: `400 28px ${DOT}`, color: C.wht, alpha: toolA * PT(t, L('wl2').start + .2 + i * .15, .2) }));
+    frame(1000, 200, 560, 250, { title: 'regedit.exe', status: 'HKLM', alpha: PT(t, F('wl2', .45), .35) * (1 - PT(t, L('wl6').start, .4)) });
+    ['HKLM\\SOFTWARE\\Policies', '  \\Microsoft\\Office\\…', '  \\Microsoft\\Edge'].forEach((r, i) => txt(r, 1030, 290 + i * 44, { font: `400 26px ${CODE}`, color: C.cy, alpha: PT(t, F('wl2', .5) + i * .15, .2) * (1 - PT(t, L('wl6').start, .4)) }));
+    if (t > L('wl3').start) {
+      // 囲むのは Office / Defender / Edge の行（gpedit）と、\Microsoft\Office・\Microsoft\Edge の行（regedit）
+      const gw = Math.max(...['├ Microsoft Office', '├ Windows Defender', '└ Microsoft Edge'].map(r => tw(r, `400 28px ${DOT}`)));
+      const rw = Math.max(...['  \\Microsoft\\Office\\…', '  \\Microsoft\\Edge'].map(r => tw(r, `400 26px ${CODE}`)));
+      focus(372, 300, gw + 46, 140, t, F('wl3', .2), { color: C.red });
+      focus(1012, 304, rw + 46, 104, t, F('wl3', .3), { color: C.red });
+      typed('VBA → Edge を止める設定が、ここに', W / 2, 760, PT(t, F('wl3', .3), .6), { font: `400 44px ${DOT}`, color: C.red, align: 'center', alpha: toolA, cursor: false });
+    }
+  }
+  // 管理者だけ / 見るだけ
+  const adm = PT(t, L('wl4').start, .3) * (1 - PT(t, L('wl6').start, .4));
+  if (adm > 0) {
+    stamp('ADMIN ONLY', 1460, 790, t, L('wl4').start + .2, { color: C.yel, size: 40, rot: -4 });
+  }
+  const ro = PT(t, L('wl5').start, .3) * (1 - PT(t, L('wl6').start, .4));
+  if (ro > 0) {
+    sprite('zundamon', 240, 680, 9, { alpha: ro, glow: C.grn });
+    badge('READ-ONLY', 300, 840, { color: C.grn, alpha: ro, align: 'center' });
+  }
+  // 3枚の壁
+  [.32, .55, .8].forEach((f, i) => {
+    const a = PT(t, F('wl6', f), .25);
+    if (a <= 0) return;
+    const drop = E.out(a);
+    const shakeW = t > L('wl7').start && t < L('wl7').end ? Math.sin(t * 50 + i) * 6 : 0;
+    wall(WALLX[i] + shakeW, lerp(-300, 280, drop), lerp(-300, 280, drop) + 560, `${WALLN[i][0]} ${WALLN[i][1]}`, t, { color: C.red, alpha: a });
+    const name = ['Office 系のポリシー', 'ASR ルール', 'Edge のポリシー'][i];
+    txt(name, WALLX[i], 860, { font: `400 32px ${DOT}`, color: C.wht, align: 'center', alpha: a });
+  });
+  // 厳しい順にスキャン
+  if (t > L('wl8').start) {
+    const sx = lerp(300, 1600, PT(t, L('wl8').start + .4, 2.2));
+    ctx.save(); ctx.globalAlpha = .8 * (1 - PT(t, s.end - .6, .5));
+    const g = ctx.createLinearGradient(sx - 120, 0, sx + 10, 0);
+    g.addColorStop(0, hexA(C.cy, 0)); g.addColorStop(1, hexA(C.cy, .35));
+    ctx.fillStyle = g; ctx.fillRect(sx - 120, 200, 130, 640);
+    ctx.fillStyle = C.cy; ctx.fillRect(sx, 200, 3, 640);
+    ctx.restore();
+    WALLX.forEach((x, i) => {
+      if (sx < x) return;
+      badge(`SEVERITY #${i + 1}`, x, 196, { color: i === 0 ? C.red : C.yel, align: 'center', alpha: PT(t, L('wl8').start + .4 + (x - 300) / 1300 * 2.2, .2) });
+    });
+  }
+};
+
+// シーン: L1 Office 系のポリシー（VBA を無効にする / マクロ実行時のスキャンの範囲・自動セキュリティ）
+
+// 画像の注目箇所（元画像の画素）
+const R1 = { crop: [0, 0, 1129, 671], r: [497, 267, 612, 20] };
+const R2 = { crop: [0, 0, 1523, 906], r: [583, 346, 362, 214] };
+const R3a = { crop: [0, 0, 608, 375], r: [-2, 61, 152, 92] };
+const R3b = { crop: [0, 0, 608, 375], r: [6, 242, 452, 28] };
+
+// 心電図のような線（VBA エンジンの鼓動）。flat: 0〜1 で平らになる
+function pulseLine(x, y, w, t, flat, col) {
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.shadowColor = col; ctx.shadowBlur = 14;
+  ctx.beginPath();
+  for (let i = 0; i <= w; i += 4) {
+    const ph = ((i / 160) - t * .9) % 1, q = (ph + 1) % 1;
+    let v = 0;
+    if (q > .4 && q < .5) v = Math.sin((q - .4) / .1 * Math.PI * 2) * 60;
+    if (q > .5 && q < .55) v = -Math.sin((q - .5) / .05 * Math.PI) * 20;
+    ctx[i ? 'lineTo' : 'moveTo'](x + i, y - v * (1 - flat));
+  }
+  ctx.stroke(); ctx.restore();
+}
+// ツールの札
+function toolCard(x, y, name, sub, t, t0, o = {}) {
+  const a = PT(t, t0, .3) * (o.alpha ?? 1);
+  if (a <= 0) return;
+  frame(x, y, 420, 170, { color: o.color || C.cy, alpha: a, title: 'MODULE', status: o.status || 'ONLINE' });
+  txt(name, x + 30, y + 92, { font: `400 40px ${DOT}`, color: C.wht, alpha: a });
+  txt(sub, x + 30, y + 140, { font: `400 22px ${HUD}`, color: C.dim, alpha: a });
+}
+
+// ---------- VBA を無効にする ----------
+cue(L('va1').start, 'alarm');
+cue(F('va2', .1), 'zoom');
+cue(F('va4', .55), 'flatline');
+cue(F('va5', .2), 'stamp'); cue(F('va5', .55), 'stamp');
+HITS.push([F('va5', .2), 10], [F('va5', .55), 12]);
+cue(L('va6').start, 'deny'); GLITCH.push([L('va6').start, .4, .7]);
+cue(L('va7').start, 'pop'); cue(F('va7', .25), 'lock');
+cue(L('va8').start, 'pop'); cue(F('va8', .55), 'glitch');
+cue(L('va9').start + .2, 'dissolve');
+cue(F('va10', .2), 'boot');
+
+SCN.vbaoff = function (t, s) {
+  bgBoard(t, { acc: C.red, c1: '#1a0610', grid: .1 });
+  header('LAYER 1 // OFFICE GPO', '最も厳しい壁', t, s.start + .2, { color: C.red });
+  // 脅威度
+  const thA = PT(t, L('va1').start, .4) * (1 - PT(t, F('va2', .05), .3));
+  if (thA > 0) {
+    txt('THREAT LEVEL', W / 2, 330, { font: `400 36px ${HUD}`, color: C.red, align: 'center', alpha: thA, ls: 10 });
+    bar(W / 2 - 500, 380, 1000, 70, PT(t, L('va1').start + .2, 1.2), C.red, { alpha: thA });
+    gtext('MAX', W / 2, 560, { font: `400 150px ${DOT}`, color: C.red, align: 'center', glow: C.red, blur: 40, alpha: PT(t, L('va1').start + 1.3, .2) * thA }, .5, t);
+  }
+  // グループポリシーの画面
+  const s1 = PT(t, F('va2', .05), .35) * (1 - PT(t, L('va5').start - .2, .3));
+  if (s1 > 0) {
+    const side = E.inOut(PT(t, L('va4').start, .7));
+    const w = lerp(1016, 700, side), h = w * 671 / 1129, x = lerp(452, 120, side), y = lerp(230, 260, side);
+    shot(1, x, y, w, h, { alpha: s1, crop: R1.crop, title: 'gpedit.msc // セキュリティ設定' });
+    const [fx, fy, fw, fh] = shotMap(R1, x, y, w, h);
+    focus(fx, fy, fw, fh, t, F('va2', .3), { color: C.red, fill: true, alpha: s1 });
+    if (side < .5) badge('VBA を無効にする = 有効', x + w - 20, y + h + 50, { color: C.red, align: 'right', alpha: s1 * PT(t, F('va2', .5), .3), font: `400 30px ${DOT}` });
+  }
+  // レジストリと、止まる鼓動
+  const rg = PT(t, L('va4').start + .4, .3) * (1 - PT(t, L('va5').start - .2, .3));
+  if (rg > 0) {
+    frame(900, 230, 900, 250, { title: 'regedit.exe', status: 'HKLM', alpha: rg, color: C.red });
+    term([['HKLM\\Software\\Policies\\Microsoft', C.dim], ['  \\Office\\16.0\\Common', C.dim], ['VBAOFF   REG_DWORD   0x00000001', C.red]], 940, 300, t, L('va4').start + .5, { rate: 4, font: `400 30px ${CODE}`, alpha: rg, lh: 52 });
+    frame(900, 520, 900, 250, { title: 'VBA ENGINE', status: t > F('va4', .7) ? 'OFFLINE' : 'RUNNING', statusColor: t > F('va4', .7) ? C.red : C.pass, alpha: rg, color: t > F('va4', .7) ? C.red : C.pass });
+    pulseLine(930, 660, 840, t, PT(t, F('va4', .5), .6), t > F('va4', .7) ? C.red : C.pass);
+  }
+  // 使えなくなるツール
+  const tl = 1 - PT(t, L('va7').start - .3, .3);
+  if (t > L('va5').start && tl > 0) {
+    ctx.save(); ctx.globalAlpha = tl;
+    toolCard(380, 380, '令和のIE', 'REIWA-IE (Excel VBA + CDP)', t, L('va5').start, { color: C.cy, status: t > F('va5', .2) ? 'DISABLED' : 'ONLINE' });
+    toolCard(1120, 380, 'SeleniumVBA', 'WebDriver / BiDi', t, F('va5', .1), { color: C.cy, status: t > F('va5', .55) ? 'DISABLED' : 'ONLINE' });
+    stamp('DISABLED', 590, 470, t, F('va5', .2), { size: 54 });
+    stamp('DISABLED', 1330, 470, t, F('va5', .55), { size: 54 });
+    txt('最強のポリシー', W / 2, 680, { font: `400 64px ${DOT}`, color: C.red, align: 'center', glow: C.red, alpha: PT(t, F('va5', .75), .3) });
+    ctx.restore();
+  }
+  // Access と Excel の画面
+  const s2 = PT(t, L('va7').start, .35) * (1 - PT(t, L('va8').start - .2, .3));
+  if (s2 > 0) {
+    const w = 1080, h = w * 906 / 1523, x = (W - w) / 2, y = 200;
+    shot(2, x, y, w, h, { alpha: s2, crop: R2.crop, title: 'MSACCESS.EXE', status: 'VBA NOT LOADED', color: C.red });
+    const [fx, fy, fw, fh] = shotMap(R2, x, y, w, h);
+    focus(fx, fy, fw, fh, t, F('va7', .25), { color: C.red, alpha: s2 });
+  }
+  const s3 = PT(t, L('va8').start, .35) * (1 - PT(t, L('va9').end, .3));
+  if (s3 > 0) {
+    const w = 960, h = w * 375 / 608, x = 200, y = 220;
+    shot(3, x, y, w, h, { alpha: s3, crop: R3a.crop, title: 'EXCEL.EXE', status: 'REPAIRED', color: C.red });
+    let [fx, fy, fw, fh] = shotMap(R3a, x, y, w, h);
+    // 元画像に赤枠があるので、重ねる囲みは黄色にする
+    focus(fx, fy, fw, fh, t, F('va8', .62), { color: C.yel, alpha: s3 });
+    [fx, fy, fw, fh] = shotMap(R3b, x, y, w, h);
+    focus(fx, fy, fw, fh, t, F('va8', .3), { color: C.red, fill: true, alpha: s3, arm: 14, lw: 3 });
+    // 消えていく vbaProject.bin
+    const fa = PT(t, F('va8', .3), .3) * s3;
+    if (fa > 0) {
+      const dis = PT(t, L('va9').start + .2, 2);
+      frame(1290, 330, 420, 300, { title: 'xl/', status: 'ZIP', alpha: fa, color: C.red });
+      txt('vbaProject.bin', 1500, 470, { font: `400 34px ${CODE}`, color: C.wht, align: 'center', alpha: fa * (1 - dis) });
+      for (let i = 0; i < 70 * dis; i++) {
+        ctx.save(); ctx.globalAlpha = fa * (1 - dis) * .9; ctx.fillStyle = i % 3 ? C.red : C.wht;
+        ctx.fillRect(1360 + hr(i) * 280 + (hr(i + 9) - .3) * 300 * dis, 450 + (hr(i + 4) - .5) * 40 - dis * 200 * hr(i + 2), 8, 8); ctx.restore();
+      }
+      stamp('DELETED', 1500, 560, t, F('va8', .45), { size: 44 });
+    }
+  }
+  // 専用ツールで乗り切る
+  const kA = PT(t, L('va10').start, .4);
+  if (kA > 0) {
+    frame(460, 210, 1000, 560, { title: 'KIOSK // 業務専用 PC', status: 'LOCKED DOWN', alpha: kA, color: C.cy });
+    const apps = [['ps1', '承認済み', 1], ['bat', '承認済み', 1], ['社内製 exe', '承認済み', 1], ['説明書', '承認済み', 1], ['Excel VBA', 'BLOCKED', 0], ['ブラウザ自動化', 'BLOCKED', 0]];
+    apps.forEach(([n, st, ok], i) => {
+      const a = PT(t, F('va10', .2) + i * .18, .25) * kA;
+      const x = 520 + (i % 3) * 310, y = 300 + Math.floor(i / 3) * 210;
+      frame(x, y, 270, 170, { color: ok ? C.pass : C.dim2, alpha: a, c: 12, fill: ok ? 'rgba(2,24,22,.8)' : 'rgba(10,10,12,.85)' });
+      txt(n, x + 135, y + 72, { font: `400 34px ${DOT}`, color: ok ? C.wht : C.dim, align: 'center', alpha: a });
+      txt((ok ? '✓ ' : '✕ ') + st, x + 135, y + 128, { font: `400 22px ${HUD}`, color: ok ? C.pass : C.red, align: 'center', alpha: a });
+    });
+    typed('用意されたツールで、乗り切ろ。', W / 2, 820, PT(t, F('va11', .6), .6), { font: `400 44px ${DOT}`, color: C.pass, align: 'center', alpha: kA, cursor: false });
+  }
+};
+
+// ---------- スキャンの範囲・自動セキュリティ ----------
+const CALLS = ['COM  Scripting.Dictionary.Add', 'W32  kernel32!Sleep', 'COM  Workbooks.Open', 'COM  Range.Value', 'W32  user32!FindWindowW', 'COM  CreateObject', 'COM  Dictionary.Exists', 'W32  kernel32!RtlMoveMemory', 'COM  WScript.Shell.Run', 'COM  Dictionary.Item', 'VBA  Shell', 'COM  Collection.Add'];
+const T_LANE = F('sc13', .2), T_GATE = F('sc16', .75);
+cue(L('sc2').start, 'pop'); cue(F('sc2', .5), 'pop');
+cue(L('sc4').start + .2, 'scan');
+for (let i = 0; i < 16; i++) cue(L('sc5').start + .3 + i * .3, 'tick', { i });
+cue(L('sc6').start, 'alarm'); GLITCH.push([L('sc6').start, .5, .6]);
+cue(F('sc10', .1), 'blip', { n: 64 }); cue(F('sc10', .42), 'blip', { n: 70 }); cue(F('sc10', .82), 'blip', { n: 84 });
+cue(T_LANE, 'whoosh'); cue(L('sc15').start, 'sparkle');
+cue(T_GATE, 'slam'); HITS.push([T_GATE + .05, 16]);
+cue(F('sc19', .6), 'stamp');
+
+// AMSI の流れ（VBA の実行 → 行動ログ → AMSI → ウイルス対策）
+function amsiFlow(t, a, lane) {
+  const ys = 470;
+  const nodes = [[260, 'VBA RUNTIME', 'マクロの実行'], [720, 'BEHAVIOR LOG', '呼び出しの記録'], [1180, 'AMSI', '検査の窓口'], [1640, 'AV ENGINE', 'Defender など']];
+  nodes.forEach(([x, n, sub], i) => node(x, ys, n, sub, { alpha: a * PT(t, L('sc4').start + i * .25, .3), color: i === 3 ? C.red : C.cy, w: 280 }));
+  for (let i = 0; i < 3; i++) {
+    const pts = [[nodes[i][0] + 140, ys], [nodes[i + 1][0] - 140, ys]];
+    beam(pts, C.cy, 3, PT(t, L('sc4').start + .3 + i * .25, .4), { alpha: a });
+    packets(pts, t + i * .2, C.cy, { n: 2, speed: .8, alpha: a });
+  }
+  // 速さのゲージ
+  if (lane > 0) {
+    const fast = t > T_LANE && t < T_GATE;
+    const lanePts = [[260, ys - 70], [260, 250], [1640, 250], [1640, ys - 70]];
+    beam(lanePts, fast ? C.pass : C.dim2, 4, PT(t, T_LANE, .8), { alpha: a * lane, dash: fast ? null : [14, 12] });
+    if (fast) packets(lanePts, t, C.pass, { n: 5, speed: 1.4, label: 'Workbooks.Open', size: 18, alpha: a });
+    txt('COM 経由で起動', W / 2, 210, { font: `400 34px ${DOT}`, color: fast ? C.pass : C.dim, align: 'center', alpha: a * PT(t, T_LANE, .4) });
+  }
+}
+
+SCN.scan = function (t, s) {
+  bgBoard(t, { acc: C.cy });
+  header('LAYER 1 // OFFICE GPO', 'そのほかの Office 系ポリシー', t, s.start + .2);
+  // 脅威の一覧
+  const lsA = PT(t, L('sc1').start, .4) * (1 - PT(t, L('sc2').start, .3));
+  if (lsA > 0) {
+    [['Office アプリケーションの VBA を無効にする', 'CRITICAL', C.red, 1], ['マクロ実行時のスキャンの範囲', 'LOW', C.yel, .25], ['自動セキュリティ', 'LOW', C.yel, .2], ['そのほかのマクロ関連の設定', 'MINIMAL', C.dim, .08]].forEach(([n, lv, col, p], i) => {
+      const a = PT(t, L('sc1').start + .2 + i * .25, .3) * lsA;
+      txt(n, 300, 330 + i * 110, { font: `400 38px ${DOT}`, color: C.wht, alpha: a });
+      bar(1150, 305 + i * 110, 380, 50, p * PT(t, L('sc1').start + .4 + i * .25, .6), col, { alpha: a });
+      txt(lv, 1560, 330 + i * 110, { font: `400 30px ${HUD}`, color: col, alpha: a });
+    });
+  }
+  // 2つのポリシーの画面
+  const thA = PT(t, L('sc2').start, .35) * (1 - PT(t, L('sc4').start - .2, .3));
+  if (thA > 0) {
+    shot(4, 120, 260, 900, 900 * 740 / 1859, { alpha: thA, crop: [0, 0, 1859, 740], title: 'マクロ実行時のスキャンの範囲', status: 'ENABLED' });
+    shot(5, 1180, 260, 600 * 773 / 677 * .9, 540, { alpha: PT(t, F('sc2', .5), .35) * (1 - PT(t, L('sc4').start - .2, .3)), crop: [0, 0, 773, 677], title: '自動セキュリティ', status: 'GPO' });
+  }
+  // AMSI の流れ
+  const flA = PT(t, L('sc4').start, .3) * (1 - PT(t, L('sc5').start + .1, .3));
+  const flB = PT(t, L('sc12').start, .3) * (1 - PT(t, L('sc19').start, .3));
+  if (flA > 0) amsiFlow(t, flA, 0);
+  // 循環バッファー: すべての呼び出しが記録される
+  const rbA = PT(t, L('sc5').start, .4) * (1 - PT(t, L('sc8').start, .3));
+  if (rbA > 0) {
+    const ringA = rbA * (1 - PT(t, L('sc7').start, .3));
+    const cx = 620, cy = 500, r = 250, n = 16;
+    const k = Math.floor(clamp((t - L('sc5').start - .3) / .3, 0, 999));
+    txt('CIRCULAR BUFFER', cx, cy - r - 60, { font: `400 28px ${HUD}`, color: C.cy, align: 'center', alpha: ringA, ls: 4 });
+    for (let i = 0; i < n; i++) {
+      const an = -Math.PI / 2 + i / n * Math.PI * 2;
+      const filled = i < k || k >= n;
+      const hot = i === k % n;
+      ctx.save(); ctx.globalAlpha = ringA; ctx.translate(cx + Math.cos(an) * r, cy + Math.sin(an) * r); ctx.rotate(an);
+      ctx.fillStyle = hot ? C.wht : filled ? hexA(C.red, .8) : hexA(C.cy, .15); ctx.shadowColor = C.red; ctx.shadowBlur = filled ? 14 : 0;
+      ctx.fillRect(-26, -40, 52, 80); ctx.restore();
+    }
+    const logged = t < L('sc6').start ? k * 37 + Math.floor(hr(k) * 30) : Math.floor(lerp(600, 999999, E.in(PT(t, L('sc6').start, 1.4))));
+    txt(String(logged).padStart(6, '0'), cx, cy - 10, { font: `400 80px ${HUD}`, color: C.red, align: 'center', alpha: ringA, glow: C.red });
+    txt('CALLS LOGGED', cx, cy + 60, { font: `400 24px ${HUD}`, color: C.dim, align: 'center', alpha: ringA, ls: 4 });
+    // 流れてくる呼び出し
+    const rows = CALLS.map((c, i) => [c, c.startsWith('W32') ? C.yel : C.cy]);
+    frame(1040, 220, 780, 560, { title: 'VBA → API CALLS', status: 'LOGGED', alpha: ringA });
+    term(rows, 1080, 290, t, L('sc5').start + .2, { rate: 3.4, font: `400 30px ${CODE}`, max: 11, lh: 44, alpha: ringA });
+    if (t > L('sc6').start) gtext('ぜんぶ記録', 1430, 860, { font: `400 64px ${DOT}`, color: C.red, align: 'center', glow: C.red, alpha: PT(t, L('sc6').start, .2) * ringA }, .4, t);
+    // 入れ子の Dictionary
+    const dA = PT(t, L('sc7').start, .4);
+    if (dA > 0) {
+      flash('#000', dA * .7);
+      for (let d = 0; d < 4; d++) {
+        const a = PT(t, L('sc7').start + .3 + d * .45, .3);
+        const m = d * 70;
+        frame(300 + m, 230 + m * .7, 1000 - m * 2, 540 - m * 1.4, { color: d % 2 ? C.cy : C.yel, alpha: a * rbA, title: `Scripting.Dictionary  [${d}]`, status: 'COM', c: 14, fill: 'rgba(2,14,20,.5)' });
+        for (let j = 0; j < 3; j++) {
+          const lt = (t * 1.6 + j * .33 + d * .2) % 1;
+          txt('LOG', 1330 - m, 270 + m * .7 + j * 40 + lt * 20, { font: `400 22px ${HUD}`, color: C.red, alpha: a * rbA * (1 - lt) });
+        }
+      }
+      txt('SPEED', 1600, 330, { font: `400 30px ${HUD}`, color: C.dim, align: 'center', alpha: dA * rbA });
+      const sp = lerp(1, .12, PT(t, L('sc7').start + .4, 3));
+      bar(1540, 360, 120, 420, 0, C.red, { alpha: dA * rbA });
+      ctx.save(); ctx.globalAlpha = dA * rbA; ctx.fillStyle = sp < .3 ? C.red : C.pass; ctx.fillRect(1548, 360 + 412 * (1 - sp), 104, 412 * sp); ctx.restore();
+    }
+  }
+  // 2016 と 365
+  const vA = PT(t, L('sc8').start, .4) * (1 - PT(t, L('sc10').start, .3));
+  if (vA > 0) {
+    frame(220, 260, 640, 420, { title: 'OFFICE 2016', status: 'PERPETUAL', alpha: vA, color: C.dim });
+    txt('AMSI 連携', 540, 430, { font: `400 44px ${DOT}`, color: C.dim, align: 'center', alpha: vA });
+    txt('なし', 540, 520, { font: `400 64px ${DOT}`, color: C.wht, align: 'center', alpha: vA });
+    const b = PT(t, L('sc9').start, .4);
+    frame(1060, 260, 640, 420, { title: 'MICROSOFT 365', status: 'SUBSCRIPTION', alpha: vA * Math.max(.3, b), color: C.red });
+    txt('AMSI 連携', 1380, 430, { font: `400 44px ${DOT}`, color: C.red, align: 'center', alpha: vA * b });
+    gtext('あり', 1380, 520, { font: `400 64px ${DOT}`, color: C.wht, align: 'center', glow: C.red, alpha: vA * b }, (1 - b), t);
+    typed('「Office のサブスクリプション バージョンにのみ適用されます」', W / 2, 760, PT(t, F('sc9', .5), .8), { font: `400 32px ${DOT}`, color: C.yel, align: 'center', alpha: vA, cursor: false });
+  }
+  // CopyMemory 1回の時間（対数の目盛り）
+  const cA = PT(t, L('sc10').start, .4) * (1 - PT(t, L('sc12').start - .2, .3));
+  if (cA > 0) {
+    frame(200, 220, 1520, 600, { title: 'BENCH // CopyMemory 1回あたり', status: 'kuroihako (2020)', alpha: cA });
+    const data = [['Avast', 1970, C.red, .1], ['Windows Defender', 447, C.yel, .42], ['Avira', 3, C.pass, .82]];
+    data.forEach(([n, v, col, f], i) => {
+      const a = PT(t, F('sc10', f), .3) * cA;
+      const y = 340 + i * 150;
+      txt(n, 260, y + 30, { font: `400 36px ${DOT}`, color: C.wht, alpha: a });
+      const w = 900 * Math.log10(v + 1) / Math.log10(2000) * E.out(PT(t, F('sc10', f), .8));
+      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 18; ctx.fillRect(640, y, Math.max(6, w), 60); ctx.restore();
+      txt(`${v} ns`, 660 + Math.max(6, w), y + 30, { font: `400 40px ${HUD}`, color: col, alpha: a });
+    });
+    txt('※ 目盛りは対数', 1690, 790, { font: `400 22px ${JP}`, color: C.dim, align: 'right', alpha: cA });
+  }
+  // 避ける手（COM 経由）と、自動セキュリティの関所
+  if (flB > 0) {
+    amsiFlow(t, flB, 1);
+    // 速さ
+    const sp = t < T_LANE ? .25 : t < T_GATE ? lerp(.25, 1, E.out(PT(t, T_LANE + .3, .8))) : lerp(1, .2, E.out(PT(t, T_GATE, .6)));
+    txt('SPEED', 1640, 700, { font: `400 26px ${HUD}`, color: C.dim, align: 'center', alpha: flB });
+    bar(1440, 730, 400, 50, sp, sp > .5 ? C.pass : C.red, { alpha: flB });
+    if (t > L('sc15').start && t < T_GATE) {
+      for (let i = 0; i < 12; i++) {
+        const a = Math.sin((t - L('sc15').start) * 3 + i) ** 2;
+        txt('✦', 600 + hr(i) * 700, 180 + hr(i + 3) * 120, { font: `400 ${20 + hr(i + 5) * 30}px ${HUD}`, color: C.pass, alpha: a * flB });
+      }
+      txt('あら不思議', W / 2, 140, { font: `400 50px ${DOT}`, color: C.pass, align: 'center', glow: C.pass, alpha: PT(t, L('sc15').start + .5, .3) * flB });
+    }
+    // 関所
+    if (t > T_GATE - .3) {
+      const g = E.out(PT(t, T_GATE - .3, .3));
+      ctx.save(); ctx.globalAlpha = flB; ctx.fillStyle = C.red; ctx.shadowColor = C.red; ctx.shadowBlur = 30;
+      ctx.fillRect(940 - 14, lerp(80, 200, g), 28, 100); ctx.restore();
+      stamp('自動セキュリティ', W / 2, 330, t, T_GATE, { size: 40, font: DOT, ls: 2 });
+      typed('「マクロを既定で無効にする」→ 高速化は使えない', W / 2, 640, PT(t, L('sc17').start, 1.2), { font: `400 36px ${DOT}`, color: C.red, align: 'center', alpha: flB, cursor: false });
+    }
+  }
+  // 脅威は低い
+  const lowA = PT(t, L('sc19').start, .4);
+  if (lowA > 0) {
+    txt('実行は、できる', W / 2, 400, { font: `400 64px ${DOT}`, color: C.wht, align: 'center', alpha: lowA });
+    stamp('THREAT: LOW', W / 2, 580, t, F('sc19', .6), { color: C.yel, size: 64 });
+  }
+};
+
+// シーン: L2 ASR ルール（Win32 API / 奇妙な現象1 / 子プロセス / 奇妙な現象2）と、なぜ厳しいのか
+
+const R6a = { crop: [0, 0, 1643, 735], r: [262, 108, 662, 30] };
+const R6b = { crop: [0, 0, 1643, 735], r: [743, 622, 496, 32] };
+const R7 = { crop: [0, 0, 1227, 510], r: [24, 381, 404, 28] };
+
+// ASR の紋章（六角形）
+function asrEmblem(x, y, r, t, a, col = C.red) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y);
+  for (let k = 0; k < 3; k++) {
+    ctx.save(); ctx.rotate(t * (k % 2 ? -.4 : .3)); ctx.strokeStyle = hexA(col, .9 - k * .25); ctx.lineWidth = 4 - k; ctx.shadowColor = col; ctx.shadowBlur = 20;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) { const an = Math.PI / 3 * i; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(an) * r * (1 + k * .22), Math.sin(an) * r * (1 + k * .22)); }
+    ctx.closePath(); ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+  txt('ASR', x, y + 4, { font: `400 ${r * .55}px ${HUD}`, color: col, align: 'center', alpha: a, glow: col, ls: 4 });
+}
+// 規則の札（名前と GUID）
+function ruleCard(x, y, name, guid, t, t0, o = {}) {
+  const a = PT(t, t0, .35) * (o.alpha ?? 1);
+  if (a <= 0) return;
+  frame(x, y, 1100, 190, { title: 'ATTACK SURFACE REDUCTION RULE', status: o.status || 'BLOCK', statusColor: C.red, color: C.red, alpha: a });
+  // 長い規則名は枠の幅に収まるまで文字を小さくする
+  const fs = Math.min(40, Math.floor(40 * 1020 / tw(name, `400 40px ${DOT}`)));
+  typed(name, x + 40, y + 98, PT(t, t0 + .2, .9), { font: `400 ${fs}px ${DOT}`, color: C.wht, alpha: a, cursor: false });
+  txt('GUID ' + guid, x + 40, y + 154, { font: `400 24px ${CODE}`, color: C.dim, alpha: a * PT(t, t0 + .8, .4) });
+}
+// ファイルの札（スキャナーを通る）
+function fileCard(x, y, name, sub, col, a) {
+  if (a <= 0) return;
+  frame(x - 210, y - 70, 420, 140, { color: col, alpha: a, c: 12 });
+  txt(name, x, y - 14, { font: `400 28px ${CODE}`, color: C.wht, align: 'center', alpha: a });
+  txt(sub, x, y + 34, { font: `400 24px ${DOT}`, color: col, align: 'center', alpha: a });
+}
+// プロセスの木: 親から子へ線を引き、結果（✓/✕）を付ける
+function procTree(px, py, parent, kids, t, a) {
+  if (a <= 0) return;
+  node(px, py, parent, null, { alpha: a, w: 280, h: 90, size: 30 });
+  kids.forEach(([name, ok, t0, col], i) => {
+    const kx = px + 520, ky = py - (kids.length - 1) * 75 + i * 150;
+    const p = PT(t, t0, .4);
+    if (p <= 0) return;
+    const c = ok === null ? C.cy : ok ? C.pass : C.red;
+    const pts = [[px + 140, py], [px + 260, py], [px + 260, ky], [kx - 150, ky]];
+    beam(pts, c, 3, E.out(p), { alpha: a });
+    node(kx, ky, name, null, { alpha: a * p, w: 300, h: 90, size: 28, color: c });
+    if (ok !== null && t > t0 + .45) txt(ok ? '✓' : '✕', kx + 190, ky, { font: `400 54px ${HUD}`, color: c, alpha: a * PT(t, t0 + .45, .2), glow: c });
+  });
+}
+
+// ---------- Win32 API 呼び出しをブロック ----------
+cue(L('wa1').start, 'boot');
+cue(L('wa3').start + .2, 'pop');
+cue(F('wa5', .55), 'deny');
+cue(L('wa7').start + .1, 'pop'); cue(F('wa7', .55), 'stamp'); HITS.push([F('wa7', .55), 10]);
+cue(F('wa9', .45), 'deny'); cue(F('wa9', .7), 'deny');
+
+SCN.win32 = function (t, s) {
+  bgBoard(t, { acc: C.red, c1: '#14060c', grid: .1 });
+  header('LAYER 2 // DEFENDER ASR', '攻撃面の減少ルール', t, s.start + .2, { color: C.red });
+  // 紋章と、決め打ちの規則
+  const eA = PT(t, L('wa1').start, .5) * (1 - PT(t, L('wa3').start, .3));
+  if (eA > 0) {
+    asrEmblem(560, 520, 170, t, eA);
+    frame(900, 330, 860, 360, { title: 'rule.engine', status: 'ARMED', color: C.red, alpha: PT(t, L('wa2').start, .3) * eA });
+    term([['if (behavior.matches(rule)) {', C.wht], ['    tool  = ANY;      // どんなツールでも', C.dim], ['    block(process);', C.red], ['}', C.wht]], 940, 410, t, L('wa2').start + .2, { rate: 2.4, font: `400 30px ${CODE}`, alpha: eA, lh: 52 });
+  }
+  // 1つ目の規則
+  ruleCard(410, 220, 'Office マクロからの Win32 API 呼び出しをブロックする', '92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b', t, L('wa3').start, { alpha: 1 - PT(t, L('wa7').start - .2, .3) });
+  // Declare
+  const dA = PT(t, L('wa4').start, .3) * (1 - PT(t, L('wa7').start - .2, .3));
+  if (dA > 0) {
+    frame(410, 450, 1100, 120, { title: 'Module1', status: 'VBA', alpha: dA });
+    const decl = 'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As Long)', declF = `400 27px ${CODE}`;
+    txt(decl, 454, 525, { font: declF, color: C.yel, alpha: dA, glow: C.yel, blur: 8 });
+    // かっこと文字の間に余白を取る
+    focus(434, 500, tw(decl, declF) + 50, 50, t, F('wa4', .4), { color: C.yel, alpha: dA });
+  }
+  // セーフとアウト
+  const lA = PT(t, L('wa5').start, .3) * (1 - PT(t, L('wa7').start - .2, .3));
+  if (lA > 0) {
+    frame(410, 610, 530, 210, { title: 'Excel の中で完結', status: 'SAFE', color: C.pass, alpha: lA });
+    ['Range.Value', 'Worksheets', 'Dictionary'].forEach((n, i) => txt('✓ ' + n, 450, 685 + i * 42, { font: `400 28px ${CODE}`, color: C.pass, alpha: lA }));
+    frame(980, 610, 530, 210, { title: 'Windows の機能を借りる', status: 'OUT', statusColor: C.red, color: C.red, alpha: PT(t, F('wa5', .45), .3) * lA });
+    ['Declare → kernel32', 'Declare → user32'].forEach((n, i) => txt('✕ ' + n, 1020, 685 + i * 42, { font: `400 28px ${CODE}`, color: C.red, alpha: PT(t, F('wa5', .5), .3) * lA }));
+    // 選べない
+    const nA = PT(t, L('wa6').start, .3);
+    if (nA > 0) {
+      flash('#000', nA * .75);
+      frame(460, 300, 1000, 440, { title: 'POLICY SETTINGS', status: 'READ ONLY', alpha: nA });
+      txt('API ごとの許可・禁止', 520, 400, { font: `400 36px ${DOT}`, color: C.wht, alpha: nA });
+      txt('選べない', 1400, 400, { font: `400 36px ${DOT}`, color: C.red, align: 'right', alpha: nA * PT(t, F('wa6', .2), .3) });
+      ['kernel32!Sleep', 'user32!FindWindowW', 'kernel32!RtlMoveMemory'].forEach((n, i) => {
+        txt('☐ ' + n, 560, 460 + i * 44, { font: `400 26px ${CODE}`, color: C.dim2, alpha: nA });
+      });
+      txt('除外できる単位', 520, 640, { font: `400 36px ${DOT}`, color: C.wht, alpha: nA * PT(t, F('wa6', .5), .3) });
+      badge('ファイル', 1060, 640, { color: C.cy, alpha: nA * PT(t, F('wa6', .6), .3), font: `400 30px ${DOT}` });
+      badge('フォルダー', 1250, 640, { color: C.cy, alpha: nA * PT(t, F('wa6', .7), .3), font: `400 30px ${DOT}` });
+    }
+  }
+  // Sleep がブロックされた画面
+  const s6 = PT(t, L('wa7').start, .35) * (1 - PT(t, L('wa9').start - .1, .3));
+  if (s6 > 0) {
+    const w = 1300, h = w * 735 / 1643, x = (W - w) / 2, y = 230;
+    shot(6, x, y, w, h, { alpha: s6, crop: R6a.crop, title: 'EXCEL.EXE + Windows セキュリティ', status: 'BLOCKED', color: C.red });
+    let [fx, fy, fw, fh] = shotMap(R6a, x, y, w, h);
+    focus(fx, fy, fw, fh, t, F('wa7', .15), { color: C.yel, alpha: s6, arm: 12, lw: 3 });
+    [fx, fy, fw, fh] = shotMap(R6b, x, y, w, h);
+    focus(fx, fy, fw, fh, t, F('wa7', .5), { color: C.red, fill: true, alpha: s6, arm: 12, lw: 3 });
+    if (t > L('wa8').start) {
+      txt('Zzz…', 1500, 330, { font: `400 80px ${DOT}`, color: C.grn, alpha: s6 * PT(t, L('wa8').start, .3) });
+      stamp('✕', 1560, 330, t, F('wa8', .45), { size: 80, rot: 0 });
+    }
+  }
+  // 動く / 保存 / 開く
+  const rA = PT(t, L('wa9').start, .3);
+  if (rA > 0) {
+    [['実行', true, .1], ['保存', false, .45], ['開く', false, .7]].forEach(([n, ok, f], i) => {
+      const a = PT(t, F('wa9', f), .25) * rA;
+      const x = 480 + i * 340;
+      frame(x, 360, 280, 300, { color: ok ? C.pass : C.red, alpha: a, title: ['RUN', 'SAVE', 'OPEN'][i] });
+      txt(n, x + 140, 470, { font: `400 50px ${DOT}`, color: C.wht, align: 'center', alpha: a });
+      txt(ok ? '✓' : '✕', x + 140, 580, { font: `400 90px ${HUD}`, color: ok ? C.pass : C.red, align: 'center', alpha: a, glow: ok ? C.pass : C.red });
+    });
+  }
+};
+
+// ---------- 奇妙な現象 1 ----------
+const AN1 = [
+  ['SeleniumVBA_BiDi.xlsm', 'Win32 API ふんだん', true, F('an2', .05)],
+  ['Access のマクロ', 'Win32 API ふんだん', true, F('an2', .55)],
+  ['令和のIE (xlsm)', 'Win32 API あり', false, L('an5').start],
+];
+cue(L('an1').start, 'anomaly'); GLITCH.push([L('an1').start, .8, .9]); HITS.push([L('an1').start + .1, 12]);
+AN1.forEach(([, , ok, t0]) => cue(t0 + 1.6, ok ? 'pass' : 'deny'));
+cue(F('an7', .75), 'stamp');
+
+function anomalyTitle(n, t, t0, t1) {
+  const a = PT(t, t0, .2) * (1 - PT(t, t1, .4));
+  if (a <= 0) return;
+  flash('#1a0020', a * .4);
+  gtext(`ANOMALY #${n}`, W / 2, 400, { font: `400 150px ${HUD}`, color: C.mag, align: 'center', glow: C.mag, blur: 40, alpha: a, ls: 8 }, .8, t);
+  txt('奇妙な現象', W / 2, 560, { font: `400 64px ${DOT}`, color: C.wht, align: 'center', alpha: a });
+}
+
+SCN.anomaly1 = function (t, s) {
+  bgBoard(t, { acc: C.mag, c1: '#14061a', grid: .1 });
+  header('LAYER 2 // ANOMALY', 'ブロックされないマクロ', t, s.start + .2, { color: C.mag });
+  anomalyTitle(1, t, L('an1').start, L('an2').start - .1);
+  // スキャナーの門
+  const gA = PT(t, L('an2').start - .2, .4) * (1 - PT(t, L('an6').start, .4));
+  if (gA > 0) {
+    const gx = 960;
+    ctx.save(); ctx.globalAlpha = gA;
+    const g = ctx.createLinearGradient(gx - 60, 0, gx + 60, 0);
+    g.addColorStop(0, hexA(C.red, 0)); g.addColorStop(.5, hexA(C.red, .35 + .15 * Math.sin(t * 9))); g.addColorStop(1, hexA(C.red, 0));
+    ctx.fillStyle = g; ctx.fillRect(gx - 60, 230, 120, 620);
+    ctx.restore();
+    txt('ASR: Win32 API', gx, 210, { font: `400 28px ${HUD}`, color: C.red, align: 'center', alpha: gA, ls: 2 });
+    AN1.forEach(([n, sub, ok, t0], i) => {
+      const p = PT(t, t0, 2.6);
+      if (p <= 0) return;
+      const y = 330 + i * 190;
+      const x = ok ? lerp(260, 1600, E.inOut(p)) : lerp(260, 820, E.out(clamp(p * 1.6)));
+      const after = x > gx;
+      fileCard(x, y, n, sub, after ? C.pass : ok ? C.cy : C.red, gA);
+      if (t > t0 + 1.6) stamp(ok ? 'PASS' : 'BLOCKED', ok ? 1600 : 820, y - 70, t, t0 + 1.6, { color: ok ? C.pass : C.red, size: 36 });
+    });
+    if (t > L('an4').start) {
+      sprite('zundamon', 1620, 700, 8, { alpha: gA * (1 - PT(t, L('an5').start, .3)), glow: C.grn });
+      txt('ずるい！', 1680, 670, { font: `400 50px ${DOT}`, color: C.grn, align: 'center', alpha: gA * (1 - PT(t, L('an5').start, .3)) });
+    }
+    if (t > F('an5', .55)) badge('Microsoft 365 なら Access が入っていることも多い', W / 2, 880 - 60, { color: C.yel, align: 'center', alpha: PT(t, F('an5', .55), .3) * gA, font: `400 30px ${DOT}` });
+  }
+  // 理由は分からない（推測）
+  const qA = PT(t, L('an6').start, .4);
+  if (qA > 0) {
+    frame(360, 250, 1200, 520, { title: 'ROOT CAUSE ANALYSIS', status: 'UNRESOLVED', statusColor: C.yel, color: C.mag, alpha: qA });
+    txt('REASON:', 420, 360, { font: `400 34px ${HUD}`, color: C.dim, alpha: qA });
+    gtext('UNKNOWN', 660, 360, { font: `400 54px ${HUD}`, color: C.mag, alpha: qA, glow: C.mag }, .3, t);
+    typed('仮説: 歴史のあるツールだから、信頼されている？', 420, 480, PT(t, F('an7', .3), 1.2), { font: `400 38px ${DOT}`, color: C.wht, alpha: qA, t });
+    stamp('推測', 1380, 640, t, F('an7', .75), { color: C.yel, size: 60, font: DOT, ls: 8 });
+  }
+};
+
+// ---------- 子プロセスの作成をブロック ----------
+cue(L('cp1').start + .2, 'pop');
+cue(F('cp4', .12), 'deny'); cue(F('cp4', .2), 'deny'); cue(F('cp4', .62), 'deny'); HITS.push([F('cp4', .62), 12]);
+cue(F('cp6', .5), 'pass');
+
+SCN.child = function (t, s) {
+  bgBoard(t, { acc: C.red, c1: '#14060c', grid: .1 });
+  header('LAYER 2 // DEFENDER ASR', '2つ目の規則', t, s.start + .2, { color: C.red });
+  ruleCard(410, 200, 'すべての Office アプリケーションによる子プロセスの作成をブロックする', 'd4f940ab-401b-4efc-aadc-ad5f3c50688a', t, L('cp1').start, { alpha: 1 - PT(t, L('cp2').start, .3) });
+  // PowerShell / バッチ
+  const tA = PT(t, L('cp2').start, .35) * (1 - PT(t, F('cp4', .45), .3));
+  if (tA > 0) {
+    procTree(420, 520, 'EXCEL.EXE', [
+      ['powershell.exe', t > F('cp4', .12) ? false : null, F('cp2', .3)],
+      ['cmd.exe (bat)', t > F('cp4', .2) ? false : null, F('cp2', .55)],
+    ], t, tA);
+    if (t > L('cp3').start) badge('ZIP の解凍など', 1420, 300, { color: C.grn, alpha: tA * PT(t, L('cp3').start, .3), font: `400 30px ${DOT}` });
+  }
+  // WebDriver
+  const wA = PT(t, F('cp4', .45), .35) * (1 - PT(t, L('cp6').start, .3));
+  if (wA > 0) {
+    const w = 1100, h = w * 510 / 1227, x = 120, y = 250;
+    shot(7, x, y, w, h, { alpha: wA, crop: R7.crop, title: 'Windows セキュリティ // 保護の履歴', status: 'BLOCKED', color: C.red });
+    const [fx, fy, fw, fh] = shotMap(R7, x, y, w, h);
+    focus(fx, fy, fw, fh, t, F('cp4', .62), { color: C.red, fill: true, alpha: wA, arm: 12, lw: 3 });
+    node(1550, 400, 'EXCEL.EXE', null, { alpha: wA, w: 300, h: 90, size: 30 });
+    node(1550, 650, 'msedgedriver.exe', null, { alpha: wA, w: 320, h: 90, size: 26, color: C.red });
+    line(1550, 445, 1550, 605, C.red, 3, wA, [10, 8]);
+    stamp('BLOCKED', 1550, 525, t, F('cp4', .62), { size: 36 });
+  }
+  // 手で起動すれば回避できる
+  const mA = PT(t, L('cp6').start, .35);
+  if (mA > 0) {
+    node(420, 360, 'explorer.exe', '手で起動', { alpha: mA, w: 300 });
+    node(420, 680, 'EXCEL.EXE', 'VBA', { alpha: mA, w: 300 });
+    node(1100, 360, 'msedgedriver.exe', '--port=9516', { alpha: mA * PT(t, F('cp6', .5), .3), w: 380, color: C.pass });
+    beam([[570, 360], [910, 360]], C.pass, 3, PT(t, F('cp6', .5), .5), { alpha: mA });
+    beam([[570, 680], [800, 680], [800, 420], [910, 420]], C.cy, 3, PT(t, F('cp6', .7), .6), { alpha: mA, dash: [12, 10] });
+    txt('HTTP で接続', 830, 600, { font: `400 26px ${HUD}`, color: C.cy, alpha: mA * PT(t, F('cp6', .75), .3) });
+    node(1600, 360, 'msedge.exe', null, { alpha: mA * PT(t, F('cp6', .8), .3), w: 260, color: C.pass });
+    beam([[1290, 360], [1470, 360]], C.pass, 3, PT(t, F('cp6', .8), .4), { alpha: mA });
+    stamp('回避', 1300, 640, t, F('cp6', .9), { color: C.pass, size: 64, font: DOT });
+    txt('止まるのは「Office が外を起動する道」だけ', W / 2, 820, { font: `400 36px ${DOT}`, color: C.wht, align: 'center', alpha: mA * PT(t, F('cp6', .2), .3) });
+  }
+};
+
+// ---------- 奇妙な現象 2: ブラウザは起動できる ----------
+const LUA = [
+  ['GetPathExclusions = function()', C.dim],
+  ['  local l_3_0 = {}', C.dim],
+  ['  l_3_0["%programfiles%\\\\7-Zip"] = 2', C.dim],
+  ['  l_3_0["%programfiles%\\\\Opera"] = 2', C.wht],
+  ['  ...', C.dim],
+  ['  l_3_0["%programfiles%\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe"] = 2', C.pass],
+  ['  ...', C.dim],
+  ['  l_3_1 = "%localappdata%\\\\google\\\\chrome\\\\application\\\\chrome.exe"', C.pass],
+  ['  l_3_1 = "%localappdata%\\\\mozilla firefox\\\\firefox.exe"', C.pass],
+  ['  l_3_1 = "%localappdata%\\\\microsoft\\\\edge\\\\application\\\\msedge.exe"', C.pass],
+];
+cue(L('ab1').start, 'anomaly'); GLITCH.push([L('ab1').start, .8, .9]); HITS.push([L('ab1').start + .1, 12]);
+cue(F('ab2', .3), 'deny'); cue(L('ab4').start, 'pass'); cue(L('ab4').start + .1, 'blip', { n: 84 });
+cue(L('ab8').start + .3, 'scan');
+cue(L('ab9').start, 'title'); HITS.push([L('ab9').start + .05, 14]);
+
+SCN.anomaly2 = function (t, s) {
+  bgBoard(t, { acc: C.mag, c1: '#14061a', grid: .1 });
+  header('LAYER 2 // ANOMALY', 'ブラウザは起動できる', t, s.start + .2, { color: C.mag });
+  anomalyTitle(2, t, L('ab1').start, L('ab2').start - .1);
+  // Shell の行
+  const cA = PT(t, L('ab2').start, .3) * (1 - PT(t, L('ab6').start, .3));
+  if (cA > 0) {
+    frame(200, 230, 900, 240, { title: 'イミディエイト ウィンドウ', status: 'VBA', alpha: cA });
+    txt('Shell "powershell.exe -Command ..."', 240, 310, { font: `400 30px ${CODE}`, color: C.wht, alpha: cA });
+    if (t > F('ab2', .3)) txt('✕ BLOCKED', 1060, 310, { font: `400 30px ${HUD}`, color: C.red, align: 'right', alpha: cA });
+    typed('Shell "msedge.exe"', 240, 400, PT(t, F('ab2', .62), .8), { font: `400 30px ${CODE}`, color: C.yel, alpha: cA, t });
+    if (t > L('ab3').start && t < L('ab4').start) txt('?', 1000, 400, { font: `400 70px ${HUD}`, color: C.yel, align: 'center', alpha: cA * (Math.floor(t * 4) % 2) });
+    procTree(560, 660, 'EXCEL.EXE', [['msedge.exe', t > L('ab4').start ? true : null, F('ab2', .8)]], t, cA);
+    if (t > L('ab4').start) {
+      stamp('ALLOWED', 1400, 560, t, L('ab4').start, { color: C.pass, size: 48 });
+      packets([[1230, 660], [1700, 660]], t, C.pass, { n: 3, speed: .7, label: 'CDP', alpha: cA });
+      beam([[1230, 660], [1700, 660]], C.pass, 3, PT(t, L('ab4').start + .2, .5), { alpha: cA });
+    }
+  }
+  // ハイパーリンクも、VBA も同じ「Office が開くブラウザ」
+  const hA = PT(t, L('ab6').start, .35) * (1 - PT(t, L('ab8').start, .3));
+  if (hA > 0) {
+    frame(200, 240, 620, 300, { title: 'Book1.xlsx', status: 'CELL', alpha: hA });
+    for (let i = 0; i < 4; i++) line(200, 300 + i * 60, 820, 300 + i * 60, C.dim2, 1, hA);
+    txt('https://example.com', 240, 390, { font: `400 30px ${CODE}`, color: '#7cc7ff', alpha: hA });
+    line(240, 408, 530, 408, '#7cc7ff', 2, hA);
+    frame(200, 590, 620, 160, { title: 'Module1', status: 'VBA', alpha: hA * PT(t, F('ab6', .3), .3) });
+    txt('Shell "msedge.exe"', 240, 680, { font: `400 30px ${CODE}`, color: C.yel, alpha: hA * PT(t, F('ab6', .3), .3) });
+    [[820, 390], [820, 670]].forEach(([x, y], i) => beam([[x, y], [1080, 520]], C.cy, 3, PT(t, F('ab6', .2 + i * .25), .5), { alpha: hA }));
+    node(1230, 520, 'EXCEL.EXE', '親', { alpha: hA, w: 300 });
+    beam([[1380, 520], [1560, 520]], C.pass, 3, PT(t, F('ab6', .6), .4), { alpha: hA });
+    node(1690, 520, 'msedge.exe', '子', { alpha: hA * PT(t, F('ab6', .6), .3), w: 260, color: C.pass });
+    const rA = PT(t, L('ab7').start, .3);
+    if (rA > 0) {
+      frame(860, 660, 960, 170, { title: 'RULE LOGIC', status: 'd4f940ab', alpha: rA * hA, color: C.mag });
+      txt('起動元（VBA? リンク?）', 900, 740, { font: `400 32px ${DOT}`, color: C.dim, alpha: rA * hA });
+      txt('→ 区別しない', 1260, 740, { font: `400 32px ${DOT}`, color: C.dim, alpha: rA * hA });
+      txt('起動される exe の場所 → 判定', 900, 795, { font: `400 32px ${DOT}`, color: C.mag, alpha: rA * hA * PT(t, F('ab7', .5), .3) });
+    }
+  }
+  // 抜き出した Lua の除外リスト
+  const lA = PT(t, L('ab8').start, .35) * (1 - PT(t, L('ab11').start, .3));
+  if (lA > 0) {
+    frame(120, 220, 1680, 560, { title: 'ExtractedDefender // asr/d4f940ab… (decompiled Lua)', status: 'DUMP 2022-06', statusColor: C.yel, color: C.mag, alpha: lA });
+    term(LUA, 170, 300, t, L('ab8').start + .2, { rate: 3, font: `400 27px ${CODE}`, lh: 46, alpha: lA });
+    if (t > L('ab9').start) {
+      flash('#001a12', PT(t, L('ab9').start, .2) * .3);
+      gtext('WHITELIST', 1480, 300, { font: `400 90px ${HUD}`, color: C.pass, align: 'center', glow: C.pass, blur: 30, alpha: PT(t, L('ab9').start, .2) * lA, ls: 6 }, .3, t);
+    }
+    if (t > L('ab10').start) badge('⚠ 2022年の抜き出し。今と同じとは限らない', W / 2, 880 - 70, { color: C.yel, align: 'center', alpha: PT(t, F('ab10', .3), .3) * lA, font: `400 30px ${DOT}` });
+  }
+  // Outlook 向けの別ルール
+  const oA = PT(t, L('ab11').start, .35);
+  if (oA > 0) {
+    frame(300, 260, 1320, 480, { title: '別のルール // Office の通信アプリケーション', status: '26190899', color: C.dim, alpha: oA });
+    procTree(560, 500, 'OUTLOOK.EXE', [['chrome / firefox', true, F('ab11', .35)], ['Opera', false, F('ab11', .55)]], t, oA);
+    txt('※ Opera のフォーラムへの報告', 1580, 700, { font: `400 24px ${JP}`, color: C.dim, align: 'right', alpha: oA });
+  }
+};
+
+// ---------- なぜ、こんなに厳しいのか ----------
+const HEX = '4D5A90000300000004000000FFFF0000B8000000FC4883E4F0E8C0000000415141505251564831D265488B5260488B5218488B5220488B7250480FB74A4A4D31C94831C0AC3C617C022C2041C1C90D4101C1E2ED';
+cue(L('wy2').start + .2, 'alarm');
+cue(F('wy3', .55), 'click'); cue(F('wy3', .65), 'infect'); HITS.push([F('wy3', .7), 14]);
+cue(L('wy5').start + .2, 'glitch'); GLITCH.push([L('wy5').start, .5, .5]);
+cue(F('wy8', .2), 'pop'); cue(F('wy8', .45), 'pop'); cue(F('wy8', .7), 'pop');
+
+SCN.why = function (t, s) {
+  bgBoard(t, { acc: C.red, c1: '#12040a', grid: .08 });
+  header('INTERLUDE // THREAT HISTORY', 'なぜ、こんなに厳しいのか', t, s.start + .2, { color: C.red });
+  // チート
+  const cA = PT(t, L('wy2').start, .3) * (1 - PT(t, L('wy3').start, .3));
+  if (cA > 0) {
+    txt('Declare', W / 2 - 220, 480, { font: `400 110px ${CODE}`, color: C.yel, align: 'center', alpha: cA, glow: C.yel });
+    txt('=', W / 2 + 50, 480, { font: `400 110px ${HUD}`, color: C.wht, align: 'center', alpha: cA });
+    gtext('CHEAT', W / 2 + 320, 480, { font: `400 110px ${HUD}`, color: C.red, align: 'center', glow: C.red, alpha: cA }, .5, t);
+    txt('Win32 API を直接触れる', W / 2, 640, { font: `400 44px ${DOT}`, color: C.wht, align: 'center', alpha: cA });
+  }
+  // なりすましメール → コンテンツの有効化 → 感染
+  const mA = PT(t, L('wy3').start, .3) * (1 - PT(t, L('wy4').end, .3));
+  if (mA > 0) {
+    frame(160, 220, 900, 560, { title: 'MAIL // 受信トレイ', status: 'INBOX', alpha: mA });
+    txt('差出人: 取引先の担当者', 200, 300, { font: `400 30px ${DOT}`, color: C.wht, alpha: mA });
+    txt('件名: 請求書の件', 200, 350, { font: `400 30px ${DOT}`, color: C.wht, alpha: mA });
+    badge('添付: 請求書.docm', 200, 420, { color: C.yel, alpha: mA, font: `400 28px ${CODE}` });
+    const yb = PT(t, F('wy3', .3), .3) * mA;
+    if (yb > 0) {
+      ctx.save(); ctx.globalAlpha = yb; ctx.fillStyle = '#fff4c2'; ctx.fillRect(200, 480, 820, 70); ctx.restore();
+      txt('⚠ マクロが無効にされました', 220, 515, { font: `700 28px ${JP}`, color: '#5a4300', alpha: yb });
+      const pressed = t > F('wy3', .55);
+      ctx.save(); ctx.globalAlpha = yb; ctx.strokeStyle = '#5a4300'; ctx.lineWidth = 2; ctx.fillStyle = pressed ? '#c9a400' : '#fffbe6';
+      ctx.fillRect(760, 490, 240, 50); ctx.strokeRect(760, 490, 240, 50); ctx.restore();
+      txt('コンテンツの有効化', 880, 515, { font: `700 24px ${JP}`, color: '#3a2a00', align: 'center', alpha: yb });
+    }
+    // 返信を装う
+    const rA = PT(t, L('wy4').start, .3);
+    if (rA > 0) {
+      ['Re: Re: お見積りの件', 'Re: お見積りの件', 'お見積りの件'].forEach((n, i) => txt(n, 220, 640 + i * 40, { font: `400 28px ${DOT}`, color: i === 0 ? C.red : C.dim, alpha: rA * mA }));
+      badge('本物のやりとりを転用', 760, 680, { color: C.red, alpha: rA * mA, font: `400 26px ${DOT}`, align: 'center' });
+    }
+    // 感染が広がる
+    const iA = PT(t, F('wy3', .65), .3) * mA;
+    if (iA > 0) {
+      for (let i = 0; i < 14; i++) {
+        const x = 1180 + (i % 4) * 160 + (Math.floor(i / 4) % 2) * 80, y = 280 + Math.floor(i / 4) * 140;
+        const inf = PT(t, F('wy3', .65) + hr(i) * 1.6, .2);
+        if (i > 0) line(x, y, 1180, 280, hexA(C.red, .4), 1, iA * inf);
+        ctx.save(); ctx.globalAlpha = iA; ctx.fillStyle = inf > .5 ? C.red : C.dim2; ctx.shadowColor = C.red; ctx.shadowBlur = inf > .5 ? 18 : 0;
+        ctx.fillRect(x - 26, y - 20, 52, 40); ctx.restore();
+      }
+      txt('感染', 1500, 840 - 60, { font: `400 50px ${DOT}`, color: C.red, align: 'center', alpha: iA, glow: C.red });
+    }
+  }
+  // ディスクに書かずに、メモリの上で
+  const hA = PT(t, L('wy5').start, .3) * (1 - PT(t, L('wy7').start, .3));
+  if (hA > 0) {
+    frame(160, 230, 1000, 540, { title: 'MEMORY 0x00007FF6A1C0', status: 'RWX', statusColor: C.red, color: C.red, alpha: hA });
+    for (let r = 0; r < 10; r++) {
+      const row = HEX.slice((r * 16) % (HEX.length - 32), (r * 16) % (HEX.length - 32) + 32).match(/../g).join(' ');
+      txt(row, 200, 310 + r * 44, { font: `400 26px ${CODE}`, color: r % 3 === 1 ? C.red : C.dim, alpha: hA * PT(t, L('wy5').start + r * .08, .2) });
+    }
+    frame(1260, 330, 480, 320, { title: 'DISK', status: 'IDLE', color: C.dim, alpha: hA });
+    txt('書き込み', 1500, 450, { font: `400 40px ${DOT}`, color: C.dim, align: 'center', alpha: hA });
+    txt('0 bytes', 1500, 550, { font: `400 64px ${HUD}`, color: C.wht, align: 'center', alpha: hA });
+    if (t > L('wy6').start) txt('こ、怖すぎるのだ…', W / 2, 840 - 30, { font: `400 40px ${DOT}`, color: C.grn, align: 'center', alpha: PT(t, L('wy6').start, .3) * hA * .8 });
+  }
+  // 会社にしみわたった VBA
+  const vA = PT(t, L('wy7').start, .3) * (1 - PT(t, L('wy8').start, .3));
+  if (vA > 0) {
+    for (let i = 0; i < 24; i++) {
+      const x = 260 + (i % 8) * 200, y = 300 + Math.floor(i / 8) * 170;
+      const a = PT(t, L('wy7').start + i * .06, .2) * vA;
+      frame(x - 70, y - 50, 140, 100, { color: C.pass, alpha: a, c: 10 });
+      txt('VBA', x, y, { font: `400 30px ${HUD}`, color: C.pass, align: 'center', alpha: a });
+    }
+    txt('業務の時短', W / 2, 820, { font: `400 50px ${DOT}`, color: C.pass, align: 'center', alpha: vA * PT(t, F('wy7', .6), .3), glow: C.pass });
+  }
+  // 場面に応じて強める
+  const fA = PT(t, L('wy8').start, .3);
+  if (fA > 0) {
+    [['未設定', 0, C.pass, .2], ['少し制限', 1, C.yel, .45], ['もっと強め', 3, C.red, .7]].forEach(([n, lv, col, f], i) => {
+      const a = PT(t, F('wy8', f), .3) * fA;
+      const x = 460 + i * 500;
+      frame(x - 180, 260, 360, 420, { color: col, alpha: a, title: 'PC-' + String(i + 1).padStart(2, '0'), status: n === '未設定' ? 'OPEN' : 'POLICY' });
+      txt(n, x, 380, { font: `400 44px ${DOT}`, color: C.wht, align: 'center', alpha: a });
+      for (let k = 0; k < 3; k++) {
+        ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = k < lv ? col : hexA(C.dim, .2); ctx.fillRect(x - 120 + k * 84, 480, 72, 120); ctx.restore();
+      }
+    });
+    typed('これが、Microsoft の出した答え？', W / 2, 800, PT(t, L('wy9').start, 1), { font: `400 44px ${DOT}`, color: C.cy, align: 'center', alpha: fA, cursor: false });
+  }
+};
+
+// シーン: L3 Edge のポリシー（RemoteDebuggingAllowed / UserDataDir / DeveloperToolsAvailability）と、WebView2 でのすり抜け
+
+// ツールの警告（画像8）: ダイアログのところだけを切り出す。最後の一文は伏せておき、チートの場面で明かす
+const R8 = { crop: [30, 278, 445, 194] };
+const R8hide = [[253, 382, 197, 16], [49, 395, 27, 14]];
+const R9 = { crop: [360, 60, 500, 175], r: [380, 78, 448, 140] };
+
+function evidence8(t, x, y, w, a, reveal = 0, o = {}) {
+  const h = w * R8.crop[3] / R8.crop[2];
+  shot(8, x, y, w, h, { alpha: a, crop: R8.crop, title: 'VBE // 実行時エラー 902', status: o.status || 'POLICY DETECTED', color: o.color || C.red });
+  // 伏せ字
+  R8hide.forEach(r => {
+    const [fx, fy, fw, fh] = shotMap({ crop: R8.crop, r }, x, y, w, h);
+    const k = clamp(reveal * 1.2 - (fx - x) / w * .2);
+    if (k >= 1) return;
+    ctx.save(); ctx.globalAlpha = a * (1 - k);
+    ctx.fillStyle = '#05080b'; ctx.fillRect(fx - 4, fy - 3, fw + 8, fh + 6);
+    ctx.fillStyle = C.mag;
+    for (let i = 0; i < fw / 14; i++) if (hr(i + Math.floor(t * 8)) > .35) ctx.fillRect(fx + i * 14, fy + 2, 10, fh - 4);
+    ctx.restore();
+  });
+  return [h];
+}
+function flagRow(x, y, k, v, col, a) {
+  txt(k, x, y, { font: `400 30px ${CODE}`, color: C.wht, alpha: a });
+  txt(v, x + 700, y, { font: `400 30px ${CODE}`, color: col, alpha: a, align: 'right' });
+}
+
+// ---------- RemoteDebuggingAllowed ----------
+cue(L('rd1').start, 'boot');
+cue(F('rd2', .55), 'cut'); cue(F('rd2', .62), 'cut'); HITS.push([F('rd2', .6), 12]);
+cue(F('rd4', .5), 'zoom');
+cue(F('rd5', .55), 'glitch'); GLITCH.push([F('rd5', .55), .35, .6]);
+cue(L('rd6').start + .5, 'pop');
+cue(L('rd7').start + .3, 'blip', { n: 88 });
+
+SCN.rda = function (t, s) {
+  bgBoard(t, { acc: C.cy });
+  header('LAYER 3 // EDGE POLICY', '最後の壁', t, s.start + .2);
+  // ポリシーが山ほど並ぶ
+  const pA = PT(t, L('rd1').start, .4) * (1 - PT(t, L('rd2').start + .2, .3));
+  if (pA > 0) {
+    const names = ['RemoteDebuggingAllowed', 'UserDataDir', 'DeveloperToolsAvailability', 'DeveloperToolsAvailabilityAllowlist', 'DeveloperToolsAvailabilityBlocklist', 'URLBlocklist', 'ExtensionInstallBlocklist', 'PasswordManagerEnabled', 'BrowserSignin', 'SmartScreenEnabled', 'DownloadRestrictions', '…'];
+    names.forEach((n, i) => {
+      const y = 260 + i * 46 - ((t - L('rd1').start) * 30) % 46;
+      const hot = i < 3;
+      txt(n, 300, y, { font: `400 28px ${CODE}`, color: hot ? C.red : C.dim, alpha: pA * PT(t, L('rd1').start + i * .08, .2) });
+    });
+    wall(1400, 240, 800, 'MSEdge.admx', t, { color: C.red, alpha: pA });
+  }
+  // 最強: リモートデバッグの許可 = 無効
+  const rA = PT(t, L('rd2').start, .35) * (1 - PT(t, L('rd4').start, .3));
+  if (rA > 0) {
+    frame(220, 230, 1480, 170, { title: 'regedit.exe', status: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge', alpha: rA, color: C.red });
+    typed('RemoteDebuggingAllowed   REG_DWORD   0x00000000', 260, 330, PT(t, L('rd2').start + .2, 1), { font: `400 38px ${CODE}`, color: C.red, alpha: rA, t });
+    [['--remote-debugging-pipe', 520], ['--remote-debugging-port', 680]].forEach(([n, y], i) => {
+      const cut = t > F('rd2', .55 + i * .07);
+      node(420, y, 'EXCEL.EXE', null, { alpha: rA, w: 260, h: 80, size: 28 });
+      node(1500, y, 'MSEDGE.EXE', null, { alpha: rA, w: 260, h: 80, size: 28 });
+      beam([[550, y], [1370, y]], cut ? C.red : C.cy, 3, 1, { alpha: rA, cut: cut ? .45 : 1 });
+      txt(n, 960, y - 34, { font: `400 26px ${CODE}`, color: cut ? C.red : C.cy, align: 'center', alpha: rA });
+      if (cut) stamp('✕', 960, y, t, F('rd2', .55 + i * .07), { size: 50, rot: 0 });
+    });
+  }
+  // 標準エラー出力にしか出ない
+  const eA = PT(t, L('rd4').start, .35) * (1 - PT(t, L('rd6').start, .3));
+  if (eA > 0) {
+    frame(200, 230, 1520, 560, { title: 'msedge.exe --remote-debugging-pipe', status: 'RUNNING', alpha: eA });
+    txt('stdout', 240, 300, { font: `400 24px ${HUD}`, color: C.dim, alpha: eA });
+    txt('(なにも出ない)', 240, 350, { font: `400 30px ${DOT}`, color: C.dim2, alpha: eA });
+    txt('stderr', 240, 690, { font: `400 24px ${HUD}`, color: C.dim, alpha: eA });
+    txt('DevTools remote debugging is disallowed by the system admin.', 240, 735, { font: `400 20px ${CODE}`, color: C.red, alpha: eA * .8 });
+    // 虫めがね
+    const z = E.out(PT(t, F('rd4', .5), .5));
+    if (z > 0) {
+      ctx.save(); ctx.globalAlpha = eA * z;
+      ctx.beginPath(); ctx.arc(1180, 520, 330 * z, 0, 7); ctx.fillStyle = 'rgba(20,0,6,.92)'; ctx.fill();
+      ctx.strokeStyle = C.red; ctx.lineWidth = 6; ctx.shadowColor = C.red; ctx.shadowBlur = 30; ctx.stroke(); ctx.restore();
+      txt('DevTools remote debugging', 1180, 490, { font: `400 ${30 * z}px ${CODE}`, color: C.red, align: 'center', alpha: eA * z });
+      txt('is disallowed by the system admin.', 1180, 545, { font: `400 ${30 * z}px ${CODE}`, color: C.red, align: 'center', alpha: eA * z });
+    }
+    if (t > L('rd5').start) {
+      const sw = t > F('rd5', .55);
+      txt(sw ? 'POLICY!' : 'BUG?', 560, 520, { font: `400 110px ${HUD}`, color: sw ? C.red : C.yel, align: 'center', glow: sw ? C.red : C.yel, alpha: eA * PT(t, L('rd5').start, .3), ls: 4 });
+    }
+  }
+  // このツールの警告
+  const wA = PT(t, L('rd6').start, .35);
+  if (wA > 0) {
+    frame(120, 210, 1680, 110, { title: 'REIWA-IE // LOG', status: 'ERROR', statusColor: C.red, alpha: wA });
+    txt('ERROR | CDPCore.viewStdoutAndStderr | stderrout = DevTools remote debugging is disallowed by the system admin.', 150, 285, { font: `400 21px ${CODE}`, color: C.red, alpha: wA });
+    evidence8(t, 460, 390, 1000, PT(t, L('rd6').start + .4, .35) * wA, 0);
+    if (t > L('rd7').start) {
+      const w = 1000, h = w * R8.crop[3] / R8.crop[2];
+      const [fx, fy, fw, fh] = shotMap({ crop: R8.crop, r: R8hide[0] }, 460, 390, w, h);
+      focus(fx, fy, fw, fh, t, L('rd7').start + .3, { color: C.mag });
+      txt('???', fx + fw + 60, fy + 6, { font: `400 54px ${HUD}`, color: C.mag, alpha: wA * PT(t, L('rd7').start + .3, .3), glow: C.mag });
+    }
+    if (t > L('rd8').start) badge('→ あとで', 1600, 840, { color: C.yel, alpha: PT(t, L('rd8').start, .3), align: 'center', font: `400 30px ${DOT}` });
+  }
+};
+
+// ---------- UserDataDir ----------
+const T_EMPTY = F('ud6', .1), T_FALL = F('ud6', .6);
+cue(F('ud1', .55), 'lock'); cue(L('ud2').start + .3, 'merge');
+cue(F('ud3', .6), 'deny');
+cue(F('ud5', .65), 'alarm');
+cue(T_FALL, 'drop');
+cue(F('ud8', .3), 'stamp'); HITS.push([F('ud8', .3), 12]);
+cue(F('ud9', .55), 'title'); HITS.push([F('ud9', .58), 16]); GLITCH.push([F('ud9', .55), .5, .7]);
+
+function folder(x, y, name, sub, col, a, o = {}) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.shadowColor = col; ctx.shadowBlur = 16;
+  ctx.fillStyle = hexA(col, .12);
+  // 幅は名前の文字幅に左右の余白を足して決める
+  const font = `400 ${o.size || 28}px ${HUD}`, hw = Math.max(110, tw(name, font) / 2 + 34);
+  ctx.beginPath(); ctx.moveTo(x - hw, y - 60); ctx.lineTo(x - hw + 70, y - 60); ctx.lineTo(x - hw + 90, y - 40); ctx.lineTo(x + hw, y - 40); ctx.lineTo(x + hw, y + 70); ctx.lineTo(x - hw, y + 70); ctx.closePath();
+  ctx.fill(); ctx.stroke(); ctx.restore();
+  txt(name, x, y + 10, { font, color: C.wht, align: 'center', alpha: a });
+  if (sub) txt(sub, x, y + 115, { font: `400 26px ${DOT}`, color: col, align: 'center', alpha: a });
+}
+
+SCN.udd = function (t, s) {
+  bgBoard(t, { acc: C.cy });
+  header('LAYER 3 // EDGE POLICY', 'UserDataDir', t, s.start + .2);
+  // 分けて使う2つのフォルダーが、1つにされる
+  const fA = PT(t, L('ud1').start, .35) * (1 - PT(t, L('ud6').start - .1, .3));
+  if (fA > 0) {
+    const merge = E.inOut(PT(t, L('ud2').start + .3, 1.2));
+    folder(lerp(560, 960, merge), 420, 'Automation Data', '自動制御用', C.cy, fA * (1 - merge * .9));
+    // ここはポリシーが指すフォルダー（＝事実上の普段使い）。"User Data" の名前は値が空の場面だけで出す
+    folder(lerp(1360, 960, merge), 420, '<UserDataDir>', 'ポリシーの指定先（普段使い）', C.yel, fA);
+    txt('--user-data-dir="Automation Data"', 560, 250, { font: `400 28px ${CODE}`, color: C.cy, align: 'center', alpha: fA * (1 - merge) });
+    if (t > F('ud1', .55)) {
+      line(330, 250, 790, 250, C.red, 4, fA * (1 - merge));
+      badge('ポリシーで固定 → 引数は無視', 1360, 250, { color: C.red, align: 'center', alpha: fA * (1 - merge), font: `400 28px ${DOT}` });
+    }
+    if (merge > .9) badge('共用', 960, 610, { color: C.red, align: 'center', alpha: fA, font: `400 34px ${DOT}` });
+    // 使用中のデータには、あとから CDP でつなげない
+    const uA = PT(t, L('ud3').start, .3);
+    if (uA > 0) {
+      badge('IN USE: msedge.exe（普段のブラウザ）', 960, 300, { color: C.yel, align: 'center', alpha: uA * fA, font: `400 28px ${DOT}` });
+      node(400, 720, 'CreateProcess', 'msedge --remote-debugging-*', { alpha: uA * fA, w: 420, color: C.cy });
+      beam([[610, 720], [850, 720], [850, 560]], t > F('ud3', .6) ? C.red : C.cy, 3, PT(t, F('ud3', .2), .6), { alpha: uA * fA, cut: t > F('ud3', .6) ? .7 : 1 });
+      stamp('CDP ✕', 1100, 720, t, F('ud3', .6), { size: 44 });
+    }
+    const cA = PT(t, L('ud4').start, .3);
+    if (cA > 0) {
+      badge('普段のブラウザを閉じる → ✓ つながる', 960, 820, { color: C.pass, align: 'center', alpha: cA * fA * (1 - PT(t, F('ud5', .6), .3)), font: `400 30px ${DOT}` });
+      stamp('TRAP', 1500, 720, t, F('ud5', .65), { color: C.yel, size: 64 });
+    }
+  }
+  // 値が空のときは、普段使いのフォルダーに戻る
+  const eA = PT(t, L('ud6').start - .1, .35) * (1 - PT(t, L('ud8').start, .3));
+  if (eA > 0) {
+    frame(140, 220, 900, 140, { title: 'regedit.exe', status: 'HKLM\\…\\Microsoft\\Edge', alpha: eA });
+    typed('UserDataDir   REG_SZ   ""', 180, 310, PT(t, L('ud6').start, .8), { font: `400 38px ${CODE}`, color: C.yel, alpha: eA, t });
+    frame(140, 420, 900, 360, { title: 'chrome/install_static/user_data_dir.cc', status: 'Chromium', alpha: eA * PT(t, F('ud6', .3), .3) });
+    term([
+      ['bool got_valid_directory =', C.wht],
+      ['    !user_data_dir.empty() && ...;', C.yel],
+      ['if (!got_valid_directory) {', C.wht],
+      ['  ...', C.dim],
+      ['  GetDefaultUserDataDirectory(...);', C.red],
+      ['}', C.wht],
+    ], 180, 490, t, F('ud6', .3), { rate: 5, font: `400 27px ${CODE}`, lh: 44, alpha: eA });
+    const fp = E.in(PT(t, T_FALL, .5));
+    folder(1460, lerp(240, 560, fp), 'User Data', '普段使いに固定', C.yel, eA * PT(t, T_FALL - .2, .2), { size: 30 });
+    if (t > L('ud7').start) txt('普段使いの…？', 1460, 820, { font: `400 40px ${DOT}`, color: C.grn, align: 'center', alpha: PT(t, L('ud7').start, .3) * eA });
+  }
+  // Chrome 136 の変更 → 空の UserDataDir = リモートデバッグ禁止
+  const qA = PT(t, L('ud8').start, .35);
+  if (qA > 0) {
+    frame(220, 220, 1480, 230, { title: 'developer.chrome.com // 2025-03', status: 'Chrome 136', color: C.yel, alpha: qA * (1 - PT(t, L('ud11').start, .3) * .6) });
+    typed('既定のデータフォルダーでは --remote-debugging-port / -pipe が効かない', 260, 330, PT(t, L('ud8').start + .3, 1.6), { font: `400 32px ${DOT}`, color: C.wht, alpha: qA, cursor: false });
+    txt('Edge も同じ動き（Edge の公式発表は見当たらない）', 260, 400, { font: `400 26px ${DOT}`, color: C.dim, alpha: qA * PT(t, L('ud9').start, .3) });
+    stamp('DEFAULT DIR = NO DEBUG', 1460, 520, t, F('ud8', .3), { color: C.yel, size: 30, rot: -4 });
+    const k = PT(t, F('ud9', .5), .3);
+    if (k > 0) {
+      txt('UserDataDir = ""', 520, 620, { font: `400 50px ${CODE}`, color: C.yel, align: 'center', alpha: k, glow: C.yel });
+      gtext('≡', 960, 620, { font: `400 110px ${HUD}`, color: C.wht, align: 'center', alpha: k }, 1 - k, t);
+      txt('RemoteDebuggingAllowed = 0', 1420, 620, { font: `400 50px ${CODE}`, color: C.red, align: 'center', alpha: k, glow: C.red });
+    }
+    const eM = PT(t, L('ud11').start, .3);
+    if (eM > 0) {
+      frame(140, 680, 800, 150, { title: 'stderr // RemoteDebuggingAllowed', color: C.red, alpha: eM });
+      txt('…is disallowed by the system admin.', 170, 770, { font: `400 25px ${CODE}`, color: C.red, alpha: eM });
+      frame(980, 680, 800, 150, { title: 'stderr // UserDataDir = ""', color: C.yel, alpha: eM * PT(t, F('ud11', .3), .3) });
+      txt('…requires a non-default data directory.', 1010, 770, { font: `400 25px ${CODE}`, color: C.yel, alpha: eM * PT(t, F('ud11', .3), .3) });
+    }
+  }
+};
+
+// ---------- DeveloperToolsAvailability ----------
+cue(L('dt1').start + .3, 'pop'); cue(F('dt1', .7), 'deny');
+cue(L('dt3').start + .2, 'alarm');
+cue(F('dt4', .4), 'pass'); cue(F('dt4', .7), 'deny'); cue(F('dt4', .75), 'deny'); cue(F('dt4', .8), 'deny');
+cue(F('dt6', .7), 'deny');
+[.15, .3, .45, .6].forEach(f => cue(F('dt7', f), 'tick'));
+cue(F('dt7', .8), 'stamp');
+
+function targetTree(t, a) {
+  node(420, 520, 'CDP CLIENT', '令和のIE', { alpha: a, w: 300 });
+  const br = t > F('dt4', .4);
+  node(960, 320, 'browser', 'CDPBrowser', { alpha: a, w: 300, color: br ? C.pass : C.cy });
+  beam([[570, 500], [810, 320]], br ? C.pass : C.cy, 3, PT(t, L('dt4').start + .2, .5), { alpha: a });
+  if (br) txt('✓', 1140, 320, { font: `400 56px ${HUD}`, color: C.pass, alpha: a, glow: C.pass });
+  ['page #1', 'page #2', 'page #3'].forEach((n, i) => {
+    const y = 520 + i * 120, x = 1400;
+    const bl = t > F('dt4', .7 + i * .05);
+    node(x, y, n, 'CDPContext（タブ）', { alpha: a, w: 340, h: 100, size: 28, color: bl ? C.red : C.cy });
+    beam([[570, 540], [1230, y]], bl ? C.red : C.cy, 2, PT(t, L('dt4').start + .3 + i * .1, .5), { alpha: a, cut: bl ? .7 : 1 });
+    if (bl) txt('✕', 1610, y, { font: `400 56px ${HUD}`, color: C.red, alpha: a, glow: C.red });
+  });
+}
+
+SCN.dta = function (t, s) {
+  bgBoard(t, { acc: C.cy });
+  header('LAYER 3 // EDGE POLICY', 'DeveloperToolsAvailability', t, s.start + .2);
+  // F12 が止まる
+  const fA = PT(t, L('dt1').start + .2, .35) * (1 - PT(t, L('dt3').start, .3));
+  if (fA > 0) {
+    const w = 1100, h = w * R9.crop[3] / R9.crop[2];
+    shot(9, 410, 260, w, h, { alpha: fA, crop: R9.crop, title: 'msedge.exe // F12', status: 'BLOCKED', color: C.red });
+    frame(800, 720, 320, 120, { color: C.wht, alpha: fA * PT(t, F('dt1', .6), .3), c: 10 });
+    txt('F12', 960, 780, { font: `400 64px ${HUD}`, color: C.wht, align: 'center', alpha: fA * PT(t, F('dt1', .6), .3) });
+    stamp('✕', 960, 780, t, F('dt1', .7), { size: 90, rot: 0 });
+  }
+  // CDP にも適用される（ドキュメントの文）
+  const qA = PT(t, L('dt3').start, .35) * (1 - PT(t, L('dt4').start, .3));
+  if (qA > 0) {
+    frame(200, 260, 1520, 420, { title: 'learn.microsoft.com // DeveloperToolsAvailability', status: 'DOC', alpha: qA, color: C.yel });
+    typed('このポリシーは、Chrome DevTools プロトコル(CDP)の', 260, 380, PT(t, L('dt3').start + .3, 1.2), { font: `400 40px ${DOT}`, color: C.wht, alpha: qA, cursor: false });
+    typed('直接接続(--remote-debugging-port や', 260, 460, PT(t, L('dt3').start + 1.4, 1), { font: `400 40px ${DOT}`, color: C.wht, alpha: qA, cursor: false });
+    typed('--remote-debugging-pipe を使用する接続など)にも適用され…', 260, 540, PT(t, L('dt3').start + 2.3, 1.2), { font: `400 40px ${DOT}`, color: C.yel, alpha: qA, cursor: false });
+  }
+  // ブラウザにはつながるのに、タブだけ止まる
+  const gA = PT(t, L('dt4').start, .35) * (1 - PT(t, L('dt6').start, .3));
+  if (gA > 0) targetTree(t, gA);
+  // つなぐたびに確かめて、Not allowed
+  const nA = PT(t, L('dt6').start, .35) * (1 - PT(t, L('dt7').start, .3));
+  if (nA > 0) {
+    frame(160, 230, 1600, 300, { title: 'attach の流れ（Chromium）', status: 'devtools_agent_host_impl.cc', alpha: nA });
+    const steps = [['Target.attachToTarget', C.wht], ['AllowInspectingTarget(target)', C.cy], ['プロファイルあり → ポリシーで判定', C.yel], ['タブ（page）→ 不許可', C.red]];
+    steps.forEach(([n, col], i) => {
+      const a = PT(t, F('dt6', .1 + i * .15), .3) * nA;
+      const x = 200 + i * 400;
+      frame(x, 330, 360, 150, { color: col, alpha: a, c: 12 });
+      const fam = n.match(/[ぁ-んァ-ン]/) ? DOT : CODE;
+      const fs = Math.min(28, 28 * 330 / tw(n, `400 28px ${fam}`));
+      txt(n, x + 180, 405, { font: `400 ${fs}px ${fam}`, color: col, align: 'center', alpha: a });
+      if (i < 3) txt('▸', x + 380, 405, { font: `400 30px ${HUD}`, color: C.dim, align: 'center', alpha: a });
+    });
+    frame(160, 600, 1600, 180, { title: 'RESPONSE', status: 'ERROR', statusColor: C.red, color: C.red, alpha: PT(t, F('dt6', .7), .3) * nA });
+    typed('{"id":3,"error":{"code":-32000,"message":"Not allowed"}}', 200, 700, PT(t, F('dt6', .72), .9), { font: `400 40px ${CODE}`, color: C.red, alpha: nA, t });
+  }
+  // 判定は4段階
+  const dA = PT(t, L('dt7').start, .35);
+  if (dA > 0) {
+    const rows = [
+      ['1', 'URL が許可リストに一致', '許可', C.pass],
+      ['2', '許可リストだけ設定 → リストにない URL', 'ブロック', C.red],
+      ['3', 'URL がブロックリストに一致', 'ブロック', C.red],
+      ['4', 'どちらにも当てはまらない', 'DeveloperToolsAvailability', C.yel],
+    ];
+    frame(160, 220, 1600, 560, { title: 'DECISION // 最初に当てはまった規則で決まる', status: '4 STEPS', alpha: dA * (1 - PT(t, L('dt9').start, .3)) });
+    rows.forEach(([n, cond, res, col], i) => {
+      const a = PT(t, F('dt7', .15 + i * .15), .3) * dA * (1 - PT(t, L('dt9').start, .3));
+      const y = 320 + i * 110;
+      txt(n, 220, y, { font: `400 50px ${HUD}`, color: col, alpha: a });
+      txt(cond, 300, y, { font: `400 36px ${DOT}`, color: C.wht, alpha: a });
+      badge(res, 1700, y, { color: col, align: 'right', alpha: a, font: `400 28px ${res.length > 8 ? CODE : DOT}` });
+    });
+    stamp('NEW: Edge 148', 1430, 250, t, F('dt7', .8), { color: C.yel, size: 34, rot: 4, alpha: 1 - PT(t, L('dt9').start, .3) });
+    const tA = PT(t, L('dt9').start, .35);
+    if (tA > 0) {
+      frame(360, 300, 1200, 420, { title: 'TODO // 令和のIE', status: 'OPEN', color: C.yel, alpha: tA });
+      txt('☐ DeveloperToolsAvailability のチェック', 420, 430, { font: `400 40px ${DOT}`, color: C.wht, alpha: tA });
+      txt('☐ どのポリシーに引っかかったか、エラーで伝える', 420, 530, { font: `400 40px ${DOT}`, color: C.wht, alpha: tA * PT(t, F('dt9', .5), .3) });
+      if (Math.floor(t * 2.4) % 2) txt('_', 420, 630, { font: `400 40px ${HUD}`, color: C.yel, alpha: tA });
+    }
+  }
+};
+
+// ---------- チート: WebView2 ルート ----------
+const T_REVEAL = L('wv2').start + .1;
+cue(T_REVEAL, 'decode');
+cue(L('wv3').start + .3, 'whoosh'); cue(F('wv3', .5), 'bypass');
+cue(L('wv4').start, 'title'); HITS.push([L('wv4').start + .05, 22]); GLITCH.push([L('wv4').start, .6, .9]);
+cue(F('wv5', .3), 'deny'); cue(F('wv5', .55), 'deny'); cue(F('wv5', .8), 'pass');
+cue(L('wv6').start + .2, 'pop');
+cue(F('wv8', .8), 'stamp');
+cue(L('wv9').start, 'pass');
+
+SCN.cheat = function (t, s) {
+  bgBoard(t, { acc: C.wv2, c1: '#12062a', grid: .12 });
+  header('BYPASS // WebView2', 'WebView2 ルートというチート', t, s.start + .2, { color: C.wv2 });
+  // 伏せ字を明かす
+  const eA = PT(t, L('wv1').start, .35) * (1 - PT(t, L('wv3').start, .3));
+  if (eA > 0) {
+    evidence8(t, 460, 230, 1000, eA, PT(t, T_REVEAL, 1.6), { status: 'DECODING', color: C.wv2 });
+    const k = PT(t, T_REVEAL + .4, .3);
+    if (k > 0) {
+      const msg = '「WebView2ルートでの制御をお試しください。」';
+      const n = Math.floor(msg.length * PT(t, T_REVEAL + .4, 1.4));
+      const scr = msg.split('').map((c, i) => i < n ? c : '▒░▓█'[Math.floor(hr(i + Math.floor(t * 20)) * 4)]).join('');
+      txt(scr, W / 2, 760, { font: `400 54px ${DOT}`, color: C.wv2, align: 'center', glow: C.wv2, blur: 24, alpha: eA * k });
+    }
+  }
+  // 地図: L3 の壁の下を、WebView2 が抜ける
+  const mA = PT(t, L('wv3').start, .4) * (1 - PT(t, L('wv6').start, .3));
+  if (mA > 0) {
+    node(300, 470, 'EXCEL.EXE', 'VBA', { alpha: mA });
+    node(1620, 470, 'MSEDGE.EXE', 'Edge', { alpha: mA, color: C.red });
+    wall(1250, 260, 640, 'L3 EDGE POLICY', t, { color: C.red, alpha: mA });
+    beam([[415, 470], [1140, 470]], C.red, 3, 1, { alpha: mA * .6 });
+    packets([[415, 470], [1500, 470]], t, C.red, { n: 3, speed: .4, label: 'CDP', stop: .66, alpha: mA });
+    const tun = bezierPts(300, 530, 300, 800, 1000, 820, 1620, 760);
+    beam(tun, C.wv2, 6, E.inOut(PT(t, F('wv3', .4), 1)), { alpha: mA });
+    packets(tun, t, C.wv2, { n: 4, speed: .5, label: 'CDP', alpha: mA * PT(t, F('wv3', .6), .3) });
+    node(1620, 760, 'msedgewebview2.exe', 'WebView2', { alpha: mA * PT(t, F('wv3', .6), .3), w: 380, color: C.wv2 });
+    txt('BYPASS', 960, 860 - 40, { font: `400 44px ${HUD}`, color: C.wv2, align: 'center', alpha: mA * PT(t, F('wv3', .7), .3), glow: C.wv2, ls: 8 });
+    // チート！
+    const cA = PT(t, L('wv4').start, .15) * (1 - PT(t, L('wv5').start, .3));
+    if (cA > 0) {
+      flash('#1a0030', cA * .5);
+      gtext('CHEAT!', W / 2, 330, { font: `400 200px ${HUD}`, color: C.wv2, align: 'center', glow: C.wv2, blur: 50, alpha: cA, ls: 10 }, .7, t);
+    }
+    // 拒否しても通る
+    const fA = PT(t, L('wv5').start, .3);
+    if (fA > 0) {
+      frame(520, 200, 880, 200, { title: 'EDGE POLICY', status: 'ENFORCED', color: C.red, alpha: fA * mA });
+      flagRow(560, 280, 'RemoteDebuggingAllowed', '0 (拒否)', C.red, fA * mA * PT(t, F('wv5', .3), .3));
+      flagRow(560, 340, 'DeveloperToolsAvailability', '2 (拒否)', C.red, fA * mA * PT(t, F('wv5', .55), .3));
+      stamp('でも通る', 1620, 640, t, F('wv5', .8), { color: C.wv2, size: 44, font: DOT, ls: 4 });
+    }
+  }
+  // ドキュメントの文
+  const qA = PT(t, L('wv6').start, .35) * (1 - PT(t, L('wv8').start, .3));
+  if (qA > 0) {
+    frame(200, 270, 1520, 360, { title: 'learn.microsoft.com // WebView2 のエンタープライズ管理', status: 'DOC', color: C.wv2, alpha: qA });
+    typed('「Microsoft Edge のポリシーは、', 260, 390, PT(t, L('wv6').start + .3, 1), { font: `400 46px ${DOT}`, color: C.wht, alpha: qA, cursor: false });
+    typed('WebView2 ランタイム アプリと WebView2 アプリには', 260, 470, PT(t, L('wv6').start + 1.2, 1.2), { font: `400 46px ${DOT}`, color: C.wht, alpha: qA, cursor: false });
+    typed('適用されません」', 260, 550, PT(t, L('wv6').start + 2.4, .6), { font: `400 46px ${DOT}`, color: C.wv2, alpha: qA, cursor: false });
+    txt('…これは仕様です', 1680, 700, { font: `400 30px ${DOT}`, color: C.dim, align: 'right', alpha: qA * PT(t, F('wv6', .8), .3) });
+  }
+  // WebView2 のポリシー一覧
+  const lA = PT(t, L('wv8').start, .35);
+  if (lA > 0) {
+    frame(200, 220, 1000, 600, { title: 'Microsoft Edge WebView2 - ポリシー', status: '3 カテゴリ', color: C.wv2, alpha: lA });
+    [['ローダーの上書き設定', '本体の場所・チャネル', 5, .1], ['ネットワーク設定', '通信まわり', 3, .25], ['その他', 'PDF ビューアー・XSLT など', 7, .4]].forEach(([n, sub, c, f], i) => {
+      const a = PT(t, F('wv8', f), .3) * lA;
+      const y = 340 + i * 140;
+      txt(n, 260, y, { font: `400 40px ${DOT}`, color: C.wht, alpha: a });
+      txt(sub, 260, y + 50, { font: `400 26px ${DOT}`, color: C.dim, alpha: a });
+      txt(`${c} 件`, 1140, y + 10, { font: `400 40px ${HUD}`, color: C.wv2, align: 'right', alpha: a });
+    });
+    frame(1300, 300, 420, 420, { title: 'DEBUG POLICIES', color: C.red, alpha: PT(t, F('wv8', .6), .3) * lA });
+    gtext('0', 1510, 520, { font: `400 220px ${HUD}`, color: C.red, align: 'center', glow: C.red, alpha: PT(t, F('wv8', .7), .3) * lA }, .4, t);
+    if (t > L('wv9').start) stamp('CDP PASS', 960, 840 - 60, t, L('wv9').start, { color: C.wv2, size: 56 });
+  }
+};
+
+// シーン: おわりに（引き算と足し算 → AI が土台を作る → 良となるか悪となるか → 作り手しだい）/ クレジット
+
+const FEATS = ['パスワード管理', 'ゲーム設定', 'デバッグ機能', '個人用設定', '…'];
+const T_OFF = S('ending').end - 1.3;   // CRT が消える
+cue(L('ed2').start + .1, 'minus'); cue(F('ed2', .55), 'plus');
+FEATS.forEach((_, i) => cue(F('ed5', .15 + i * .1), 'cut', { i }));
+cue(F('ed7', .5), 'deny'); GLITCH.push([F('ed7', .5), .4, .6]);
+for (let i = 0; i < 14; i++) cue(L('ed11').start + .3 + i * .3, 'build', { i });
+cue(L('ed12').start, 'title'); HITS.push([L('ed12').start + .05, 18]);
+cue(F('ed13', .25), 'pass'); cue(F('ed13', .7), 'pass');
+cue(F('ed14', .4), 'glitch');
+for (let i = 0; i < 10; i++) cue(L('ed16').start + .4 + i * .3, 'build', { i: i + 20 });
+cue(L('ed18').start, 'tense');
+cue(L('ed20').start - .3, 'final');
+cue(T_OFF, 'crtOff');
+
+// 引き算・足し算の記号（太い棒で描く）
+function opSign(x, y, plus, col, a, t) {
+  if (a <= 0) return;
+  const s = E.back(clamp(a));
+  ctx.save(); ctx.globalAlpha = clamp(a); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 40;
+  ctx.fillRect(-120, -22, 240, 44);
+  if (plus) ctx.fillRect(-22, -120, 44, 240);
+  ctx.restore();
+}
+
+// 機能の札（ポリシーで線を引かれる）
+function featRow(x, y, n, t, t0, tCut, a) {
+  const p = PT(t, t0, .25) * a;
+  if (p <= 0) return;
+  const cut = PT(t, tCut, .25);
+  badge(n, x, y, { color: cut > .5 ? C.dim : C.cy, alpha: p, font: `400 30px ${DOT}`, fill: 'rgba(2,14,20,.8)' });
+  if (cut > 0) {
+    const w = tw(n, `400 30px ${DOT}`) + 28;
+    line(x - 6, y, x - 6 + (w + 12) * cut, y, C.red, 4, p);
+    txt('−', x + w + 20, y, { font: `400 40px ${HUD}`, color: C.red, alpha: p * cut });
+  }
+}
+
+SCN.ending = function (t, s) {
+  bgBoard(t, { acc: C.cy, grid: .1 });
+  header('OUTRO // おわりに', 'Edge と WebView2', t, s.start + .2, { alpha: 1 - PT(t, L('ed18').start, .5) });
+  // 1) 引き算と足し算
+  const dA = PT(t, L('ed1').start, .4) * (1 - PT(t, L('ed10').start - .1, .3));
+  if (dA > 0) {
+    frame(120, 200, 760, 620, { title: 'msedge.exe', status: '企業ファースト', color: C.red, alpha: dA });
+    frame(1040, 200, 760, 620, { title: 'msedgewebview2.exe', status: '開発者ファースト', color: C.wv2, alpha: dA });
+    // 真ん中の同じエンジン
+    const core = PT(t, F('ed1', .2), .4) * (1 - PT(t, L('ed4').start, .3));
+    if (core > 0) {
+      node(960, 510, 'Chromium', '中身は同じ', { alpha: core * dA, w: 300, color: C.wht });
+      beam([[810, 510], [880, 510]], C.red, 3, 1, { alpha: core * dA });
+      beam([[1040, 510], [1110, 510]], C.wv2, 3, 1, { alpha: core * dA });
+    }
+    const op = PT(t, L('ed2').start, .3);
+    if (op > 0 && t < L('ed4').start) {
+      opSign(500, 480, false, C.red, op * dA, t);
+      txt('引き算', 500, 700, { font: `400 50px ${DOT}`, color: C.wht, align: 'center', alpha: op * dA });
+      const op2 = PT(t, F('ed2', .55), .3);
+      opSign(1420, 480, true, C.wv2, op2 * dA, t);
+      txt('足し算', 1420, 700, { font: `400 50px ${DOT}`, color: C.wht, align: 'center', alpha: op2 * dA });
+    }
+    // 増えた機能を、ポリシーで削る
+    if (t > L('ed4').start) {
+      FEATS.forEach((n, i) => featRow(170, 300 + i * 82, n, t, F('ed4', .1 + i * .1), F('ed5', .15 + i * .1), dA));
+      if (t > F('ed5', .6)) txt('制限ポリシーが山ほど', 840, 780, { font: `400 34px ${DOT}`, color: C.red, align: 'right', alpha: dA * PT(t, F('ed5', .6), .3) });
+    }
+    // アプリに Web を埋め込む部品
+    const aA = PT(t, L('ed6').start, .35);
+    if (aA > 0) {
+      const broken = t > F('ed7', .5);
+      frame(1100, 290, 640, 440, { title: 'MyApp.exe', status: broken ? 'ERROR' : 'RUNNING', statusColor: broken ? C.red : C.pass, color: C.wv2, alpha: aA * dA, c: 12 });
+      ctx.save(); ctx.globalAlpha = aA * dA; ctx.fillStyle = hexA(C.wv2, .12); ctx.fillRect(1130, 360, 260, 340); ctx.restore();
+      txt('ネイティブ', 1260, 530, { font: `400 30px ${DOT}`, color: C.dim, align: 'center', alpha: aA * dA });
+      frame(1410, 360, 300, 340, { title: 'WebView2', color: broken ? C.red : C.cy, alpha: aA * dA, c: 10, fill: broken ? 'rgba(40,0,8,.8)' : 'rgba(2,14,20,.8)' });
+      txt(broken ? 'JS ERROR' : '<html>', 1560, 540, { font: `400 34px ${HUD}`, color: broken ? C.red : C.cy, align: 'center', alpha: aA * dA });
+      // ブラウザ側で JavaScript を止めると…
+      if (t > L('ed7').start && t < L('ed9').start) {
+        badge('ブラウザで JavaScript = OFF', 1420, 790, { color: C.red, align: 'center', alpha: dA * PT(t, L('ed7').start, .3), font: `400 28px ${DOT}` });
+      }
+      if (t > L('ed8').start && t < L('ed9').start) {
+        sprite('zundamon', 1180, 380, 9, { alpha: dA, glow: C.grn });
+        for (let i = 0; i < 6; i++) {
+          const k = ((t - L('ed8').start) * 1.4 + i / 6) % 1;
+          txt('#', 1240 + Math.sin(i * 2) * 50, 370 - k * 90, { font: `400 ${30 + i * 2}px ${HUD}`, color: C.red, alpha: dA * (1 - k) });
+        }
+        txt('ぷんすこ', 1240, 640, { font: `400 44px ${DOT}`, color: C.grn, align: 'center', alpha: dA });
+      }
+      if (t > L('ed9').start) {
+        badge('ポリシーは必要最小限', 1420, 790, { color: C.wv2, align: 'center', alpha: dA * PT(t, L('ed9').start, .3), font: `400 28px ${DOT}` });
+        badge('中身は Chromium → ネットサーフィンもできる', 1420, 262, { color: C.cy, align: 'center', alpha: dA * PT(t, F('ed9', .55), .3), font: `400 26px ${DOT}`, h: 36 });
+      }
+    }
+  }
+  // 2) 昔の道と、AI が作る土台
+  const oA = PT(t, L('ed10').start, .35) * (1 - PT(t, L('ed12').start, .3));
+  if (oA > 0) {
+    const steps = ['Visual Studio', 'C++ プロジェクト', 'WebView2 SDK', 'ビルド', 'exe'];
+    steps.forEach((n, i) => {
+      const a = PT(t, L('ed10').start + i * .3, .3) * oA * (1 - PT(t, L('ed11').start, .4) * .7);
+      const x = 260 + i * 350;
+      frame(x - 140, 230, 280, 110, { color: C.dim, alpha: a, c: 10 });
+      txt(n, x, 285, { font: `400 ${n.length > 10 ? 24 : 28}px ${DOT}`, color: C.dim, align: 'center', alpha: a });
+      if (i < 4) txt('→', x + 175, 285, { font: `400 30px ${HUD}`, color: C.dim, align: 'center', alpha: a });
+    });
+    const bA = PT(t, L('ed11').start, .3) * oA;
+    if (bA > 0) {
+      frame(260, 400, 1400, 420, { title: 'AI // 土台を組み立て中', status: 'BUILDING', color: C.pass, alpha: bA });
+      for (let i = 0; i < 28; i++) {
+        const p = E.out(PT(t, L('ed11').start + .3 + i * .15, .35));
+        if (p <= 0) continue;
+        const col = i % 7, row = Math.floor(i / 7);
+        const x = 320 + col * 120, y = 480 + row * 74;
+        ctx.save(); ctx.globalAlpha = bA * p; ctx.fillStyle = hexA(C.pass, .25); ctx.strokeStyle = C.pass; ctx.lineWidth = 2;
+        ctx.fillRect(x, y - (1 - p) * 120, 104, 56); ctx.strokeRect(x, y - (1 - p) * 120, 104, 56); ctx.restore();
+        txt(`vt[${i}]`, x + 52, y + 28 - (1 - p) * 120, { font: `400 20px ${CODE}`, color: C.pass, align: 'center', alpha: bA * p });
+      }
+      ['サンク（機械語）', 'コールバック', 'CallDevToolsProtocolMethod'].forEach((n, i) => {
+        const a = PT(t, F('ed11', .35 + i * .15), .3) * bA;
+        badge(n, 1420, 500 + i * 90, { color: C.pass, align: 'center', alpha: a, font: `400 ${i === 2 ? 22 : 28}px ${i === 2 ? CODE : DOT}` });
+      });
+    }
+  }
+  // 3) 第三のルート
+  const rA = PT(t, L('ed12').start, .3) * (1 - PT(t, L('ed15').start, .3));
+  if (rA > 0) {
+    node(330, 520, 'EXCEL.EXE', 'VBA', { alpha: rA });
+    node(1590, 360, 'MSEDGE.EXE', 'Edge', { alpha: rA, color: C.dim });
+    wall(1250, 270, 500, 'EDGE POLICY', t, { color: C.red, alpha: rA * (1 - PT(t, F('ed14', .4), .5) * .8), ghost: t > F('ed14', .4) });
+    beam(bezierPts(440, 500, 800, 360, 1000, 360, 1180, 360), C.dim, 2, 1, { alpha: rA, dash: [10, 10] });
+    const r3 = bezierPts(440, 540, 800, 760, 1200, 760, 1470, 690);
+    beam(r3, C.wv2, 7, E.inOut(PT(t, L('ed12').start, 1)), { alpha: rA });
+    packets(r3, t, C.wv2, { n: 4, speed: .5, label: 'CDP', alpha: rA });
+    node(1600, 690, 'msedgewebview2.exe', 'ROUTE 3', { alpha: rA, w: 380, color: C.wv2 });
+    gtext('ROUTE 3 // WebView2', 1150, 175, { font: `400 64px ${HUD}`, color: C.wv2, align: 'center', glow: C.wv2, alpha: rA * PT(t, L('ed12').start, .3), ls: 6 }, 1 - PT(t, L('ed12').start, .8), t);
+    // 条件
+    const cA = PT(t, L('ed13').start, .3);
+    if (cA > 0) {
+      frame(560, 410, 800, 220, { title: 'REQUIREMENTS', color: C.pass, alpha: cA * rA, fill: 'rgba(2,14,20,.92)' });
+      txt('Access', 600, 490, { font: `400 34px ${HUD}`, color: C.wht, alpha: cA * rA * PT(t, F('ed13', .05), .3) });
+      txt('「VBA を無効にする」がない', 760, 490, { font: `400 32px ${DOT}`, color: C.pass, alpha: cA * rA * PT(t, F('ed13', .1), .3) });
+      txt('Excel', 600, 570, { font: `400 34px ${HUD}`, color: C.wht, alpha: cA * rA * PT(t, F('ed13', .5), .3) });
+      txt('＋「Win32 API のブロック」もない', 760, 570, { font: `400 32px ${DOT}`, color: C.pass, alpha: cA * rA * PT(t, F('ed13', .55), .3) });
+    }
+    if (t > F('ed14', .4)) stamp('無力化', 1250, 360, t, F('ed14', .4), { color: C.wv2, size: 60, font: DOT });
+  }
+  // 4) 面倒という壁を、AI の土台で越える
+  const wA = PT(t, L('ed15').start, .35) * (1 - PT(t, L('ed18').start - .2, .4));
+  if (wA > 0) {
+    // 古い壁
+    ctx.save(); ctx.globalAlpha = wA;
+    ctx.fillStyle = '#1a2a30'; ctx.strokeStyle = C.dim; ctx.lineWidth = 2;
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 4; c++) {
+      const x = 1060 + c * 90 + (r % 2) * 45, y = 790 - (r + 1) * 58;
+      ctx.fillRect(x, y, 86, 54); ctx.strokeRect(x, y, 86, 54);
+    }
+    ctx.restore();
+    txt('理論上はできる', 1260, 190, { font: `400 40px ${DOT}`, color: C.wht, align: 'center', alpha: wA });
+    txt('でも、手を動かすと超面倒', 1260, 245, { font: `400 34px ${DOT}`, color: C.dim, align: 'center', alpha: wA });
+    // 理論のひらめき
+    const iA = PT(t, L('ed16').start, .3);
+    if (iA > 0) {
+      txt('!', 420, 330, { font: `400 120px ${HUD}`, color: C.yel, align: 'center', glow: C.yel, blur: 40, alpha: wA * iA });
+      txt('理論', 420, 450, { font: `400 44px ${DOT}`, color: C.yel, align: 'center', alpha: wA * iA });
+      // AI が積む階段
+      for (let i = 0; i < 10; i++) {
+        const p = E.out(PT(t, L('ed16').start + .4 + i * .3, .35));
+        if (p <= 0) continue;
+        const x = 560 + i * 52, y = 790 - (i + 1) * 54;
+        ctx.save(); ctx.globalAlpha = wA * p; ctx.fillStyle = hexA(C.pass, .3); ctx.strokeStyle = C.pass; ctx.lineWidth = 2; ctx.shadowColor = C.pass; ctx.shadowBlur = 14;
+        ctx.fillRect(x, y - (1 - p) * 200, 50, 790 - y); ctx.strokeRect(x, y - (1 - p) * 200, 50, 790 - y); ctx.restore();
+      }
+      txt('AI の土台', 760, 820, { font: `400 34px ${DOT}`, color: C.pass, align: 'center', alpha: wA * PT(t, L('ed16').start + 1, .3) });
+    }
+    // ずんだもんが駆け上がる
+    const zA = PT(t, L('ed17').start, .3);
+    if (zA > 0) {
+      const k = E.inOut(PT(t, L('ed17').start, 2.6));
+      const x = lerp(520, 1180, k), y = lerp(700, 140, Math.min(1, k * 1.15)) + Math.abs(Math.sin(t * 14)) * -10;
+      sprite('zundamon', x, y, 6, { alpha: wA * zA, glow: C.grn });
+      if (k > .95) stamp('完成', 1500, 400, t, L('ed17').start + 2.6, { color: C.pass, size: 56, font: DOT });
+    }
+  }
+  // 5) 良となるか、悪となるか
+  const gA = PT(t, L('ed18').start - .2, .4);
+  if (gA > 0) {
+    const fin = PT(t, L('ed20').start - .4, .8);
+    ctx.save(); ctx.globalAlpha = gA * (1 - fin);
+    ctx.fillStyle = 'rgba(0,30,40,.55)'; ctx.fillRect(0, 0, W / 2, H);
+    ctx.fillStyle = 'rgba(40,0,10,.55)'; ctx.fillRect(W / 2, 0, W / 2, H);
+    ctx.restore();
+    const sel = Math.floor((t - L('ed18').start) * lerp(6, 1.2, PT(t, L('ed19').start, 1.5))) % 2;
+    [['良', C.cy, 600], ['悪', C.red, 1320]].forEach(([n, col, x], i) => {
+      const on = sel === i;
+      frame(x - 180, 300, 360, 360, { color: col, alpha: gA * (1 - fin) * (on ? 1 : .35), title: i ? 'EVIL' : 'GOOD', fill: on ? hexA(col, .15) : 'rgba(0,0,0,.5)' });
+      txt(n, x, 490, { font: `400 200px ${DOT}`, color: col, align: 'center', glow: col, blur: on ? 40 : 0, alpha: gA * (1 - fin) * (on ? 1 : .35) });
+    });
+    txt('> select', 960, 760, { font: `400 34px ${HUD}`, color: C.dim, align: 'center', alpha: gA * (1 - fin) });
+    // 最後の1文: プロンプトだけが残る
+    if (fin > 0) {
+      ctx.save(); ctx.globalAlpha = fin; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
+      const lt = PT(t, L('ed20').start, 1);
+      txt('>', 760, 470, { font: `800 140px ${CODE}`, align: 'center', color: '#e2e8f0', alpha: fin });
+      typed('作り手しだい', 860, 480, PT(t, F('ed20', .45), 1.2), { font: `400 96px ${DOT}`, color: C.wht, alpha: fin, ccol: '#e2e8f0', t });
+      txt('結局は、', 860, 360, { font: `400 44px ${DOT}`, color: C.dim, alpha: fin * lt });
+    }
+  }
+};
+// CRT を消す（線に縮んで、点になって消える）
+POST.ending = function (t, s) {
+  const k = PT(t, T_OFF, .55);
+  if (k <= 0) return;
+  ctx.save(); ctx.setTransform(SC, 0, 0, SC, 0, 0);
+  const h = Math.max(2, H * (1 - E.in(clamp(k * 1.6))));
+  const w = W * (1 - E.in(clamp((k - .55) * 2.2)));
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H / 2 - h / 2); ctx.fillRect(0, H / 2 + h / 2, W, H / 2);
+  ctx.fillRect(0, 0, W / 2 - w / 2, H); ctx.fillRect(W / 2 + w / 2, 0, W / 2, H);
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200,250,255,${clamp(k * 2) * .6})`;
+  ctx.fillRect(W / 2 - w / 2, H / 2 - h / 2, w, h);
+  ctx.restore();
+};
+
+// ---------- クレジット ----------
+const CREDIT = [
+  ['$ audit --summary', C.cy],
+  ['L1  OFFICE GPO      VBA を無効にする → 打つ手なし', C.red],
+  ['L2  DEFENDER ASR    Win32 API・子プロセス → 例外あり', C.yel],
+  ['L3  EDGE POLICY     RemoteDebugging / UserDataDir / DevTools', C.red],
+  ['BYPASS              WebView2 → Edge のポリシーは適用されない', C.wv2],
+  ['', C.dim],
+  ['$ cat CREDITS', C.cy],
+  ['令和のIE 技術秘話 ― ポリシーの壁', C.wht],
+  ['声        VOICEVOX:春日部つむぎ / VOICEVOX:ずんだもん', C.wht],
+  ['技術資料  docs/stories/DebugRouteTech/Policy', C.dim],
+  ['出典      Microsoft Learn・Microsoft Security Blog (2018)・Chromium のソース', C.dim],
+  ['          Chrome for Developers (2025)・JPCERT/CC (2019)・ExtractedDefender (2022)', C.dim],
+  ['          kuroihako (2020)・note sele_chan (2026)', C.dim],
+  ['', C.dim],
+  ['$ logout', C.cy],
+];
+cue(S('credits').start + .5, 'crtOn');
+CREDIT.forEach((r, i) => { if (r[0]) cue(S('credits').start + 1.2 + i * .5, 'key', { i: i * 3 }); });
+
+SCN.credits = function (t, s) {
+  ctx.fillStyle = '#010406'; ctx.fillRect(0, 0, W, H);
+  const on = PT(t, s.start + .5, .35);
+  if (on < 1) {
+    const h = Math.max(2, E.in(on) * H);
+    ctx.fillStyle = '#d8fbff'; ctx.fillRect(0, H / 2 - h / 2, W * Math.min(1, on * 3), h);
+    return;
+  }
+  bgBoard(t, { acc: C.cy, grid: .06, hex: .06 });
+  const out = 1 - PT(t, s.end - 1.4, 1.2);
+  term(CREDIT, 160, 170, t, s.start + 1.2, { rate: 2, font: `400 32px ${DOT}`, lh: 50, alpha: out });
+  if (t > s.start + 1.2 + CREDIT.length / 2 && Math.floor(t * 2.4) % 2) txt('_', 160, 170 + CREDIT.length * 50, { font: `400 32px ${HUD}`, color: C.cy, alpha: out });
+};
+
+// 1フレームの合成: シーン → つなぎのグリッチ → 上の HUD → チャットログの字幕 → CRT
+
+
+// 区画の進み具合（HUD の上に出す）
+const LAYER_OF = { vbaoff: 0, scan: 0, win32: 1, anomaly1: 1, child: 1, anomaly2: 1, why: 1, rda: 2, udd: 2, dta: 2, cheat: 3, ending: 4 };
+const LAYER_NAMES = ['L1 OFFICE', 'L2 ASR', 'L3 EDGE', 'BYPASS'];
+
+function sceneAt(t) {
+  let id = TLD.sceneOrder[0];
+  for (const s of TLD.sceneOrder) if (t >= TLD.scenes[s].start) id = s;
+  return id;
+}
+
+function shakeAt(t) {
+  let x = 0, y = 0;
+  for (const [t0, k] of HITS) {
+    const d = t - t0;
+    if (d < 0 || d > .5) continue;
+    const a = k * Math.pow(1 - d / .5, 2);
+    x += Math.sin(d * 90 + t0) * a; y += Math.cos(d * 70 + t0 * 3) * a;
+  }
+  return [x, y];
+}
+function glitchAt(t) {
+  let a = 0;
+  for (const [t0, d, k] of GLITCH) if (t >= t0 && t < t0 + d) a = Math.max(a, k * (1 - (t - t0) / d));
+  return a;
+}
+
+// ---------- HUD ----------
+function drawHUD(t, sid) {
+  const a = PT(t, T_CRT + 1.2, .8) * (1 - PT(t, L('ed20').start - .6, .6));
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  const g = ctx.createLinearGradient(0, 0, 0, 70);
+  g.addColorStop(0, 'rgba(0,10,14,.92)'); g.addColorStop(1, 'rgba(0,10,14,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 70);
+  ctx.restore();
+  txt('◢ REIWA-IE // POLICY AUDIT', 40, 34, { font: `400 24px ${HUD}`, color: C.cy, alpha: a, ls: 3 });
+  const cur = LAYER_OF[sid] ?? -1;
+  LAYER_NAMES.forEach((n, i) => {
+    const x = 640 + i * 190;
+    const done = cur > i, on = cur === i;
+    const col = i === 3 ? C.wv2 : on ? C.red : done ? C.cy : C.dim2;
+    badge(n, x, 34, { color: col, alpha: a, font: `400 20px ${HUD}`, fill: on ? hexA(col, .25) : 'rgba(0,0,0,.4)', tcol: on || done ? col : C.dim, align: 'center' });
+    if (i < 3) txt('▸', x + 95, 34, { font: `400 20px ${HUD}`, color: C.dim, align: 'center', alpha: a });
+  });
+  const blink = Math.floor(t * 1.6) % 2 === 0;
+  if (blink) { ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(1600, 34, 8, 0, 7); ctx.fill(); ctx.restore(); }
+  txt('REC', 1616, 34, { font: `400 22px ${HUD}`, color: C.red, alpha: a });
+  const m = Math.floor(t / 60), sec = (t % 60).toFixed(1).padStart(4, '0');
+  txt(`T+${String(m).padStart(2, '0')}:${sec}`, 1880, 34, { font: `400 24px ${HUD}`, color: C.cy, alpha: a, align: 'right' });
+}
+
+// ---------- 字幕（チャットログ） ----------
+const WRAP = {};
+function wrapLine(id, s, font, maxW) {
+  if (WRAP[id]) return WRAP[id];
+  ctx.save(); ctx.font = font;
+  let rows = [s];
+  if (ctx.measureText(s).width > maxW) {
+    // 真ん中に近い区切り（、。！？ や空白）で2行に分ける
+    // 句読点で切れるならそこで。なければ空白、それもなければ文字の途中
+    let best = -1;
+    for (const marks of ['、。！？）」…', ' ']) {
+      let bestD = 1e9;
+      for (let i = 1; i < s.length - 1; i++) {
+        if (!marks.includes(s[i - 1])) continue;
+        const w1 = ctx.measureText(s.slice(0, i)).width, w2 = ctx.measureText(s.slice(i)).width;
+        if (w1 > maxW || w2 > maxW) continue;
+        const d = Math.abs(w1 - w2);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      if (best >= 0) break;
+    }
+    if (best < 0) {
+      let i = s.length;
+      while (i > 1 && ctx.measureText(s.slice(0, i)).width > maxW) i--;
+      best = i;
+    }
+    rows = [s.slice(0, best).trimEnd(), s.slice(best).trimStart()];
+  }
+  ctx.restore();
+  return (WRAP[id] = rows);
+}
+function curLine(t) {
+  let cur = null;
+  for (const id of TLD.order) {
+    const l = TLD.lines[id];
+    if (l.start - .12 <= t) cur = id; else break;
+  }
+  return cur;
+}
+function drawCaption(t) {
+  const id = curLine(t);
+  if (!id) return;
+  const l = L(id);
+  const idx = TLD.order.indexOf(id);
+  const next = TLD.order[idx + 1];
+  // 最後のセリフは、その場面が終わるところまで（終わり方の暗転のあと、クレジットで字幕だけが戻ってこないように）
+  const until = Math.min(next ? L(next).start - .12 : TLD.scenes[l.scene].end, l.end + 2.2);
+  if (t > until) return;
+  const fadeOut = 1 - PT(t, until - .25, .25);
+  const sp = SPK[l.spk];
+  const a = PT(t, l.start - .12, .15) * fadeOut;
+  if (a <= 0) return;
+  const x0 = 70, y0 = 878, w0 = 1780, h0 = 172;
+  ctx.save(); ctx.globalAlpha = a;
+  chamfer(x0, y0, w0, h0, 22);
+  ctx.fillStyle = 'rgba(1,10,14,.86)'; ctx.fill();
+  ctx.strokeStyle = hexA(sp.col, .85); ctx.lineWidth = 2; ctx.shadowColor = sp.col; ctx.shadowBlur = 14; ctx.stroke();
+  ctx.restore();
+  // アバター
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = hexA(sp.col, .12); ctx.fillRect(x0 + 18, y0 + 14, 144, 144); ctx.restore();
+  const talking = t < l.end && Math.floor(t * 9) % 2 === 0;
+  sprite(sp.name, x0 + 27, y0 + 23 + (talking ? -2 : 0), 9, { alpha: a });
+  ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = hexA(sp.col, .6); ctx.lineWidth = 1.5; ctx.strokeRect(x0 + 18, y0 + 14, 144, 144); ctx.restore();
+  // 名札と、声の波形
+  txt(`<${sp.tag}>`, x0 + 190, y0 + 30, { font: `400 24px ${HUD}`, color: sp.col, alpha: a, ls: 2 });
+  if (t < l.end) {
+    for (let i = 0; i < 18; i++) {
+      const v = Math.abs(Math.sin(t * 13 + i * 1.3) * Math.sin(t * 7.1 + i * .7));
+      ctx.save(); ctx.globalAlpha = a * .8; ctx.fillStyle = sp.col;
+      ctx.fillRect(x0 + 470 + i * 9, y0 + 30 - v * 14, 5, Math.max(2, v * 28)); ctx.restore();
+    }
+  }
+  const font = `700 44px ${JP}`;
+  const rows = wrapLine(id, l.text, font, 1540);
+  const total = rows.join('').length;
+  const p = PT(t, l.start, Math.max(.35, (l.end - l.start) * .55));
+  let left = Math.floor(total * p), cur = false;
+  rows.forEach((r, i) => {
+    const n = Math.min(r.length, left); left -= n;
+    const y = y0 + (rows.length === 1 ? 102 : 80 + i * 54);
+    // カーソルは打っている行の1か所だけ（打ち終わったら最後の行の後ろで点滅）。まだ打っていない行には出さない
+    const here = !cur && (n < r.length || i === rows.length - 1);
+    if (here) cur = true;
+    typed(r.slice(0, n), x0 + 190, y, 1, { font, color: C.wht, alpha: a, cursor: here && (n < r.length || t < l.end), ccol: sp.col, t });
+    if (n < r.length) left = 0;
+  });
+}
+
+// まだ作っていないシーンの仮の絵
+function stubScene(t, s) { bgBoard(t, {}); header('TODO', TLD.sceneOrder.find(k => TLD.scenes[k] === s), t, s.start); }
+
+// ---------- 1フレーム ----------
+function renderFrame(t) {
+  t = clamp(t, 0, TLD.duration);
+  ctx.setTransform(SC, 0, 0, SC, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+  const sid = sceneAt(t), s = S(sid);
+  const [sx, sy] = shakeAt(t);
+  ctx.save(); ctx.translate(sx, sy);
+  (SCN[sid] || stubScene)(t, s);
+  ctx.restore();
+  // シーンのつなぎ: チャンネルを切り替えたような乱れ
+  const sw = s.start > 0 ? 1 - PT(t, s.start, .45) : 0;
+  if (sw > 0) { sliceGlitch(sw, t); flash('#bff7ff', sw * .25); }
+  drawHUD(t, sid);
+  drawCaption(t);
+  const g = glitchAt(t);
+  if (g > 0) sliceGlitch(g, t);
+  const crt = PT(t, T_CRT, .15);
+  CRT.draw(t, crt, g * .1);
+  if (POST[sid]) POST[sid](t, s);
+}
+
+// BGM と効果音。曲は「監査コンソール」のダークシンセ（D マイナー、120BPM）。区画ごとに編成を替える
+//   冒頭: 前作の続きは明るいアルペジオ → 壁に当たって無音 → 暗い脈動 → 題名で曲が立ち上がる
+//   L1〜L3: 4つ打ちのグルーヴ（赤い区画は和音を暗く）/ 奇妙な現象は打楽器を抜いた謎めいた音 / チートで E マイナーに上がって爆発
+//   おわりに: ハーフタイムとベルの旋律 → 良か悪かで脈を打ち → 最後の1文で和音だけが残る
+// bgm.mp3 には曲だけを書き出し、効果音は HTML の中で鳴らす（liveSE）
+const SR = 48000;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const BAR = 2, BEAT = .5, SIX = .125;
+
+// 区画（開始・終了・種類・移調）
+function sections() {
+  const sc = TLD.scenes, s = id => sc[id];
+  const Tw = L('op2').end + .25, Tt = L('op7').end + .7;
+  const A = [
+    [0, L('op1').start - .2, 'ambient', 0],
+    [L('op1').start - .2, Tw, 'hope', 0],
+    [T_CRT, Tt, 'dark', 0],
+    [Tt, s('open').end, 'drop', 0],
+    [s('walls').start, s('walls').end, 'grooveA', 0],
+    [s('vbaoff').start, s('vbaoff').end, 'grooveB', 0],
+    [s('scan').start, s('scan').end, 'grooveA2', 0],
+    [s('win32').start, s('win32').end, 'grooveB', 0],
+    [s('anomaly1').start, s('anomaly1').end, 'mystery', 0],
+    [s('child').start, s('child').end, 'grooveB', 0],
+    [s('anomaly2').start, L('ab9').start, 'mystery', 0],
+    [L('ab9').start, s('anomaly2').end, 'grooveA', 0],
+    [s('why').start, s('why').end, 'tension', 0],
+    [s('rda').start, s('rda').end, 'grooveC', 0],
+    [s('udd').start, s('udd').end, 'grooveC', 0],
+    [s('dta').start, s('dta').end, 'grooveC2', 0],
+    [s('cheat').start, L('wv4').start, 'riser', 0],
+    [L('wv4').start, s('cheat').end, 'drop', 2],
+    [s('ending').start, L('ed12').start, 'outro', 0],
+    [L('ed12').start, L('ed15').start, 'outroUp', 0],
+    [L('ed15').start, L('ed18').start - .2, 'climb', 0],
+    [L('ed18').start - .2, L('ed20').start - .4, 'tense2', 0],
+    [L('ed20').start - .4, S('ending').end - 1.2, 'final', 0],
+    [s('credits').start + .5, s('credits').end, 'credits', 0],
+  ];
+  return A;
+}
+// 和音（ルートの MIDI と構成音）
+const CH = {
+  Dm: [50, [62, 65, 69]], Bb: [46, [58, 62, 65]], F: [53, [60, 65, 69]], C: [48, [60, 64, 67]],
+  Gm: [43, [55, 58, 62]], A: [45, [57, 61, 64]], Eb: [51, [58, 63, 67]], Am: [45, [57, 60, 64]],
+};
+const PROG = {
+  A: ['Dm', 'Bb', 'F', 'C'], B: ['Dm', 'Bb', 'Gm', 'A'], M: ['Dm', 'Eb', 'Dm', 'Eb'], O: ['Bb', 'F', 'C', 'Dm'], H: ['Dm', 'Bb', 'F', 'C'],
+};
+// 主題（2小節）: [拍, 音, 長さ]
+const THEME = [[0, 74, .75], [.75, 77, .75], [1.5, 81, .5], [2, 79, 1], [3, 77, .5], [3.5, 76, .5], [4, 74, 1.5], [5.5, 69, .5], [6, 72, 1], [7, 74, 1]];
+const BELL = [[0, 81, 1], [1, 77, 1], [2, 76, 1], [3, 74, 1], [4, 72, 1.5], [5.5, 74, .5], [6, 76, 2]];
+
+function buildScore(ac, dest, mode = 'all', off = 0) {
+  let seed = 13579;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const noiseBuf = ac.createBuffer(1, SR * 2, SR);
+  { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rnd() * 2 - 1; }
+  const ir = ac.createBuffer(2, SR * 3, SR);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (rnd() * 2 - 1) * Math.pow(1 - i / d.length, 3.2); }
+
+  const master = ac.createDynamicsCompressor();
+  master.threshold.value = -16; master.ratio.value = 3.5; master.attack.value = .006; master.release.value = .2;
+  master.connect(dest);
+  const verb = ac.createConvolver(); verb.buffer = ir;
+  const verbOut = ac.createGain(); verbOut.gain.value = .32; verb.connect(verbOut); verbOut.connect(master);
+  const dly = ac.createDelay(1); dly.delayTime.value = BEAT * .75;
+  const fb = ac.createGain(); fb.gain.value = .38; dly.connect(fb); fb.connect(dly);
+  const dlyOut = ac.createGain(); dlyOut.gain.value = .3; dly.connect(dlyOut); dlyOut.connect(master);
+  const music = ac.createGain(); music.gain.value = .55; music.connect(master);
+  const sfx = ac.createGain(); sfx.gain.value = .75; sfx.connect(master);
+  const EV = [];
+  const at = (t, fn) => EV.push([t, fn]);
+  const T = t => t + off;
+
+  // ---------- 音の部品 ----------
+  const g = (dst, v = 1) => { const x = ac.createGain(); x.gain.value = v; x.connect(dst); return x; };
+  const env = (gn, t, a, peak, d, hold = 0) => {
+    gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(peak, t + a);
+    gn.gain.setValueAtTime(peak, t + a + hold); gn.gain.exponentialRampToValueAtTime(.0001, t + a + hold + d);
+  };
+  const osc = (type, f, t, d, dst) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.connect(dst); o.start(t); o.stop(t + d + .05); return o; };
+  const noise = (t, d, dst, rate = 1) => { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = rate; s.loop = true; s.connect(dst); s.start(t, rnd()); s.stop(t + d + .05); return s; };
+  const filt = (type, f, q, dst) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.connect(dst); return b; };
+  const send = (src, amt, to) => { const x = ac.createGain(); x.gain.value = amt; src.connect(x); x.connect(to); };
+
+  // 打楽器
+  const kick = (t, v = .9, out = music) => {
+    const gn = g(out, 0); env(gn, T(t), .002, v, .32);
+    const o = osc('sine', 150, T(t), .4, gn); o.frequency.setValueAtTime(160, T(t)); o.frequency.exponentialRampToValueAtTime(42, T(t) + .12);
+    const c = g(out, 0); env(c, T(t), .001, v * .25, .02); noise(T(t), .03, filt('highpass', 3000, .7, c));
+  };
+  const snare = (t, v = .35, out = music) => {
+    const gn = g(out, 0); env(gn, T(t), .002, v, .16); noise(T(t), .2, filt('bandpass', 1900, .8, gn));
+    const tg = g(out, 0); env(tg, T(t), .002, v * .5, .08); osc('triangle', 190, T(t), .1, tg);
+    send(gn, .25, verb);
+  };
+  const hat = (t, v = .08, open = false, out = music) => {
+    const gn = g(out, 0); env(gn, T(t), .001, v, open ? .22 : .035); noise(T(t), open ? .3 : .06, filt('highpass', 8000, .7, gn));
+  };
+  // ベース（のこぎり波＋矩形波を低域通過フィルターで）
+  const bass = (t, m, d, v = .22, out = music, cut = 900) => {
+    const gn = g(out, 0); env(gn, T(t), .004, v, d * .9);
+    const f = filt('lowpass', cut, 6, gn); f.frequency.setValueAtTime(cut * 1.8, T(t)); f.frequency.exponentialRampToValueAtTime(cut * .35, T(t) + d);
+    osc('sawtooth', mtof(m), T(t), d, f); osc('square', mtof(m - 12), T(t), d, g(f, .5));
+  };
+  // アルペジオ（短い矩形波。ディレイに送る）
+  const arp = (t, m, d, v = .06, out = music, cut = 2600) => {
+    const gn = g(out, 0); env(gn, T(t), .003, v, d);
+    const f = filt('lowpass', cut, 4, gn); f.frequency.setValueAtTime(cut * 1.6, T(t)); f.frequency.exponentialRampToValueAtTime(cut * .5, T(t) + d);
+    osc('square', mtof(m), T(t), d, f); send(gn, .6, dly);
+  };
+  // パッド（ずらした のこぎり波）
+  const pad = (t, d, notes, v = .03, out = music, cut = 1100) => {
+    const gn = g(out, 0);
+    gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(v, T(t) + Math.min(.8, d * .3));
+    gn.gain.setValueAtTime(v, T(t) + d - Math.min(.8, d * .3)); gn.gain.linearRampToValueAtTime(0, T(t) + d + .4);
+    const f = filt('lowpass', cut, .8, gn);
+    for (const m of notes) for (const det of [-9, 9]) { const o = osc('sawtooth', mtof(m), T(t), d + .5, f); o.detune.value = det; }
+    send(gn, .6, verb);
+  };
+  // 主旋律（のこぎり波＋ビブラート）
+  const lead = (t, m, d, v = .07, out = music) => {
+    const gn = g(out, 0); env(gn, T(t), .01, v, d * .9, d * .2);
+    const f = filt('lowpass', 3200, 2, gn);
+    const o1 = osc('sawtooth', mtof(m), T(t), d, f), o2 = osc('square', mtof(m), T(t), d, g(f, .4)); o2.detune.value = 7;
+    const lfo = osc('sine', 5.5, T(t), d, g(o1.frequency, mtof(m) * .006));
+    send(gn, .5, dly); send(gn, .3, verb);
+  };
+  // ベル（三角波＋倍音）
+  const bell = (t, m, d, v = .06, out = music) => {
+    const gn = g(out, 0); env(gn, T(t), .002, v, d * 1.4);
+    osc('triangle', mtof(m), T(t), d * 1.5, gn); osc('sine', mtof(m + 24), T(t), d * .5, g(gn, .25));
+    send(gn, .7, verb); send(gn, .4, dly);
+  };
+  const riser = (t, d, v = .08, out = music) => {
+    const gn = g(out, 0); gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(v, T(t) + d); gn.gain.linearRampToValueAtTime(0, T(t) + d + .05);
+    const f = filt('bandpass', 400, 3, gn); f.frequency.setValueAtTime(300, T(t)); f.frequency.exponentialRampToValueAtTime(9000, T(t) + d);
+    noise(T(t), d, f); send(gn, .5, verb);
+  };
+  const boom = (t, v = .7, out = music) => {
+    const gn = g(out, 0); env(gn, T(t), .003, v, 1.4);
+    const o = osc('sine', 80, T(t), 1.5, gn); o.frequency.setValueAtTime(90, T(t)); o.frequency.exponentialRampToValueAtTime(30, T(t) + 1.2);
+    const n = g(out, 0); env(n, T(t), .002, v * .4, .6); noise(T(t), .7, filt('lowpass', 1800, .7, n));
+    send(n, .7, verb);
+  };
+
+  // ---------- 曲 ----------
+  if (mode !== 'se') {
+    for (const [t0, t1, kind, tr] of sections()) {
+      const nb = Math.ceil((t1 - t0) / BAR - .01);
+      for (let b = 0; b < nb; b++) {
+        const bt = t0 + b * BAR;
+        if (bt >= t1 - .05) break;
+        const rest = Math.min(BAR, t1 - bt);
+        at(bt - .1, () => bar(kind, b, bt, rest, tr, t0, t1));
+      }
+    }
+  }
+  function chordOf(prog, b, tr) { const [r, n] = CH[PROG[prog][b % 4]]; return [r + tr, n.map(x => x + tr)]; }
+  function drums(bt, rest, o) {
+    for (let k = 0; k < 4; k++) {
+      const bb = bt + k * BEAT;
+      if (bb >= bt + rest - .01) break;
+      if (o.kick) kick(bb, o.kick);
+      if (o.snare && k % 2 === 1) snare(bb, o.snare);
+      if (o.hat) { hat(bb + BEAT / 2, o.hat * 1.4, true); hat(bb, o.hat * .6); hat(bb + SIX, o.hat * .4); hat(bb + SIX * 3, o.hat * .5); }
+    }
+  }
+  function bassLine(bt, rest, root, v, cut, patt = 'oct') {
+    for (let i = 0; i < 16; i++) {
+      const tt = bt + i * SIX;
+      if (tt >= bt + rest - .01) break;
+      if (patt === 'pulse' && i % 2) continue;
+      const m = root - 12 + (patt === 'oct' && i % 2 ? 12 : 0);
+      bass(tt, m, SIX * .9, v, music, cut);
+    }
+  }
+  function arpLine(bt, rest, notes, v, step = SIX, cut = 2600, up = true) {
+    const seq = up ? [0, 1, 2, 1, 0, 2, 1, 2] : [2, 1, 0, 1, 2, 0, 1, 0];
+    for (let i = 0; i * step < rest - .01; i++) {
+      const m = notes[seq[i % 8]] + (i % 16 >= 8 ? 12 : 0);
+      arp(bt + i * step, m, step * .9, v, music, cut);
+    }
+  }
+  function theme(bt, tr, v = .06, which = THEME) {
+    for (const [b0, m, d] of which) lead(bt + b0 * BEAT, m + tr, d * BEAT, v);
+  }
+
+  function bar(kind, b, bt, rest, tr, t0, t1) {
+    const last = bt + BAR >= t1 - .05;
+    switch (kind) {
+      case 'ambient': {
+        pad(bt, rest, [50, 57, 62], .018, music, 700);
+        if (b % 2 === 0) arp(bt + 1, 81, .3, .02);
+        break;
+      }
+      case 'hope': {
+        const [r, n] = chordOf('A', b, tr);
+        pad(bt, rest, n, .03, music, 1400);
+        arpLine(bt, rest, n.map(x => x + 12), .045 + Math.min(.03, b * .006), SIX, 3000);
+        if (b >= 1) { hat(bt + BEAT, .05); hat(bt + BEAT * 3, .05); }
+        if (b >= 2) bassLine(bt, rest, r, .14, 700, 'pulse');
+        if (b >= 3) for (let k = 0; k < 4; k++) if (bt + k * BEAT < bt + rest) kick(bt + k * BEAT, .55);
+        break;
+      }
+      case 'dark': {
+        pad(bt, rest, [50, 56, 62], .03, music, 600);
+        for (let k = 0; k < 4; k++) if (bt + k * BEAT < bt + rest - .01) bass(bt + k * BEAT, 38, .35, .2, music, 300);
+        for (let i = 0; i < 8; i++) if (bt + i * BEAT / 2 < bt + rest - .01) hat(bt + i * BEAT / 2, .04);
+        if (last) riser(Math.max(bt, t1 - 2.4), Math.min(2.4, t1 - bt), .1);
+        break;
+      }
+      case 'drop': {
+        const [r, n] = chordOf('A', b, tr);
+        if (b === 0) { boom(bt, .55); }
+        drums(bt, rest, { kick: .9, snare: .4, hat: .07 });
+        bassLine(bt, rest, r, .2, 1100);
+        pad(bt, rest, n, .035, music, 1800);
+        arpLine(bt, rest, n.map(x => x + 12), .045, SIX, 3400);
+        if (b % 4 === 0 && rest >= BAR - .01) theme(bt, tr, .055);
+        break;
+      }
+      case 'grooveA': case 'grooveA2': case 'grooveC': case 'grooveC2': {
+        const prog = 'A';
+        const [r, n] = chordOf(prog, b, tr);
+        const c = kind.startsWith('grooveC');
+        drums(bt, rest, { kick: .8, snare: b % 8 < 2 && !c ? 0 : .3, hat: c ? .07 : .055 });
+        bassLine(bt, rest, r, .17, c ? 1000 : 750, c ? 'oct' : 'pulse');
+        pad(bt, rest, n, .028, music, 1200);
+        if (b % 8 >= 4 || kind.endsWith('2') || c) arpLine(bt, rest, n.map(x => x + 12), .035, c ? SIX : SIX * 2, 2600, b % 2 === 0);
+        if (kind === 'grooveC2' && b % 8 === 4 && rest >= BAR - .01) theme(bt, tr, .045);
+        if (kind === 'grooveA2' && b % 16 === 12 && rest >= BAR - .01) theme(bt, tr, .04);
+        break;
+      }
+      case 'grooveB': {
+        const [r, n] = chordOf('B', b, tr);
+        drums(bt, rest, { kick: .85, snare: .4, hat: .06 });
+        bassLine(bt, rest, r, .19, 600, 'oct');
+        pad(bt, rest, n, .028, music, 900);
+        // 警報のような短い刻み
+        if (b % 2 === 1) for (let k = 0; k < 3; k++) arp(bt + BEAT * 2 + k * SIX * 2, n[2] + 24, .1, .03, music, 2200);
+        break;
+      }
+      case 'mystery': {
+        const [r, n] = chordOf('M', b, tr);
+        pad(bt, rest, [n[0], n[1] + 12, n[2] + 12], .026, music, 800);
+        bass(bt, r - 12, Math.min(rest, 1.8), .12, music, 300);
+        const sc = [62, 65, 67, 69, 72, 74, 77, 79];
+        for (let i = 0; i < 6; i++) {
+          const tt = bt + i * BEAT * .66;
+          if (tt >= bt + rest - .05) break;
+          if (rnd() < .65) arp(tt, sc[Math.floor(rnd() * sc.length)] + 12, .2, .03, music, 3000);
+        }
+        hat(bt + BEAT * 1.5, .03); hat(bt + BEAT * 3.5, .03);
+        break;
+      }
+      case 'tension': {
+        pad(bt, rest, [50, 53, 56], .032, music, 700);
+        bass(bt, 26, Math.min(rest, 1.9), .16, music, 200);
+        kick(bt, .7); kick(bt + .28, .45);
+        if (b % 2) for (let i = 0; i < 4; i++) arp(bt + 1 + i * SIX, 86 - i, .08, .015, music, 4000);
+        break;
+      }
+      case 'riser': {
+        const [r, n] = chordOf('A', b, tr);
+        pad(bt, rest, n, .03, music, 900 + b * 120);
+        arpLine(bt, rest, n.map(x => x + 12), .02 + b * .003, SIX, 1200 + b * 260);
+        if (b >= 2) for (let k = 0; k < 4; k++) kick(bt + k * BEAT, .45 + b * .02);
+        if (t1 - bt < 4.2 && t1 - bt > 0) { riser(bt, Math.min(rest, t1 - bt), .1); for (let i = 0; i < 8; i++) if (bt + i * SIX * 2 < t1) snare(bt + i * SIX * 2, .1 + i * .02); }
+        break;
+      }
+      case 'outro': case 'outroUp': case 'climb': {
+        const [r, n] = chordOf('O', b, tr);
+        pad(bt, rest, n, .03, music, 1300);
+        bass(bt, r - 12, Math.min(rest, 1.9), .12, music, 500);
+        if (kind !== 'outro' || b >= 2) { kick(bt, .6); snare(bt + BEAT * 2, .22); hat(bt + BEAT, .04); hat(bt + BEAT * 3, .04); }
+        if (kind === 'outroUp' || kind === 'climb') { kick(bt + BEAT * 2.5, .4); arpLine(bt, rest, n.map(x => x + 12), .03, SIX * 2, 2400); }
+        if (kind === 'climb') bassLine(bt, rest, r, .1, 600, 'pulse');
+        if (b % 4 === 0 && rest >= BAR - .01) for (const [b0, m, d] of BELL) bell(bt + b0 * BEAT, m - 12 + tr, d * BEAT, .045);
+        if (kind === 'outroUp' && b === 0) boom(bt, .45);
+        break;
+      }
+      case 'tense2': {
+        pad(bt, rest, [50, 53, 57], .03, music, 800);
+        for (let k = 0; k < 4; k++) if (bt + k * BEAT < bt + rest - .01) { kick(bt + k * BEAT, .5); bass(bt + k * BEAT, 38 + (k % 2) * 7, .3, .14, music, 400); }
+        break;
+      }
+      case 'final': {
+        if (b === 0) { pad(bt, t1 - bt + 1, [50, 57, 62, 65, 69], .04, music, 1600); bell(bt + .3, 74, 3, .05); bell(bt + 1.1, 69, 3, .04); }
+        break;
+      }
+      case 'credits': {
+        const [r, n] = chordOf('O', b, tr);
+        const fade = Math.max(0, 1 - (bt - t0) / (t1 - t0) * .9);
+        pad(bt, rest, n, .025 * fade, music, 1100);
+        arpLine(bt, rest, n.map(x => x + 12), .025 * fade, SIX * 2, 2000);
+        break;
+      }
+    }
+  }
+
+  // ---------- 効果音 ----------
+  if (mode !== 'music') {
+    for (const [t, kind, o] of SEQ) at(t - .05, () => fx(t, kind, o || {}));
+  }
+  function beep(t, f, d, v, type = 'sine', out = sfx) { const gn = g(out, 0); env(gn, T(t), .002, v, d); osc(type, f, T(t), d, gn); return gn; }
+  function zap(t, f0, f1, d, v, type = 'sawtooth') {
+    const gn = g(sfx, 0); env(gn, T(t), .003, v, d);
+    const o = osc(type, f0, T(t), d, filt('lowpass', 4000, 1, gn)); o.frequency.setValueAtTime(f0, T(t)); o.frequency.exponentialRampToValueAtTime(f1, T(t) + d);
+  }
+  function hiss(t, d, v, f0, f1, type = 'bandpass') {
+    const gn = g(sfx, 0); gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(v, T(t) + d * .3); gn.gain.linearRampToValueAtTime(0, T(t) + d);
+    const f = filt(type, f0, 2, gn); f.frequency.setValueAtTime(f0, T(t)); f.frequency.exponentialRampToValueAtTime(f1, T(t) + d);
+    noise(T(t), d, f);
+  }
+  function fx(t, kind, o) {
+    switch (kind) {
+      case 'key': { const gn = g(sfx, 0); env(gn, T(t), .001, .16, .03); noise(T(t), .04, filt('bandpass', 2500 + (o.i % 5) * 300, 2, gn)); beep(t, 180 + (o.i % 3) * 20, .03, .05, 'square'); break; }
+      case 'enter': { const gn = g(sfx, 0); env(gn, T(t), .001, .25, .06); noise(T(t), .08, filt('bandpass', 1500, 1.5, gn)); beep(t, 120, .08, .12, 'square'); break; }
+      case 'whoosh': hiss(t, .6, .18, 400, 4000); break;
+      case 'zoom': hiss(t, .35, .12, 800, 6000, 'highpass'); break;
+      case 'blip': beep(t, mtof(o.n || 76), .12, .1, 'square'); beep(t + .06, mtof((o.n || 76) + 7), .1, .07, 'square'); break;
+      case 'pop': beep(t, 620, .05, .1); beep(t + .04, 940, .06, .08); break;
+      case 'tick': beep(t, 1800 + ((o.i || 0) % 4) * 120, .02, .06, 'square'); break;
+      case 'slam': boom(t, .9, sfx); zap(t, 200, 40, .5, .25, 'square'); hiss(t, .5, .25, 3000, 300, 'lowpass'); break;
+      case 'deny': beep(t, 140, .18, .14, 'square'); beep(t + .11, 104, .22, .14, 'square'); break;
+      case 'alarm': for (let i = 0; i < 4; i++) beep(t + i * .22, i % 2 ? 660 : 880, .2, .08, 'square'); break;
+      case 'crtOn': zap(t, 60, 3800, .25, .1, 'sine'); hiss(t, .3, .12, 6000, 9000, 'highpass'); beep(t + .25, 15600, .6, .015); break;
+      case 'crtOff': zap(t, 2400, 50, .45, .14, 'sine'); hiss(t, .35, .12, 8000, 500, 'lowpass'); break;
+      case 'connect': for (let i = 0; i < 10; i++) beep(t + i * .05, 1200 + ((i * 37) % 9) * 180, .04, .05, 'square'); break;
+      case 'impact': boom(t, .7, sfx); zap(t, 600, 60, .4, .15); break;
+      case 'title': boom(t, .9, sfx); hiss(t, 1.2, .2, 6000, 200, 'lowpass'); for (const m of [50, 57, 62, 65]) beep(t, mtof(m), 1.6, .05, 'sawtooth'); break;
+      case 'lock': beep(t, 900, .03, .12, 'square'); beep(t + .07, 600, .05, .12, 'square'); break;
+      case 'wallUp': boom(t, .35, sfx); beep(t, 220 + (o.i || 0) * 40, .3, .06, 'sawtooth'); break;
+      case 'scan': zap(t, 300, 2400, 1.6, .05, 'sine'); break;
+      case 'flatline': beep(t, 1000, 2.2, .05, 'sine'); break;
+      case 'stamp': boom(t, .3, sfx); { const gn = g(sfx, 0); env(gn, T(t), .001, .2, .08); noise(T(t), .1, filt('bandpass', 900, 1, gn)); } break;
+      case 'dissolve': for (let i = 0; i < 16; i++) beep(t + i * .07, 2000 - i * 90, .05, .03, 'square'); break;
+      case 'boot': for (let i = 0; i < 5; i++) beep(t + i * .08, mtof(74 + i * 3), .08, .06, 'square'); break;
+      case 'sparkle': for (let i = 0; i < 6; i++) beep(t + i * .07, mtof(88 + [0, 4, 7, 12, 7, 16][i]), .3, .04, 'triangle'); break;
+      case 'pass': beep(t, mtof(79), .12, .08, 'triangle'); beep(t + .1, mtof(86), .25, .08, 'triangle'); break;
+      case 'anomaly': for (let i = 0; i < 12; i++) beep(t + i * .04, 300 + ((i * 53) % 11) * 140, .05, .05, 'sawtooth'); boom(t, .4, sfx); break;
+      case 'glitch': for (let i = 0; i < 8; i++) { const gn = g(sfx, 0); env(gn, T(t + i * .03), .001, .08, .02); noise(T(t + i * .03), .03, filt('bandpass', 500 + ((i * 71) % 9) * 600, 4, gn)); } break;
+      case 'click': beep(t, 2200, .015, .1, 'square'); break;
+      case 'infect': zap(t, 80, 600, 1.2, .08, 'sawtooth'); break;
+      case 'cut': zap(t, 1600, 200, .15, .08, 'square'); break;
+      case 'merge': zap(t, 300, 600, .5, .05, 'triangle'); zap(t, 900, 600, .5, .05, 'triangle'); break;
+      case 'drop': zap(t, 1200, 200, .45, .07, 'sine'); boom(t + .45, .3, sfx); break;
+      case 'decode': for (let i = 0; i < 26; i++) beep(t + i * .06, 600 + ((i * 97) % 13) * 110, .04, .04, 'square'); break;
+      case 'bypass': hiss(t, .8, .15, 300, 3000); beep(t + .6, mtof(81), .4, .06, 'triangle'); beep(t + .75, mtof(88), .5, .06, 'triangle'); break;
+      case 'minus': beep(t, mtof(50), .5, .1, 'sawtooth'); break;
+      case 'plus': beep(t, mtof(62), .3, .08, 'sawtooth'); beep(t + .08, mtof(69), .4, .08, 'sawtooth'); break;
+      case 'build': beep(t, mtof(64 + ((o.i || 0) % 12)), .06, .06, 'square'); break;
+      case 'tense': beep(t, mtof(38), 1.2, .08, 'sawtooth'); break;
+      case 'final': boom(t, .4, sfx); break;
+    }
+  }
+
+  const run = (limit, skip = -Infinity) => {
+    for (const e of EV) if (!e.done && e[0] < limit) { e.done = true; if (e[0] >= skip) e[1](); }
+  };
+  return { run, EV };
+}
+
+// bgm.mp3 用の書き出し（mode = 'music'）
+window.renderAudio = async function (mode = 'music') {
+  const dur = TLD.duration + 1;
+  const ac = new OfflineAudioContext(2, Math.ceil(dur * SR), SR);
+  const { run } = buildScore(ac, ac.destination, mode);
+  const WIN = 4;
+  run(WIN + .5);
+  for (let w = WIN; w < dur; w += WIN) ac.suspend(w).then(() => { run(w + WIN + .5); ac.resume(); });
+  const buf = await ac.startRendering();
+  const L0 = buf.getChannelData(0), R0 = buf.getChannelData(1);
+  const pcm = new Int16Array(L0.length * 2);
+  for (let i = 0; i < L0.length; i++) {
+    pcm[i * 2] = Math.max(-1, Math.min(1, L0[i])) * 32767;
+    pcm[i * 2 + 1] = Math.max(-1, Math.min(1, R0[i])) * 32767;
+  }
+  window.__PCM = new Uint8Array(pcm.buffer);
+  return { sampleRate: SR, bytes: window.__PCM.length };
+};
+
+// HTML 版の効果音: 再生位置 from から、ムービーの 0 秒 = ac の base 秒として、少し先の分ずつ鳴らす
+window.liveSE = function (ac, dest) {
+  let timer = 0, out = null;
+  return {
+    start(from, base) {
+      this.stop();
+      out = ac.createGain(); out.connect(dest);
+      const sc = buildScore(ac, out, 'se', base);
+      const step = () => sc.run(ac.currentTime - base + 1.5, from - .05);
+      step(); timer = setInterval(step, 100);
+    },
+    stop() {
+      clearInterval(timer);
+      if (!out) return;
+      const o = out, now = ac.currentTime;
+      o.gain.setValueAtTime(o.gain.value, now); o.gain.linearRampToValueAtTime(0, now + .05);
+      setTimeout(() => o.disconnect(), 300);
+      out = null;
+    },
+  };
+};
+
+window.audioChunk = function (i, size) {
+  const sub = window.__PCM.subarray(i * size, (i + 1) * size);
+  let s = '';
+  for (let k = 0; k < sub.length; k += 0x8000) s += String.fromCharCode.apply(null, sub.subarray(k, k + 0x8000));
+  return btoa(s);
+};
+</script>
+<script>
+// HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
+const VOICE_DIR = 'voice/ReiwaIE_Policy/';
+const CHARS = "―…※→−≡⏎└├█░▒▓■▸◢☐⚠✓✕✦、。「」〜ぁあいうえおかがきぎくぐけげこごさざしじすずせぜそただちっつてでとどなにねのはばひびふぶぷへべほぽまみむめもゃやゅょよらりるれろわをんァアィイウェエォオカキギクグケゲコゴサザシジスズセゼソタダチッツテデトドナニネノハバパビピフブプヘベペホボポマミムメモャヤュユョラリルレロワンヴ・ー一三上下不並中主乗乱了予事人今仕他付代令仮件任企伏会伝位低体何余作使例侵係保信個倍倒借値側働像優元先光入全公六共具典内再冒凍処出分切列初判別制刻則削前割力効動務化区単厳収取受口古句可台史右号各合同名向否告周味呼和品器回困囲図固土地埋域報場境増壁声変外多大太奇好妙始威子字存守完定実寄寝対専小少尾局履山左差帯幅幕平年広度座廃式引強当形役律後御循心必応怖思悪意感成戻所手打承技抜押担拍拒指掛接推描揺携撃操攻教数文料方旋既日明昔映春時普景暗曲更書替最有木未末本札条来枚果枠染査案械棒検業楽構様標権横機欠次止正歴残段気求決法波注流消添済減渡測準滅火点無爆版物特犯現理環生用由画番発白盛監盤目直真眼瞬矩短砕確社禁秒秘移種積空窓立章端第答策箇算管節範系約紋紛素終組経結絵継続緑線編縦縮罠置考者聞背能脅脈自致良色落薄虫行術表装製要見規視覚覧親角解触言記設許証試詰話認語説読誰調請論謎識警議護象資赤走起超越足身転軽辺込近返送逃透途通速連進遅過道違適選避部配重鋭録長門閉開間関防限除階隔電青面音頃順頭頼題類駆高鳴黄鼓！（）＋＝？";
+const DUR = TLD.duration;
+const BG = .85, DUCK = .45;
+const $ = s => document.querySelector(s);
+const fmt = s => { s = Math.max(0, s); return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
+
+let ac = null, bus = null, bgGain = null, voGain = null, bgm = null, se = null;
+const VO = {};
+let srcs = [], playing = false, T = 0, base = 0, seeking = false, ready = false, dirty = true, cover = null;
+
+// セリフが続く区間をまとめて、BGM を下げる区間にする
+const DUCKS = [];
+for (const id of TLD.order) {
+  const l = TLD.lines[id], a = l.start - .1, b = l.end + .15, last = DUCKS[DUCKS.length - 1];
+  if (last && a - last[1] < .7) last[1] = b; else DUCKS.push([a, b]);
+}
+
+function fit() {
+  // innerWidth はスマートフォンで縮小表示されると変わってしまうので、画面の実際の幅（clientWidth）で測る
+  const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
+  const s = Math.min(vw / 1920, vh / 1080);
+  cv.style.width = 1920 * s + 'px'; cv.style.height = 1080 * s + 'px';
+  // Canvas の画素数: ふだんは 1920×1080。全画面のときだけ画面の画素数に合わせる（16:9 のまま、1080p 未満にはしない、上限は横 3840）
+  const full = document.fullscreenElement || document.webkitFullscreenElement;
+  const pw = full ? Math.min(3840, Math.max(1920, Math.round(1920 * s * (devicePixelRatio || 1)))) : 1920;
+  if (cv.width !== pw) { cv.width = pw; cv.height = Math.round(pw * 9 / 16); SC = pw / 1920; dirty = true; }
+}
+// 全画面の出入りと、resize が届かない変わり方（埋め込み先の枠の変化など）も見張る
+addEventListener('resize', fit); addEventListener('fullscreenchange', fit); addEventListener('webkitfullscreenchange', fit);
+new ResizeObserver(() => fit()).observe(document.documentElement); fit();
+
+async function loadAll() {
+  const total = TLD.order.length + 2;
+  let n = 0;
+  const step = () => { $('#startLbl').textContent = `読み込み中… ${Math.round(++n / total * 100)}%`; };
+  const weights = [500, 600, 700, 800, 900];
+  await Promise.all([
+    ...weights.map(w => document.fonts.load(`${w} 40px "Noto Sans JP"`, CHARS).catch(() => {})),
+    document.fonts.load(`700 40px "JetBrains Mono"`, 'abc0123').catch(() => {}),
+    ...['400 40px "DotGothic16"', '400 40px "Share Tech Mono"', '800 40px "JetBrains Mono"', '400 40px "JetBrains Mono"']
+      .map(f => document.fonts.load(f, CHARS).catch(() => {})),
+  ]);
+  step();
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  bus = ac.createGain(); bus.connect(ac.destination);
+  bgGain = ac.createGain(); bgGain.gain.value = BG; bgGain.connect(bus);
+  voGain = ac.createGain(); voGain.connect(bus);
+  // 効果音は bgm.mp3 に入れず、絵と同じ時刻表からブラウザの中で鳴らす（BGM と同じく、声の間は下げる）
+  se = window.liveSE(ac, bgGain);
+  const get = async url => { const r = await fetch(url); if (!r.ok) throw new Error(url); return await ac.decodeAudioData(await r.arrayBuffer()); };
+  try { bgm = await get(VOICE_DIR + 'bgm.mp3'); } catch (e) { console.warn('BGM なしで再生します', e); }
+  step();
+  // 声が読み込めなくても、字幕と BGM だけで再生できるようにする
+  await Promise.all(TLD.order.map(async id => { try { VO[id] = await get(VOICE_DIR + id + '.wav'); } catch (e) { console.warn(e); } step(); }));
+}
+
+function stopAudio() { for (const s of srcs) { try { s.stop(); } catch (e) {} } srcs = []; se?.stop(); }
+function startAudio(from) {
+  stopAudio();
+  const now = ac.currentTime + .06;
+  base = now - from;
+  if (bgm && from < bgm.duration) {
+    const s = ac.createBufferSource(); s.buffer = bgm; s.connect(bgGain); s.start(now, from); srcs.push(s);
+  }
+  const g = bgGain.gain;
+  g.cancelScheduledValues(0); g.setValueAtTime(BG, now);
+  for (const [a, b] of DUCKS) {
+    if (b < from) continue;
+    const ta = base + a, tb = base + b;
+    if (ta > now) { g.setValueAtTime(BG, ta); g.linearRampToValueAtTime(BG * DUCK, ta + .15); }
+    else g.setValueAtTime(BG * DUCK, now);
+    g.setValueAtTime(BG * DUCK, Math.max(now, tb)); g.linearRampToValueAtTime(BG, Math.max(now, tb) + .35);
+  }
+  for (const id of TLD.order) {
+    const l = TLD.lines[id], buf = VO[id];
+    if (!buf) continue;
+    const off = Math.max(0, from - l.start);
+    if (off >= buf.duration) continue;
+    const s = ac.createBufferSource(); s.buffer = buf; s.connect(voGain);
+    s.start(base + l.start + off, off); srcs.push(s);
+  }
+  se.start(from, base);
+}
+
+const cur = () => playing ? Math.min(DUR, ac.currentTime - base) : T;
+async function play(fromStart) {
+  if (!ready) return;
+  cover = null;
+  await ac.resume();
+  if (fromStart || T >= DUR - .05) T = 0;
+  startAudio(T);
+  playing = true; $('#bPlay').textContent = '❚❚'; idle();
+}
+function pause() { T = cur(); stopAudio(); playing = false; $('#bPlay').textContent = '▶'; dirty = true; showCtl(); }
+const toggle = () => playing ? pause() : play();
+function seekTo(t) { cover = null; T = Math.max(0, Math.min(DUR, t)); if (playing) startAudio(T); dirty = true; }
+
+function loop() {
+  const t = cur();
+  if (playing || dirty) {
+    renderFrame(cover ?? t);
+    $('#tm').textContent = `${fmt(t)} / ${fmt(DUR)}`;
+    if (!seeking) $('#seek').value = t;
+    dirty = false;
+  }
+  if (playing && t >= DUR) { pause(); T = DUR; }
+  requestAnimationFrame(loop);
+}
+
+// 操作バーは、再生中に動きがなければ隠す
+let hideTimer = 0;
+function showCtl() { document.body.classList.remove('idle'); clearTimeout(hideTimer); }
+function idle() { showCtl(); hideTimer = setTimeout(() => { if (playing) document.body.classList.add('idle'); }, 2500); }
+addEventListener('pointermove', idle);
+
+$('#bPlay').onclick = () => { $('#start')?.remove(); toggle(); };
+$('#bRe').onclick = () => { $('#start')?.remove(); play(true); };
+$('#bMute').onclick = () => { if (!bus) return; const m = bus.gain.value > 0; bus.gain.value = m ? 0 : 1; $('#bMute').textContent = m ? '🔇' : '🔊'; };
+$('#bFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); };
+$('#seek').max = DUR;
+$('#seek').oninput = e => { seeking = true; seekTo(+e.target.value); };
+$('#seek').onchange = () => { seeking = false; };
+addEventListener('keydown', e => {
+  if (!ready) return;
+  if (e.code === 'Space') { e.preventDefault(); $('#start')?.remove(); toggle(); }
+  else if (e.key === 'r' || e.key === 'R') { $('#start')?.remove(); play(true); }
+  else if (e.key === 'm' || e.key === 'M') $('#bMute').click();
+  else if (e.key === 'f' || e.key === 'F') $('#bFull').click();
+  else if (e.key === 'ArrowRight') seekTo(cur() + 5);
+  else if (e.key === 'ArrowLeft') seekTo(cur() - 5);
+});
+
+loadAll().then(() => {
+  ready = true;
+  // 再生前は、タイトルの場面を表紙として見せる
+  T = 0; cover = L('op7').end + 2.6; renderFrame(cover); dirty = false;
+  const st = $('#start');
+  st.classList.remove('loading');
+  $('#startLbl').textContent = `▶ 再生（${Math.floor(DUR / 60)}分${Math.round(DUR % 60)}秒）`;
+  st.onclick = () => { st.remove(); play(true); };
+  $('#tm').textContent = `0:00 / ${fmt(DUR)}`;
+  requestAnimationFrame(loop);
+});
+</script>
+
+</body>
+</html>

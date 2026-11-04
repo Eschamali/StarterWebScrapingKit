@@ -170,7 +170,8 @@ export default withMermaid(
           items: [
             { text: 'このツールの誕生秘話', link: '/stories/DevHistory/birth-story' },
             { text: 'BiDi 登場秘話', link: '/stories/DevHistory/bidi-story' },
-            { text: 'WebView2 登場秘話', link: '/stories/DevHistory/webview2-story' }
+            { text: 'WebView2 登場秘話', link: '/stories/DevHistory/webview2-story' },
+            { text: 'GetTcpTable 秘話', link: '/stories/DevHistory/gettcptable-story' }
           ]
         },
         {
@@ -180,7 +181,8 @@ export default withMermaid(
             { text: 'ブラウザの探し方', link: '/stories/DebugRouteTech/TheBeginningOfEverything' },
             { text: 'Pipe 経路', link: '/stories/DebugRouteTech/pipe-tech' },
             { text: 'WebSocket 経路', link: '/stories/DebugRouteTech/websocket-tech' },
-            { text: 'WebView2 経路', link: '/stories/DebugRouteTech/webview2-tech' }
+            { text: 'WebView2 経路', link: '/stories/DebugRouteTech/webview2-tech' },
+            { text: 'ポリシーの壁', link: '/stories/DebugRouteTech/Policy' }
           ]
         },
         {

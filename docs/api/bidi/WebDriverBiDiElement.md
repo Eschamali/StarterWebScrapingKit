@@ -36,13 +36,13 @@ t.getElementByQuery("button#go").click
 
 | 分類 | メンバー |
 | --- | --- |
-| 値・状態 | `value` / `innerText` / `innerHTML` / `checked` / `selected` |
-| 操作 | `click` / `SimpleClick` / `submit` / `sendString` / `sendClick` / `sendHover` / `sendKey` / `clearValue` / `focus` / `selectText` / `fireEvent` / `getAttribute` / `setAttribute` / `setSelection` / `SetFileInputFiles` |
+| 値・状態 | `value` / `innerText` / `innerHTML` / `checked` / `GetSelection` / `PageAttribute` |
+| 操作 | `click` / `SimpleClick` / `submit` / `sendString` / `sendClick` / `sendHover` / `sendKey` / `clearValue` / `focus` / `selectText` / `fireEvent` / `SelectOption` / `SetFileInputFiles` |
 | 存在確認 | `isExist` / `ifExist` / `onExist` / `onExistNot` |
 | ツリー走査 | `getParent` / `getNextSibling` / `getPrevSibling` / `getFirstChild` / `getChildren` |
 | 入れ子検索 | `getElementByID` / `getElementByQuery` / `getElementsByQuery` / `getElementByXPath` / `getElementsByXPath` |
 | Shadow DOM | `GetShadowRoot` |
-| その他 | `jsEval` / `ExposeDevTools` / `CurrentObjectId` / `CurrentNodeType` / `SetOptionStopException` / `SetOptionRunAsyncBiDi` / `SetOptionUserGesture` |
+| その他 | `jsEval` / `ExposeDevTools` / `CurrentElementId` / `CurrentNodeType` / `SetOptionStopException` / `SetOptionRunAsyncBiDi` / `SetOptionUserGesture` |
 
 `sendClick` / `sendHover` / `sendKey` は、BiDi の `input.performActions` で、要素を起点にした実際のマウス・キー操作を送ります。
 
@@ -50,14 +50,14 @@ t.getElementByQuery("button#go").click
 
 | 項目 | CDPElement | WebDriverBiDiElement |
 | --- | --- | --- |
-| 要素の参照 | `Runtime.RemoteObjectId`（`CurrentObjectId`） | `script.SharedId`（`CurrentObjectId` で取得。名前は CDP 版と揃えています） |
-| iframe | `getIFrame` | **なし**。iframe は独立した `browsingContext` なので、[`WebDriverBiDiMode.getTab`](./WebDriverBiDiMode) の `maxDepth:=1` で取得します |
+| 要素の参照 | `Runtime.RemoteObjectId`（`CurrentElementId`） | `script.SharedId`（`CurrentElementId` で取得。名前は CDP 版と揃えています） |
+| iframe | `getIFrame`（要素から）/ [`CDPContext.getElementByIframe`](/api/cdp/CDPContext#getelementbyiframe) | **なし**。iframe は独立した `browsingContext` なので、[`WebDriverBiDiMode.getTab`](./WebDriverBiDiMode) の `maxDepth:=1` で取得します |
 | Shadow DOM | `GetShadowRoot(Optional Index)` / `GetShadowRoots` | `GetShadowRoot()` のみ（Index 引数なし）。1段ずつ辿ります |
 | `jsEval` の引数 | `returnByValue` / `generatePreview` あり | `returnByValue` の代わりに `Ownership`、`generatePreview` はなし |
 | 非同期実行オプション | `SetOptionRunAsyncCDP` | `SetOptionRunAsyncBiDi` |
 | 後始末 | オブジェクトの解放あり | 解放不要 |
 
-`keyboardCode`（`sendKey` のキー）と `NodeNodeType`（`CurrentNodeType` の値）の列挙型は、`CDPElement.cls` 側で定義しています。両方のクラスをインポートしてください。
+`keyboardCode`（`sendKey` のキー）、`SelectOptionMode`（`GetSelection` の基準）、`NodeNodeType`（`CurrentNodeType` の値）の列挙型は、`CDPElement.cls` 側で定義しています。両方のクラスをインポートしてください。
 
 ## Shadow DOM
 

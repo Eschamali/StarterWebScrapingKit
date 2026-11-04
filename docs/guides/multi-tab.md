@@ -58,6 +58,20 @@ tab.navigate "https://example.com"
 mode.CloseBrowser
 ```
 
+## クリックで開いたタブ・ウィンドウを捕まえる（CDP）
+
+リンクやボタンのクリックで開いた新しいタブ・ポップアップは、[`CDPContext.PopupCatch`](/api/cdp/CDPContext#popupcatch) で `CDPContext` として受け取れます。前後で `RunCollect_TargetCreated` の記録を始めて、終わらせる必要があります。
+
+```vb
+Set t.ThisCDPBrowser.RunCollect_TargetCreated = New Collection   ' 記録を始める
+t.getElementByQuery("a[target=_blank]").click
+Dim popup As CDPContext
+Set popup = t.PopupCatch(5)                                       ' 5 秒以内に開いたものを捕まえる
+Set t.ThisCDPBrowser.RunCollect_TargetCreated = Nothing           ' 記録を終わらせる
+```
+
+開いた元を自分で指定したい場合（iframe の `FrameId` で絞るなど）は、[`CDPBrowser.getTabForOpenerID`](/api/cdp/CDPBrowser#gettabforopenerid) を使います。一通りの流れは、デモ `Demo_CDP.PopupWindowDemo` で試せます。
+
 ## マルチプロファイル（別プロセス）
 
 同じプロファイルでは非同期並列に限界があります。別ユーザ名で起動すると独立インスタンスになります。
