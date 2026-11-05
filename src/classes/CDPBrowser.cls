@@ -25,34 +25,10 @@ Private Declare PtrSafe Function TerminateProcess Lib "kernel32" (ByVal hProcess
 
 
 '***************************************************************************************************
-'                                   ■■■ 各種構造体 ■■■
-'***************************************************************************************************
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] タブの種類。命名は右記に準拠します → https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22
-'---------------------------------------------------------------------------------------------------'
-Public Enum DevToolsAgentHost_KType
-    kTab = 1
-    kPage                   '普段目にするタブがこれ
-    kFrame                  'iFrameと同等
-    kDedicatedWorker
-    kSharedWorker
-    kServiceWorker
-    kWorklet
-    kBrowser
-    kGuest
-    kOther                  '非表示タブ
-    kAuctionWorklet
-    kAssistiveTechnology
-    kBrowserUI
-End Enum
-
-
-
-'***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const ToolVer           As String = "4.1.0"
+Private Const ToolVer           As String = "4.2.0"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
@@ -100,32 +76,6 @@ Private TargetInfos             As Collection   '非同期イベント`Target.ta
 Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private m_LogID                 As String       'ログ識別ID
 Private CustomUAMode            As Boolean      'このツール独自のユーザーエージェントを刻印するか？
-
-
-
-'***************************************************************************************************
-'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
-'***************************************************************************************************
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] タブの種類を文字列で返します
-'---------------------------------------------------------------------------------------------------
-Private Function EnumToStringDevToolsAgentHost_KType(param As DevToolsAgentHost_KType) As String
-    Select Case param
-        Case DevToolsAgentHost_KType.kTab:                  EnumToStringDevToolsAgentHost_KType = "tab"
-        Case DevToolsAgentHost_KType.kPage:                 EnumToStringDevToolsAgentHost_KType = "page"
-        Case DevToolsAgentHost_KType.kFrame:                EnumToStringDevToolsAgentHost_KType = "iframe"
-        Case DevToolsAgentHost_KType.kDedicatedWorker:      EnumToStringDevToolsAgentHost_KType = "worker"
-        Case DevToolsAgentHost_KType.kSharedWorker:         EnumToStringDevToolsAgentHost_KType = "shared_worker"
-        Case DevToolsAgentHost_KType.kServiceWorker:        EnumToStringDevToolsAgentHost_KType = "service_worker"
-        Case DevToolsAgentHost_KType.kWorklet:              EnumToStringDevToolsAgentHost_KType = "worklet"
-        Case DevToolsAgentHost_KType.kBrowser:              EnumToStringDevToolsAgentHost_KType = "browser"
-        Case DevToolsAgentHost_KType.kGuest:                EnumToStringDevToolsAgentHost_KType = "webview"
-        Case DevToolsAgentHost_KType.kOther:                EnumToStringDevToolsAgentHost_KType = "other"
-        Case DevToolsAgentHost_KType.kAuctionWorklet:       EnumToStringDevToolsAgentHost_KType = "auction_worklet"
-        Case DevToolsAgentHost_KType.kAssistiveTechnology:  EnumToStringDevToolsAgentHost_KType = "assistive_technology"
-        Case DevToolsAgentHost_KType.kBrowserUI:            EnumToStringDevToolsAgentHost_KType = "browser_ui"
-    End Select
-End Function
 
 
 
@@ -321,7 +271,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     If isBackground Then params("background") = isBackground
 
     '2. 実行
-    Dim results As BiDiCDPJson
+    Dim results As BiDiCDPJConv
     Set results = ExecuteCDP("Target.createTarget", params)
 
     '3. Return the new tab's Session ID
@@ -354,7 +304,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスモジュール - CDPBrowser
+'* 返り値　：クラスモジュール - CDPContext
 '* 引数　　：tabName        タブ名  第一優先
 '            Url            URL     第二優先
 '            setMain        `True`で、Excelのタブ情報テーブルに上書きします。タブのリアタッチに利用します
@@ -378,7 +328,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
     Dim NodeToken As Long
     Dim tabId As String, candidateTabId As String
-    Dim targets As BiDiCDPJson
+    Dim targets As BiDiCDPJConv
     Dim timerStart As Double
     Dim tabfound As Boolean
     Dim bestScore As Long, score As Long
@@ -505,6 +455,87 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 End Function
 
 '***************************************************************************************************
+'* 機能　　：指定タブ(TargetID/FrameId)から開かれたタブ(主にポップアップウィンドウ等)を検索するのに特化した専用メソッド版です
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - CDPContext。条件に合うタブがない場合は`nothing`です。
+'* 引数　　：PageID         TargetID/FrameId
+'            Strict         True ：`PageID=FrameId`として扱います
+'                           False：`PageID=TargetID`として扱います
+'
+'            doRetrySecond  何秒間、探索するかを決めます。0で、1回のみです
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：1. bas側で事前に、`Set Me.RunCollect_TargetCreated = New Collection`し、タブ生成監視を開始します
+'            2. 別タブ/ウィンドウが開くであろう`CDPContext`にて、その操作(クリック等)をします
+'            3. `CDPContext.CurrentTargetID`を`PageID`に渡します。iframe側でクリックした場合は、`Strict:=True`にします
+'            4. クリック後、直ぐに`Target.targetCreated`が来ないことがあるので必要に応じて、`doRetrySecond`でタイムアウトの調整をします
+'            5. 条件に合う`Target.TargetInfo`が来たらそれを`CDPContext`として返却し、`Collection-TargetInfos`から、そのヒットしたのを除去します
+'            6. 用が済んだら、`Set Me.RunCollect_TargetCreated = Nothing`と打って、タブ生成監視を終了します
+'
+'* 注意事項：ページ待機も合わせて行う場合は、`CDPContext-Wait`によるJavaScript簡易待機の方を使って下さい。
+'            `CDPContext-WaitEvents`では、レースコンディションの都合上、機能しません。
+'***************************************************************************************************
+Public Function getTabForOpenerID(PageID As String, Optional Strict As Boolean, Optional doRetrySecond As Double) As CDPContext
+    Const FromProcedureName As String = ThisClassName & ".getTabForOpenerID"
+
+
+    Dim tabId As String
+    Dim TargetInfoCount As Long
+
+    '1. 検索キー名を決める
+    Dim SearchKey As String
+    SearchKey = IIf(Strict, "openerFrameId", "openerId")
+
+    '2. タイマースタートして、For Each で蓄積した`Target.targetCreated`分、回す探索を開始する
+    Dim timerStart As Double
+    If doRetrySecond > 0 Then timerStart = CDPHelpers.TimerCounter
+    Do
+        Dim TargetInfoStr
+        TargetInfoCount = 0 'Do~Loopでの、カウントリセット
+        For Each TargetInfoStr In TargetInfos
+            '2-1. Json文字列をパース
+            Dim TargetInfo As BiDiCDPJConv
+            Set TargetInfo = BiDiCDPJConv.Parse(CStr(TargetInfoStr)).NodeKey("params").NodeKey("targetInfo")
+            TargetInfoCount = TargetInfoCount + 1
+
+            '2-2. 対象のOpenerがあるか？
+            If PageID = TargetInfo.StringKey(SearchKey) Then
+                '見つかったので、見つかった`targetID`を取得
+                tabId = TargetInfo.StringKey("targetId")
+
+                '次回、重複して取らないように、リストから削除
+                TargetInfos.Remove TargetInfoCount
+                Exit Do
+            End If
+        Next
+
+        '3. タイムアウト判定
+        If CDPHelpers.TimerCounter - timerStart > doRetrySecond * 1000 Then
+            'ログ出して抜ける
+            printMsg WARN_, "The tab for " & SearchKey & ": " & PageID & " could not be found.", FromProcedureName
+            Exit Function
+        Else
+            'イベント回収
+            TakeEvents
+        End If
+    Loop
+
+    '4 .Return the session object for reference
+    Dim sessionID_ As String
+    sessionID_ = attachToTab(tabId)
+
+    '------ 5.専用のクラスとして返却する準備 ------
+    EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
+    Set getTabForOpenerID = New CDPContext
+    With getTabForOpenerID
+        '1. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, PipeCore
+
+        '2. 先ほど生成した`sessionId`を渡す
+        .CurrentSessionID = sessionID_
+    End With
+End Function
+
+'***************************************************************************************************
 '* 機能　　：Excelのテーブルに、メインタブの接続情報を記録します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：sessionID_mainTab      メインタブでのSessionId
@@ -562,7 +593,7 @@ Public Sub printTargetInfos()
 
     Dim NodeToken As Long
     Dim TabCount As Long
-    Dim targets As BiDiCDPJson
+    Dim targets As BiDiCDPJConv
     Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
@@ -597,7 +628,7 @@ Public Function PageCount() As Long
 
 
     Dim NodeToken As Long
-    Dim targets As BiDiCDPJson
+    Dim targets As BiDiCDPJConv
     Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
@@ -655,7 +686,7 @@ End Function
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJConv
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
@@ -677,8 +708,8 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     ResultJsonStr = AutoWaitTakeResultCDP(RunID, StopCDPError)
 
     '4. 結果を、Node変換
-    Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
+    Dim resultJson As BiDiCDPJConv
+    Set resultJson = BiDiCDPJConv.Parse(ResultJsonStr)
 
     '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
@@ -848,7 +879,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As BiDiCDPJConv, Optional ByRef ErrorCode As Long, Optional ByRef ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -878,7 +909,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
 
 
             '`error`オブジェクトの中身で記録
-            Dim errNode As BiDiCDPJson
+            Dim errNode As BiDiCDPJConv
             Set errNode = result.NodeKey("error")
 
             '主要なエラー情報を抜き出す
@@ -1087,7 +1118,7 @@ End Sub
 '***************************************************************************************************
 Private Sub getBrowserInfo()
     '1. バージョン番号を取得
-    Dim BrowserInfos As BiDiCDPJson: Set BrowserInfos = ExecuteCDP("Browser.getVersion")
+    Dim BrowserInfos As BiDiCDPJConv: Set BrowserInfos = ExecuteCDP("Browser.getVersion")
 
     '2. VBA用にキャッシュする
     With br
@@ -1117,6 +1148,8 @@ End Sub
 '            flatten: Enables "flat" access to the session via specifying sessionId attribute
 '            in the commands. Set to True by default to make attachToTab work.
 '            Returns: a session ID string that is needed for CDP automation.
+'* 注意事項：ポリシー`DeveloperToolsAvailability`があると、「Not allowed」で失敗します。
+'            その場合は、WebView2ルートをご利用ください
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
     '1. コマンド準備
@@ -1125,7 +1158,7 @@ Public Function attachToTab(tabId As String) As String
     CDPparams.Add "flatten", True
 
     '2. 実行
-    Dim tmp As BiDiCDPJson
+    Dim tmp As BiDiCDPJConv
     Set tmp = ExecuteCDP("Target.attachToTarget", CDPparams, False)
 
     '3. 結果があれば、返却

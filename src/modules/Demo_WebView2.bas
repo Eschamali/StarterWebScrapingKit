@@ -82,7 +82,7 @@ Sub UseExtensionsViaWebView2API()
         '5. 拡張機能インストール
         Dim InstallID As String
         If UseCDP Then
-            Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
+            Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJConv
             Set CDPparams = New Dictionary
             CDPparams.Add "path", インストールパス
             Set ResultCDP = exinstall.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定

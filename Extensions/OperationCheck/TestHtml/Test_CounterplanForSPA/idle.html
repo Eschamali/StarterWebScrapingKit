@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Test_CounterplanForSPA - idle</title>
+<style>
+  body { font-family: sans-serif; margin: 16px; }
+  section { border: 1px solid #ccc; padding: 8px 12px; margin-bottom: 12px; }
+  h2 { font-size: 15px; margin: 0 0 6px; }
+  .result { font-weight: bold; color: #06c; }
+</style>
+</head>
+<body>
+<h1>exCDP_SpaIdle テストページ</h1>
+<p>visibilityState: <span id="vstate"></span></p>
+
+<!-- I1: 応答から描画までの隙間 -->
+<section>
+  <h2>I1. クリック → 400ms後に通信 → 応答の600ms後に一覧を描画（応答と描画の間に隙間がある）</h2>
+  <button id="i1btn">Load results</button> 実行回: <span id="i1run" class="result">0</span> / 状態: <span id="i1status" class="result"></span>
+  <ul id="i1list"></ul>
+</section>
+
+<!-- I2: 特定の通信の完了 -->
+<section>
+  <h2>I2. クリック → 300ms後に API(data: URL) を呼び、応答で表示を更新</h2>
+  <button id="i2btn">Call API</button> 結果: <span id="i2" class="result"></span>
+</section>
+
+<!-- I3: 遅れて表示されるパネル -->
+<section>
+  <h2>I3. クリック → 700ms後にパネルを表示</h2>
+  <button id="i3btn">Open panel</button>
+  <div id="i3panel" hidden>Panel is open</div>
+</section>
+
+<!-- I4: 終わらない通信 -->
+<section>
+  <h2>I4. 終わらない通信（ロングポーリング相当。TEST-NET-1 の 192.0.2.1 へ接続）</h2>
+  <button id="i4btn">Start long-poll</button> 状態: <span id="i4" class="result"></span>
+</section>
+
+<!-- I6: 変化し続ける時計 -->
+<section>
+  <h2>I6. 100ms ごとに更新され続ける時計</h2>
+  <button id="i6btn">Start clock</button> <span id="clock" class="result"></span>
+</section>
+
+<script>
+  function $(id) { return document.getElementById(id); }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function updateVisibility() { $('vstate').textContent = document.visibilityState; }
+  document.addEventListener('visibilitychange', updateVisibility);
+  updateVisibility();
+
+  // I1
+  let i1run = 0;
+  $('i1btn').addEventListener('click', async function () {
+    const run = ++i1run;
+    $('i1run').textContent = String(run);
+    $('i1status').textContent = 'loading';
+    $('i1list').innerHTML = '';
+    await sleep(400);
+    const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({ api: 'i1', run: run })));
+    const data = await res.json();
+    await sleep(600);
+    ['Alpha', 'Bravo', 'Charlie'].forEach(function (name) {
+      const li = document.createElement('li');
+      li.textContent = name + ' (run ' + data.run + ')';
+      $('i1list').appendChild(li);
+    });
+    $('i1status').textContent = 'done';
+  });
+
+  // I2
+  $('i2btn').addEventListener('click', async function () {
+    $('i2').textContent = 'calling';
+    await sleep(300);
+    const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({ api: 'i2' })));
+    const data = await res.json();
+    $('i2').textContent = data.api === 'i2' ? 'loaded' : 'unexpected';
+  });
+
+  // I3
+  $('i3btn').addEventListener('click', function () {
+    setTimeout(function () { $('i3panel').hidden = false; }, 700);
+  });
+
+  // I4
+  $('i4btn').addEventListener('click', function () {
+    $('i4').textContent = 'pending';
+    fetch('http://192.0.2.1/longpoll', { mode: 'no-cors' })
+      .then(function () { $('i4').textContent = 'finished'; })
+      .catch(function () { $('i4').textContent = 'failed'; });
+  });
+
+  // I6
+  $('i6btn').addEventListener('click', function () {
+    setInterval(function () { $('clock').textContent = new Date().toISOString(); }, 100);
+  });
+</script>
+</body>
+</html>
