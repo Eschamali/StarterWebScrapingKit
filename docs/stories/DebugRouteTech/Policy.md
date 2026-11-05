@@ -282,6 +282,92 @@ Edge.exe は、基本的にはウェブサイトを閲覧するためのもの�
 
 だからこそ、WebView2 のポリシーは必要最小限に抑えられています。
 
+では、WebView2 には制限する手段がないのかというと、そうではありません。Edge なら企業がポリシーで決めることの多くを、WebView2 では開発者が API で決めるようになっています。
+
+たとえば、F12 の禁止です。Edge には `DeveloperToolsAvailability` ポリシーがあり、WebView2 には `ICoreWebView2Settings` の `AreDevToolsEnabled` があります。どちらも F12 で DevTools を開けるかどうかを決める設定で、どちらにもあります。違うのは、企業が設定するか、開発者が設定するかです。
+
+ただし、効く範囲は同じではありません。Edge のポリシーは CDP の接続まで止めますが、[AreDevToolsEnabled の説明](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2settings)にあるのは、右クリックメニューやショートカットキーで DevTools の窓を開けるかどうかだけです。
+
+実際に、このツールで `AreDevToolsEnabled` を False にしてから、CDP でページ遷移させてみました。最初の遷移も、UserForm を表示したあとにボタンから行う遷移も、どちらも普通に動きました。WebView2 では、DevTools の窓を禁止しても CDP は使えます。
+
+ほかにも、次のような組み合わせがあります。
+
+| 制限したいこと | Edge（企業がポリシーで設定） | WebView2（開発者が API で設定） |
+| --- | --- | --- |
+| F12（DevTools） | `DeveloperToolsAvailability` | `AreDevToolsEnabled` |
+| JavaScript | `DefaultJavaScriptSetting` | `IsScriptEnabled` |
+| ショートカットキー | `ConfigureKeyboardShortcuts` | `AreBrowserAcceleratorKeysEnabled` |
+| パスワードの保存 | `PasswordManagerEnabled` | `IsPasswordAutosaveEnabled` |
+| InPrivate | `InPrivateModeAvailability` | `IsInPrivateModeEnabled` |
+| ダウンロード先 | `DownloadDirectory` | `DefaultDownloadFolderPath` |
+| 拡張機能 | `ExtensionInstallBlocklist` | `AreBrowserExtensionsEnabled` |
+| 追跡防止 | `TrackingPrevention` | `PreferredTrackingPreventionLevel` |
+
+WebView2 の設定系の API（`ICoreWebView2Settings`・`ICoreWebView2Profile`・`ICoreWebView2EnvironmentOptions`）を数えると、全部で40項目ほどあります。そのうち18項目に、同じ機能を扱う Edge のポリシーがありました。対応は名前と説明文から判断したもので、ポリシーのページを1件ずつ確かめたわけではありません。
+
+ちなみに、ポリシーの数は Edge が797件、WebView2 が15件です（どちらも2026年10月更新の [Microsoft Learn の一覧](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies)で数えました）。
+
+::: details 40項目の対応表
+
+**ICoreWebView2Settings**（18項目のうち、対応あり6）
+
+| WebView2 | Edge のポリシー |
+| --- | --- |
+| `IsScriptEnabled` | `DefaultJavaScriptSetting` / `JavaScriptAllowedForUrls` / `JavaScriptBlockedForUrls` |
+| `IsWebMessageEnabled` | なし（WebView2 固有） |
+| `AreDefaultScriptDialogsEnabled` | なし |
+| `IsStatusBarEnabled` | なし |
+| `AreDevToolsEnabled` | `DeveloperToolsAvailability` |
+| `AreDefaultContextMenusEnabled` | なし |
+| `AreHostObjectsAllowed` | なし（WebView2 固有） |
+| `IsZoomControlEnabled` | なし |
+| `IsBuiltInErrorPageEnabled` | なし（`AlternateErrorPagesEnabled` は別物） |
+| `UserAgent` | なし（`UserAgentReduction` などでは文字列を決められない） |
+| `AreBrowserAcceleratorKeysEnabled` | `ConfigureKeyboardShortcuts` |
+| `IsPasswordAutosaveEnabled` | `PasswordManagerEnabled` |
+| `IsGeneralAutofillEnabled` | `AutofillAddressEnabled` / `AutofillCreditCardEnabled` |
+| `IsPinchZoomEnabled` | なし |
+| `IsSwipeNavigationEnabled` | なし（`KioskSwipeGesturesEnabled` はキオスク用） |
+| `HiddenPdfToolbarItems` | なし |
+| `IsReputationCheckingRequired` | `SmartScreenEnabled`（WebView2 側は Windows の SmartScreen の設定が優先） |
+| `IsNonClientRegionSupportEnabled` | なし |
+
+**ICoreWebView2Profile**（10項目のうち、対応あり7。`ICoreWebView2Profile6` のパスワード・自動入力は Settings と重なるので数えていません）
+
+| WebView2 | Edge のポリシー |
+| --- | --- |
+| `DefaultDownloadFolderPath` | `DownloadDirectory` / `DefaultDownloadDirectory` |
+| `IsInPrivateModeEnabled` | `InPrivateModeAvailability` |
+| `PreferredColorScheme` | なし |
+| `ClearBrowsingData` | `ClearBrowsingDataOnExit` / `AllowDeletingBrowserHistory` |
+| `PreferredTrackingPreventionLevel` | `TrackingPrevention` |
+| `SetPermissionState` | `DefaultGeolocationSetting`・`DefaultNotificationsSetting` などの `Default*Setting` |
+| `CookieManager` | `DefaultCookiesSetting` / `CookiesAllowedForUrls` / `BlockThirdPartyCookies` など |
+| `AddBrowserExtension` | `ExtensionInstallForcelist` / `ExtensionInstallBlocklist` |
+| `Delete` | なし |
+| `AreWebViewScriptApisEnabledForServiceWorkers` | なし |
+
+**ICoreWebView2EnvironmentOptions**（12項目のうち、対応あり5。うち2つは近いもの）
+
+| WebView2 | Edge のポリシー |
+| --- | --- |
+| `AdditionalBrowserArguments` | なし（Edge は `RemoteDebuggingAllowed` などで、起動引数を止める側） |
+| `AllowSingleSignOnUsingOSPrimaryAccount` | `AADWebSiteSSOUsingThisProfileEnabled` / `MSAWebSiteSSOUsingThisProfileAllowed`（近いもの） |
+| `Language` | `ApplicationLocaleValue` |
+| `TargetCompatibleBrowserVersion` | なし |
+| `ExclusiveUserDataFolderAccess` | なし |
+| `IsCustomCrashReportingEnabled` | `MetricsReportingEnabled` / `DiagnosticData`（近いもの） |
+| `CustomSchemeRegistrations` | なし |
+| `EnableTrackingPrevention` | `TrackingPrevention` |
+| `AreBrowserExtensionsEnabled` | `ExtensionInstallBlocklist` |
+| `ChannelSearchKind` | なし（WebView2 のポリシーに同じ名前のものがある） |
+| `ReleaseChannels` | なし（WebView2 のポリシーに同じ名前のものがある） |
+| `ScrollBarStyle` | なし |
+
+:::
+
+Microsoft も、[WebView2 のエンタープライズ管理](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/concepts/enterprise)の中で、IT 管理者が WebView2 ランタイムを直接管理するより、WebView2 アプリの開発者が独自のグループポリシーを実装することを勧めています。理由は、IT 管理者にとっては、WebView2 ランタイムよりもアプリを管理するほうが簡単だから、とあります。
+
 とはいえ、中身は所詮 Chromium です。外部サイトの URL につなげば、ふつ～にネットサーフィンもできます。
 
 本来なら、Visual Studio を用意して、WebView2 を埋め込んだ exe を1つ作らないと、msedgewebview2.exe でネットサーフィンはできませんでした。
@@ -393,7 +479,15 @@ SeleniumVBAならぬ、WebDriver.exeルートでのポリシー周りはどう�
 
 * [WebView2 のエンタープライズ管理](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/concepts/enterprise)（Microsoft Edge のポリシーは WebView2 には適用されない。仕様）
 
-* [Microsoft Edge WebView2 - ポリシー](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-webview-policies)（ローダーの上書き設定・ネットワーク設定・その他の3分類）
+* [Microsoft Edge WebView2 - ポリシー](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-webview-policies)（ローダーの上書き設定・ネットワーク設定・その他の3分類。2026年10月7日更新の版で15件）
+
+* [Microsoft Edge - ポリシー](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies)（2026年10月27日更新の版で797件）
+
+* [ICoreWebView2Settings](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2settings)（`ICoreWebView2Settings2`〜`9` も含めて18項目。`AreDevToolsEnabled` は DevTools の窓を開けるかどうか。`ICoreWebView2Settings8` の `IsReputationCheckingRequired` は、Windows の SmartScreen の設定が無効だと上書きされる）
+
+* [ICoreWebView2Profile](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2profile)（`ICoreWebView2Profile2`〜`9` も含む）
+
+* [ICoreWebView2EnvironmentOptions](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions)（`ICoreWebView2EnvironmentOptions2`〜`8` も含む）
 
 ### マクロを使った攻撃
 
