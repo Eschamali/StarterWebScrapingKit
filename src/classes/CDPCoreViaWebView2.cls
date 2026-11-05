@@ -265,8 +265,15 @@ Public Sub OpenWebView2AndConnectCDP(caps As BrowserCapabilities, Optional Attac
 
     '4. 正常に起動出来たか？
     If Not RunRes Then
+        '4-1. 破棄前に、エラー情報を取る
+        Dim ErrorMes    As String: ErrorMes = m_Host.LastErrorMessage
+        Dim ErrorCode   As Long: ErrorCode = m_Host.LastError
+
+        '4-2. 後始末
         Set m_Host = Nothing
-        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName, doRaiseError:=True
+
+        '4-3. エラー表示
+        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & ErrorCode & " - " & ErrorMes, FromProcedureName, doRaiseError:=True
 
         Exit Sub
     End If
@@ -486,7 +493,7 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
         printMsg ERROR_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - ErrorCode: " & ErrorCode & " - " & WinApiError.GetMessage(ErrorCode), FromProcedureName
 
         '上手い具合に、`id`付きで、返ったエラーもくっつけて、復元させる
-        Dim ErrorNode As BiDiCDPJson: Set ErrorNode = BiDiCDPJson.Parse(ResultJsonStr).NodeKey("error")
+        Dim ErrorNode As BiDiCDPJConv: Set ErrorNode = BiDiCDPJConv.Parse(ResultJsonStr).NodeKey("error")
         synthesized = "{""id"":" & callbackId & ",""error"":" & ErrorNode.Stringify & "}"
     End If
 

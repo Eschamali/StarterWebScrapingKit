@@ -15,6 +15,9 @@ Attribute VB_Exposed = False
 '                    `CDPCore.cls`とやり取りしやすいように、工夫して組んでます。
 '　基本的には、このClassオブジェクトの使いまわしはしない想定で組んでます。`deserialize`で疑似的な使い回しが可能なので、そちらをご利用ください
 '
+'   Chromiumとのやり取り前提として組んでる都合上、以下のロジック周りは意図的に省略してます
+'   ・`FIN`判定：FINを常に1にして送っているから(web_socket_encoder.cc:170,38)
+'   ・一部のOpcode処理
 '
 '====================== なんで、「WinHttpWebSocket○○」系のAPIを使わないの？ ======================
 '   「WinHttpWebSocket○○」の場合、`ioctlsocket`や`PeekNamedPipe`と言った「覗き見機能」はなく、下記の2択しか選択肢がありません
@@ -117,27 +120,14 @@ Private m_WebSocketFrame As WebSocketReceiveFrameManage
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'WINHTTP_WEB_SOCKET_BUFFER_TYPE
-'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
-Public Enum WS_BUFFER_TYPE
-    WS_NOT_MESSAGE = -3 ' 一度も受信してません          ※一度も`GetAsyncMessage`を呼び出してない初期値
-    WS_PAYLOAD_FRAGMENT ' ペイロード自体が欠けてる場合  ※WinSockバッファーに収まらない OR 通信環境不良で欠けた状態のペイロード状態
-    WS_PAYLOAD_EMPTY    ' ペイロード自体がない          ※フレームヘッダー情報は届いたのに、ペイロードデータが届いてない OR そもそもペイロード自体が存在しないパターン
-    WS_BINARY_MESSAGE   ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
-    WS_BINARY_FRAGMENT  ' WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE
-    WS_UTF8_MESSAGE     ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
-    WS_UTF8_FRAGMENT    ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
-    WS_CLOSE_MESSAGE    ' WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
-End Enum
-
 'Opcode 一覧
-Private Enum OpcodeRegistry
-    ContinuationFrame
-    TextFrame
-    BinaryFrame
-    ConnectionCloseFrame = 8
-    PingFrame
-    PongFrame
+Public Enum OpcodeRegistry
+    ContinuationFrame           '`TextFrame`か、`BinaryFrame`の続きサイン。CDPでは届くことはない
+    TextFrame                   '主役。Jsonテキストで届くので
+    BinaryFrame                 '未使用。CDPは、Jsonテキストしか、届かないので
+    ConnectionCloseFrame = 8    'こっちから、WebSocket切断合図を送るときには、使う。その場合は、向こうからも同じ`Close`応答も来る
+    PingFrame                   'WinSockハンドル生存判定として使用
+    PongFrame                   'こっちから、`Ping`を送らない限りは来ない
 End Enum
 
 '主要な、winsock定数
@@ -180,7 +170,6 @@ Public Event readWebSocketCDP(res() As Byte, resSize As Long, EOS As Boolean)
 Private m_WSAInitialized    As Boolean          'WinSockの初期化成功可否
 Private m_IsConnected       As Boolean          '既にWebSocketに接続済みか？
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
-Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 Private m_resPong           As Boolean          '最後のPongを受信したか？
 
 'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
@@ -207,12 +196,10 @@ Private Utf8Converter           As CharacterCodeConversion  'UTF-8バイト配�
 '***************************************************************************************************
 '                                ■■■ check用プロパティ ■■■
 '***************************************************************************************************
-'* 機能    ：最後に受信したパケットのバッファタイプを確認します（WinHTTP仕様に準拠）
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：初回は、`-3`とします。`GetAsyncMessage`を呼ばないと更新されません
+'* 機能    ：最後に受信したパケットのバッファタイプを確認します（Opcode仕様に準拠）
 '***************************************************************************************************
-Property Get LastBufferType() As WS_BUFFER_TYPE
-    LastBufferType = m_LastBufferType
+Property Get LastBufferType() As OpcodeRegistry
+    LastBufferType = m_WebSocketFrame.opcode
 End Property
 
 '***************************************************************************************************
@@ -318,7 +305,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
 
     '3. ソケット生成
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
-    If m_hSocket = SOCKET_ERROR Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If m_hSocket = SOCKET_ERROR Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '4. 適度なバッファーを設定
     Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
@@ -328,15 +315,15 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     addr.sin_family = AF_INET
     addr.sin_port = SwapBytes16(port) ' ポートのエンディアン変換 (純VBA)
     addr.sin_addr = inet_addr(Host)
-    If addr.sin_addr = SOCKET_ERROR Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If addr.sin_addr = SOCKET_ERROR Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '6. 接続実行 (TCPコネクションの確立)
     Dim ret As Long
     ret = Connect(m_hSocket, addr, LenB(addr))
-    If ret = SOCKET_ERROR Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If ret = SOCKET_ERROR Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '7. WebSocketハンドシェイクの実行
-    If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '8. WebSocketハンドシェイクの実行結果確認
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
@@ -548,7 +535,8 @@ End Function
 '* 返り値  ：実行結果コード     ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：テキストもWideCharToMultiByte を介したバイト配列変換を使用し、送信を行います
-'* 注意事項：テキストも所詮、バイナリデータなので、UTF-8バイト配列に変換した上で、`SendAsyncMessageAsBINARY`を経由して、送信します
+'* 注意事項：・テキストも所詮、バイナリデータなので、UTF-8バイト配列に変換した上で、`SendAsyncMessageAsBINARY`を経由して、送信します
+'            ・分割送信といった高度なことはしません。常に一括送信です。ﾒﾝﾄﾞｲﾉﾃﾞ
 '***************************************************************************************************
 Public Function SendCommandCDP(SendData As String) As Long
     '1. 送信
@@ -729,6 +717,8 @@ End Sub
 '            ・Pipe版と違って、「[タグ情報][ペイロード][タグ情報][ペイロード]...」というフレーム連鎖になってる都合上、
 '            　`CDPCore.TakeWebSocket`処理の途中でVBE停止させると、ハンドルの使いまわし時に、上手く機能しなくなります。
 '              その場合は、新規WebSocket接続からやり直してください。
+'            ・コードをシンプルに保つため、chromiumのソースに最適化した書き方になってます。
+'            　→FIN`判定なし。常に`1`で来るため
 '***************************************************************************************************
 Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
@@ -746,7 +736,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
     End If
     printMsg Trace_, "WinSockResSize: " & bytesAvailable, FromProcedureName
 
-    '2. 状況に応じた分岐処理
+    '2. 受信サイズに応じた分岐処理
     If bytesAvailable <= 0 Then
         '受信サイズ0以下なら、いくつか処理をし、抜ける
         printMsg Trace_, "The received data is empty.", FromProcedureName
@@ -755,7 +745,9 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         '※破棄モードの場合は、スルー
         If Not destruction Then EndOfData = Not m_WebSocketFrame.ValidTags
 
-        '2-2. 受信0の時のみ、一定の回数ごとに`Ping`を送る。※初回ループは、送らない
+        '2-2. 受信0の時のみ、一定の回数ごとに`Ping`を送る。
+        '※初回ループは、送らない
+        '※連続で受信0の時のみ、カウント
         Static EmptyCounter As Integer
         EmptyCounter = EmptyCounter + 1
         If EmptyCounter Mod RunPingCount = 0 Then
@@ -795,20 +787,10 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         '最低限必要なフレームヘッダー情報が不足してる場合は、ここで抜ける
         'この場合、サイズ0、エラーなしとなります。
         If Not UpdateFrameHeader(bytesAvailable) Then Exit Function
-
-        'ヘッダー情報解析後の、`Opcode`ごとの追加処理
-        Select Case m_WebSocketFrame.opcode
-            Case ConnectionCloseFrame
-                '切断要求が来たのでこっちも、切断準備する
-                m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE  'プロパティを切断状態にし、`CDPCore.cls`側で切断処理をするようにフラグ付け
-                printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
-
-            Case PongFrame
-                'Pongを受け取ったので、その更新
-                m_resPong = True
-                printMsg info_, "I received a Pong.", FromProcedureName
-        End Select
     End If
+
+    '受信データは来たので、コンボをリセット
+    EmptyCounter = 0
 
     '3. 必要な取り出しペイロードデータサイズを計算
     Dim TakePayloadSize As Long
@@ -830,89 +812,93 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         End If
     End With
 
-    '4. 取り出せる状態であれば、実際に取り出します　※ここのフェーズで、`EndOfData`の更新を行います
+    '4. 取り出せる状態であれば、実際に取り出し作業を行い、`opcode`ごとに応じた各分岐追加処理を行います
     If TakePayloadSize > 0 Then
+        '4-1. ペイロードデータを取り出す
         Dim bSuccess As Long
         ReDim payloadBuffer(TakePayloadSize - 1) As Byte
         bSuccess = recv(m_hSocket, payloadBuffer(0), TakePayloadSize, MSG_WAITALL)
 
-        '4-1. `SOCKET_ERROR`じゃなければ成功です
-        If Not bSuccess = SOCKET_ERROR Then
-            '受信サイズを記録
-            m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.CurrentCursor + TakePayloadSize
-
-            '全てのペイロードを受信出来たかを確認
-            Dim AllPayloadReceive As Boolean
-            AllPayloadReceive = (m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.PayloadLength)
-
-            'デバッグ調査用
-'            Debug.Assert bSuccess = TakePayloadSize
-'            Debug.Assert m_WebSocketFrame.CurrentCursor <= m_WebSocketFrame.PayloadLength
-
-            'ストリームにペイロードデータを書き込み
-            WebSocketReceiveStream.Write payloadBuffer
-
-            'テキスト(CDP-Json文字列テキストだけの想定)なら、イベント発信する
-            If m_WebSocketFrame.opcode = TextFrame Then RaiseEvent readWebSocketCDP(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
-        Else
+        '4-2. `SOCKET_ERROR`になったら、即抜け
+        If bSuccess = SOCKET_ERROR Then
             '取り出しに失敗したら、エラー情報を記録して抜ける
             LastWinSockError.StyleErrReadFile = Err.LastDllError
             printMsg WARN_, "An error occurred while retrieving payload using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
             Exit Function
         End If
 
-        '4-2. 全てのペイロードを受信出来た場合の仕上げ
-        If AllPayloadReceive Then
+        '4-3. 受信サイズを加算
+        m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.CurrentCursor + TakePayloadSize
+
+        '4-4. ストリームにペイロードデータを書き込み
+        WebSocketReceiveStream.Write payloadBuffer
+
+        '4-5. 全てのペイロードを受信出来たかを確認
+        EndOfData = (m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.PayloadLength)
+
+        '4-6. 全てのペイロードを受信出来た場合、完成データを格納します
+        If EndOfData Then
             'ペイロード自体は全て取り出せたので、タグを無効化させて次回の取り出し時は、タグ情報を更新するようにする
             m_WebSocketFrame.ValidTags = False
             printMsg Debug_, "All payloads were received.", FromProcedureName
 
-            'テキストとして送られた物か確認
-            Dim TextType As Boolean
-            TextType = (m_WebSocketFrame.opcode = TextFrame Or m_WebSocketFrame.opcode = ContinuationFrame) ' テキストまたは継続テキスト
+            '完成メッセージを取り出し、反映
+            With WebSocketReceiveStream
+                'メッセージが完全に揃ったので、取り出す末尾位置を設定する
+                .SetEOS
 
-            '`Base Header`としての、`FINフラグ`チェック
-            If m_WebSocketFrame.isFIN Then
-                '完成メッセージを取り出す
-                With WebSocketReceiveStream
-                    'メッセージが完全に揃ったので、取り出す末尾位置を設定する
-                    .SetEOS
+                '先頭に戻して、`SetEOS`分まで読み込む
+                .Position = 0
+                m_LastReceiveContentBINARY = .Read
 
-                    '先頭に戻して、`SetEOS`分まで読み込む
-                    .Position = 0
-                    m_LastReceiveContentBINARY = .Read
-
-                    'ストリーム位置のリセット
-                    .Position = 0
-                End With
-
-                ' 完了メッセージのタイプを設定
-                m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_MESSAGE, WS_BUFFER_TYPE.WS_BINARY_MESSAGE)
-                EndOfData = True
-            Else
-                ' まだ分割データの受信中
-                m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_FRAGMENT, WS_BUFFER_TYPE.WS_BINARY_FRAGMENT)
-                EndOfData = False
-            End If
-        Else
-            ' ペイロード自体が欠けてます
-            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_FRAGMENT
-            printMsg Debug_, "Not all payloads have been received yet.", FromProcedureName
-            EndOfData = False
+                'ストリーム位置のリセット
+                .Position = 0
+            End With
         End If
+
+        'デバッグ調査用
+    '    Debug.Assert bSuccess = TakePayloadSize
+    '    Debug.Assert m_WebSocketFrame.CurrentCursor <= m_WebSocketFrame.PayloadLength
+
+        '4-7. `opcode`ごとに応じた各分岐追加処理
+        Select Case m_WebSocketFrame.opcode
+            Case TextFrame
+                '`CDPCore.cls`へ、イベント発信し、CDP解析を委ねる
+                RaiseEvent readWebSocketCDP(payloadBuffer, TakePayloadSize, EndOfData)
+
+            Case ConnectionCloseFrame
+                '切断要求が来たので、Closeコードを読み取る(全てのペイロードを受信出来た場合)
+                '※理由(テキスト)までは見ません、ﾒﾝﾄﾞｲﾉﾃﾞ
+                If EndOfData Then
+                    Dim CloseCode As Long
+                    CloseCode = CLng(m_LastReceiveContentBINARY(0)) * 2 ^ 8 + CLng(m_LastReceiveContentBINARY(1))
+                    printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`. Code: " & CloseCode, FromProcedureName
+                Else
+                    printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
+                End If
+
+            Case PongFrame
+                'Pongを受け取ったので、そのフラグ更新
+                m_resPong = True
+                If EndOfData Then printMsg info_, "Pong received: " & LastReceiveContentUTF8, FromProcedureName
+
+            Case Else
+                '来たら来たで、状況に応じて対応します...ｼｮﾎﾞｰﾝ
+                printMsg ERROR_, "This tool detected an unsupported `opcode:=" & m_WebSocketFrame.opcode & "`. You will need to contact the developer.", FromProcedureName, doRaiseError:=True
+
+        End Select
+
     Else
         'ペイロードサイズ自体が0であるか？
         If m_WebSocketFrame.PayloadLength = 0 Then
             'フレーム情報だけなので、タグを無効化させて次回の取り出し時は、タグ情報を更新するようにする
             m_WebSocketFrame.ValidTags = False
-            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
             printMsg info_, "This frame does not contain any payload data.", FromProcedureName
 
             'フレーム情報だけなので、データは終わりとみなす印にする
             EndOfData = True
         Else
             'ペイロードデータが届いてない
-            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
             printMsg Debug_, "Payload data has not been received.", FromProcedureName
 
             'ペイロードデータはあるので、まだ終わってないとみなす印にする
@@ -1482,7 +1468,6 @@ Private Sub Class_Initialize()
 
     '各種ステータスを初期化
     m_hSocket = -1
-    m_LastBufferType = WS_NOT_MESSAGE
     m_resPong = True
 End Sub
 
