@@ -194,6 +194,14 @@ export default withMermaid(
             { text: 'Lv.99 Excel 単体', link: '/userform/vba-only' },
             { text: '総括・比較', link: '/userform/summary' }
           ]
+        },
+        {
+          text: 'Excelの限界突破',
+          items: [
+            { text: 'ExcelVBAの限界突破', link: '/breakthrough/' },
+            { text: 'からくり', link: '/breakthrough/mechanism' },
+            { text: 'Officeスクリプト', link: '/breakthrough/office-scripts' }
+          ]
         }
       ],
 
