@@ -32,15 +32,15 @@ Officeスクリプトは、2020年に Web 版 Excel のプレビューとして�
 
 ### デスクトップアプリ版
 
-[からくり](/public/img/breakthrough/VBA→OfficejsDemo_Desktop.mp4) 
+<video src="/img/breakthrough/VBA→OfficejsDemo_Desktop.mp4" controls muted playsinline></video>
 
 ### WebExcel版
 
-[からくり](/public/img/breakthrough/VBA→OfficejsDemo_Web.mp4) 
+<video src="/img/breakthrough/VBA→OfficejsDemo_Web.mp4" controls muted playsinline></video>
 
 ### WebExcelから、デスクトップアプリExcelへの転記
 
-[からくり](/public/img/breakthrough/Web→Desktop.mp4) 
+<video src="/img/breakthrough/Web→Desktop.mp4" controls muted playsinline></video>
 
 ## OfficeScript 経由での実行の仕組み
 
@@ -159,6 +159,8 @@ Web 版では、Sandbox が `about:srcdoc` の iframe と、その中の Web Wor
 
 ## Officejs としての実行の仕組み
 
+ある意味、これが本編です。
+
 コードエディターのページには、Office.js（`Office` / `Excel` / `OfficeExtension`）が読み込まれていて、Excel 本体とつながっています。Office.js は、Office アドインが Excel を操作するための JavaScript の API です。
 
 つまり、エディターに書き込んで実行ボタンを押さなくても、そのページで `Excel.run` を直接呼べば、Excel を操作できます。VBA からは、`Runtime.evaluate` で次のような JavaScript を送っているだけです。
@@ -198,7 +200,7 @@ flowchart LR
 - Office.js のエラーは、`code`（無ければ `message`）と `debugInfo` を、`"NG: ..."` の形の文字列にして返します
 - JavaScript 側で `Promise.race` によるタイムアウトを掛け、時間を過ぎたら `"NG: timeout"` で打ち切ります
 
-接続したページで `Excel.run` が使えるかは、最初に `typeof Excel.run === "function"` で確かめています。デスクトップ版では、コードエディターのほかに「Office JS Sandbox」「Excel Copilot Chat Add-in」「操作レコーダー」のタブでも `Excel.run` が通りました。Web 版では、コードエディターの iframe と、Copilot アドインの iframe で通りました。
+接続したページで `Excel.run` が使えるかは、最初に `typeof Excel.run === "function"` で確かめています。デスクトップ版では、コードエディターのほかに「Office JS Sandbox」「Excel Copilot Chat Add-in」「操作レコーダー」「ヘルプ」のタブでも `Excel.run` が通りました。Web 版では、コードエディターの iframe と、Copilot アドインの iframe で通りました。
 
 ### OfficeScript 経由との違い
 
@@ -213,6 +215,93 @@ flowchart LR
 | Microsoft が公開している使い方か | Officeスクリプトとしての正規の流れ | 違う。エディターのページの Office.js を借りている |
 
 OfficeScript 経由は、Officeスクリプトの正規の流れを CDP でなぞったものです。一方 Officejs としての実行は、コードエディターのページが Office.js を読み込んでいることを利用したもので、Officeスクリプトの仕組み自体は通りません。
+
+## これって要するに...!?
+
+いまの Office 製品には、公式の機能拡張として [Officeアドイン](https://support.microsoft.com/ja-jp/excel/get-an-office-add-in-for-excel) があります。この仕組み、ご存知です？極論、これです。
+
+> Excel の端っこに WebView2 を開いて、その中で Office.js を動かしているだけのもの
+
+そしてこれは、サードパーティ製のアドインに限りません。
+
+![WebView2 マネージャーの下に、「Excel Labs」「コード エディター」「ヘルプ」が並んでいる](/img/breakthrough/1.png)
+
+そうなんです。Microsoft 自身も、この Officeアドインの仕組みに乗っかって作っています。
+
+ということはです。スクショに、意味深に「ヘルプ」も並んでいますよね？  
+お見せしましょう。
+
+<video src="/img/breakthrough/VBA→OfficejsDemo_DesktopViaHelpOnly.mp4" controls muted playsinline></video>
+
+コード エディターなんて一切開いていません。開いているのは、F1 で簡単に呼べるヘルプ画面だけです。
+
+幸か不幸か、公式のアドインも土台はサードパーティ製のアドインと同じだと、証明されてしまいました🙃
+
+もうお分かりですね。
+
+どうやら私は、**即席アドイン**というものを生み出してしまったようです🫨  
+少しかっこよく言うなら、DIY アドインですかね。
+
+### 正規ルートでアドインを試すまで
+
+Microsoft のクイックスタート（[最初の Excel の作業ウィンドウ アドインを作成する](https://learn.microsoft.com/ja-jp/office/dev/add-ins/quickstarts/excel-quickstart-jquery)）に沿うと、自分のアドインが Excel で動くのを見るまでに、次の手順を踏みます。Microsoft 365 のサブスクリプションに接続された Office も必要です。
+
+1. Node.js（Active LTS の最新版）をインストールする
+2. `npm install -g yo generator-office` で、Yeoman と Office アドイン用のジェネレーターを入れる
+3. `yo office` でプロジェクトを作る。プロジェクトの種類、マニフェストの種類（Microsoft 365 の統合マニフェストか、アドインのみのマニフェストか）、スクリプトの種類、アドインの名前、対象の Office アプリを答える
+4. 作業ウィンドウの HTML（`taskpane.html`）と、Office.js を呼ぶコード（`taskpane.ts`）に、やりたい処理を書く
+5. `npm start` で、ローカルの Web サーバーを起動し、アドインを Excel にサイドロードする。初回は次のことを求められる
+   - 開発用の証明書のインストール（Office アドインは、開発中でも HTTPS が必須）
+   - Microsoft Edge WebView のループバック除外の許可（管理者権限が要る）
+   - Microsoft 365 アカウントへのサインイン
+6. Excel の「ホーム」タブの「作業ウィンドウの表示」を押して、ようやくアドインが開く
+
+Web 版 Excel で試す場合は、OneDrive か SharePoint に置いたブックの URL を付けて、`npm run start -- web --document {url}` を実行します。
+
+ここまでは、あくまで自分の PC で試すためのサイドロードです。ほかの人に使ってもらうには、さらに、作ったファイルを HTTPS の Web サーバーに置き、Microsoft 365 管理センターから組織に展開してもらうか、Microsoft Marketplace に公開する必要があります（[Office アドインを展開し、発行する](https://learn.microsoft.com/ja-jp/office/dev/add-ins/publish/publish)）。
+
+どうです？試すだけでもめちゃくちゃ大変です。環境を作って、実際に動かすまでが一苦労です🫠🫠
+
+### 即席アドインを試すまで
+
+では、このツールではどうでしょうか？
+
+1. このツールを落とす
+2. Office.js を動かす基盤を作る（最初だけ。`ex-OfficeJs` ブランチに、ある程度のベースは作ってあります）
+3. Office.js のコードを AI に作ってもらう
+4. Web 版なら、`edge://inspect/#remote-debugging` でリモートデバッグを事前に ON にしておく。デスクトップ版なら、環境変数を設定してから WebView2 を起動し直す（1回だけ）
+5. Run
+
+どうです？言ってしまえば、初回の準備さえ整えば、あとは AI に頼むだけで、すぐに即席アドインが作れちゃいます🫨  
+しかも、正規のアドインにはない能力も手に入ってしまいました。
+
+- 「サンドボックス」の壁を越えた
+  - 「外の世界（VBA）」と「中の世界（Office.js）」が、CDP でつながっているため
+
+- 仮のアドインすら要らない
+  - 正規のアドインは、どんなに小さな機能でも、アドインそのものをビルドしないと実際の Office アプリで試せません。一方、即席アドインは、すでにあるアドイン（標準搭載のヘルプや、Microsoft 製で無料の Excel Labs など）のタブに読み込まれている `Office.js` を CDP 経由で使います。そのため、アドインそのものがありません。VBA の文字列変数や、セルに書いた JavaScript が、実質的なアドインのコアです
+
+- 必要なのはExcelファイル(xlsm)、1枚
+  - 自分のPCで試すのももちろん、しかも、他人に使ってもらう場合も全く同じ条件です🫨
+
+## CDPは、VBA自身の機能拡張でもあった
+
+今までこのツールは、「外部の Web サイトのスクレイピングキット」として開発を進めてきました。  
+その基盤に選んだのが、いま世の中に浸透している Chromium 系ブラウザのデバッグ用プロトコル、CDP です。
+
+そしてこれは、決して**外部**の Web に限った話ではありません。VBA が寄生している Excel の内部にも、CDP で操作できる WebView2 が載っています。
+WebSocket の基盤が整ったおかげで、この Excel の内部部品の1つである WebView2 にもつながり、Office.js 経由での Excel 操作も実現できました。
+
+かつて OS（ローカル）の全権限を握り、Win32 API という魔法で何でもできた VBA は、「セキュリティ」という名目で時代遅れのレガシーとして封印され、進化がほぼ止まりました。
+
+「これからは、クラウドと WebView2（Web 技術）の時代だ！VBA は過去の遺物。新時代の若者（Office Scripts や Copilot）たちが、平和で安全な新しい世界を創るのだ！」
+と言わんばかりに、Microsoft はとにかくクラウド技術周り（Power○○系）の強化に舵を切ってしまいました。
+
+しかし、私が VBA に CDP を徹底的に覚えさせてしまった結果、今まで不可能だった「VBA から OfficeScript（Office.js）を実行」が現実になりました。
+
+【過去の全能感（Win32 API）】と【未来の最新技術（Office.js）】を両方手に入れた、バランス崩壊ツールが出来上がりました。
+
+これを使いこなせるのは、きっと私と AI、そして検索でふとこのドキュメントにたどり着き、じっくりと読んでいるあなたでしょう。
 
 ## 参考資料
 
@@ -247,6 +336,14 @@ OfficeScript 経由は、Officeスクリプトの正規の流れを CDP でな�
 ### Office.js
 
 * [Excel JavaScript API を使用した基本的なプログラミングの概念](https://learn.microsoft.com/ja-jp/office/dev/add-ins/excel/excel-add-ins-core-concepts)（`Excel.run`、`load`、`context.sync()`）
+
+### Office アドイン
+
+* [最初の Excel の作業ウィンドウ アドインを作成する](https://learn.microsoft.com/ja-jp/office/dev/add-ins/quickstarts/excel-quickstart-jquery)（Node.js、Yeoman ジェネレーター、`npm start` でのサイドロード。開発中でも HTTPS が必要で、WebView のループバック除外には管理者特権が要る）
+
+* [Office アドインを展開し、発行する](https://learn.microsoft.com/ja-jp/office/dev/add-ins/publish/publish)（サイドロードはテスト用。配布は Microsoft Marketplace か、Microsoft 365 管理センターの統合アプリ）
+
+* [Office アドインで使用されるブラウザーと Web ビュー コントロール](https://learn.microsoft.com/ja-jp/office/dev/add-ins/concepts/browsers-used-by-office-web-add-ins)（Windows では WebView2 を使う）
 
 ### Web 版 Excel の描画
 

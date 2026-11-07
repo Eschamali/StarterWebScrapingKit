@@ -8,11 +8,13 @@ description: Excel の一部の機能は WebView2 で作られています。Web
 
 Excel の機能の一部は、WebView2 で作られています。
 
-![Officeスクリプトのコードエディターを開いたときのプロセス一覧。WebView2 マネージャーの下に、コード エディターが並んでいる](/img/breakthrough/1.png)
+![Excel Labs、Officeスクリプトのコードエディター、ヘルプを開いたときのプロセス一覧。WebView2 マネージャーの下に、Excel Labs、コード エディター、ヘルプが並んでいる](/img/breakthrough/1.png)
 
-Officeスクリプトのコードエディターを開いたときのプロセスの一覧です。「WebView2 マネージャー」の下に、次のような Excel の機能が並んでいます。
+Excel Labs、Officeスクリプトのコードエディター、ヘルプを開いたときのプロセスの一覧です。「WebView2 マネージャー」の下に、次のような Excel の機能やアドインが並んでいます。
 
+- WebView2: Excel Labs
 - WebView2: コード エディター
+- WebView2: ヘルプ
 
 Office アドインについては、Microsoft のドキュメントにも、Windows では「Microsoft Edge (Chromium-based) with WebView2」で動くと書かれています。
 
