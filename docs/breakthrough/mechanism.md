@@ -8,13 +8,11 @@ description: Excel の一部の機能は WebView2 で作られています。Web
 
 Excel の機能の一部は、WebView2 で作られています。
 
-![Officeスクリプトのコードエディターを開いたときのプロセス一覧。WebView2 マネージャーの下に、コード エディター、Excel Copilot Chat Add-in、記録された操作の保存が並んでいる](/img/breakthrough/1.png)
+![Officeスクリプトのコードエディターを開いたときのプロセス一覧。WebView2 マネージャーの下に、コード エディターが並んでいる](/img/breakthrough/1.png)
 
 Officeスクリプトのコードエディターを開いたときのプロセスの一覧です。「WebView2 マネージャー」の下に、次のような Excel の機能が並んでいます。
 
 - WebView2: コード エディター
-- WebView2: Excel Copilot Chat Add-in
-- WebView2: 記録された操作の保存
 
 Office アドインについては、Microsoft のドキュメントにも、Windows では「Microsoft Edge (Chromium-based) with WebView2」で動くと書かれています。
 
