@@ -270,7 +270,8 @@ Web 版 Excel で試す場合は、OneDrive か SharePoint に置いたブック
 2. Office.js を動かす基盤を作る（最初だけ。`ex-OfficeJs` ブランチに、ある程度のベースは作ってあります）
 3. Office.js のコードを AI に作ってもらう
 4. Web 版なら、`edge://inspect/#remote-debugging` でリモートデバッグを事前に ON にしておく。デスクトップ版なら、環境変数を設定してから WebView2 を起動し直す（1回だけ）
-5. Run
+5. Web 版なら、事前に[Web版Excel](https://excel.cloud.microsoft/)から、操作対象のExcelを開き、適当な[無料アドイン](https://marketplace.microsoft.com/en-us/product/WA200003696?exp=ubp8)を起動、インストールさせておく。デスクトップ版なら、「F1」を押下してヘルプを出し、例の環境変数を設定してから ヘルプWebView2 を起動し直す（1回だけ。タスクマネージャーでKill等、手段は問わない）
+6. Run
 
 どうです？言ってしまえば、初回の準備さえ整えば、あとは AI に頼むだけで、すぐに即席アドインが作れちゃいます🫨  
 しかも、正規のアドインにはない能力も手に入ってしまいました。
