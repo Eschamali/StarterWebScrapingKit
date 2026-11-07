@@ -1,5 +1,5 @@
 ---
-description: Excel の Officeスクリプトのコードエディターへ CDP で接続し、VBA からスクリプトを書き込んで実行し、結果や例外の詳細を受け取る拡張 exCDP_OfficeScript を紹介します。デスクトップ版と、Edge で開いた Web 版 Excel の両方に対応しています。
+description: VBA から Officeスクリプトを動かせる技術的な仕組みを解説します。コードエディターへ CDP で接続し、エディターに書き込んで実行ボタンを押す「OfficeScript 経由」と、エディターのページの Office.js で Excel.run を直接呼ぶ「Officejs として」の2つの実行方法を扱います。
 ---
 
 # Officeスクリプト
@@ -26,211 +26,193 @@ Officeスクリプトは、2020年に Web 版 Excel のプレビューとして�
 
 しかし、この CDP×VBA ツールの登場と成長により、ついに VBA から Officeスクリプトの実行に成功しました。
 
-## 概要
+## 論より証拠
 
-[からくり](/breakthrough/mechanism) を使うと、VBA から Officeスクリプトを動かせます。
+とりあえずまずは、動いてる様子をご覧ください。
 
-Officeスクリプトは、Excel の作業を TypeScript か JavaScript で自動化する仕組みです。Microsoft のドキュメントでも、VBA マクロはデスクトップ向け、Officeスクリプトはクロスプラットフォームでクラウド向けという、別々の仕組みとして説明されています。
+### デスクトップアプリ版
 
-その Officeスクリプトのコードエディターも、WebView2 で作られています。そこで、コードエディターに CDP で接続して、VBA から次のことをできるようにしました。
+[からくり](/public/img/breakthrough/VBA→OfficejsDemo_Desktop.mp4) 
 
-- VBA で用意したスクリプトを、コードエディターに書き込んで実行する
-- 実行の結果、console.log の出力、例外の詳細を、VBA で受け取る
+### WebExcel版
 
-拡張は `Extensions` ブランチの [`Extensions/MainUnit/CDP/OfficeScriptViaVBA`](https://github.com/Eschamali/StarterWebScrapingKit/tree/Extensions/Extensions/MainUnit/CDP/OfficeScriptViaVBA) にあります。
+[からくり](/public/img/breakthrough/VBA→OfficejsDemo_Web.mp4) 
 
-::: warning
-POC から生まれた実装です。コードエディターの内部構造（React / Redux）を直接読み書きしているため、Office 側の更新で動かなくなる可能性があります。
-:::
+### WebExcelから、デスクトップアプリExcelへの転記
 
-## Web 版 Excel にも使える
+[からくり](/public/img/breakthrough/Web→Desktop.mp4) 
 
-デスクトップ版だけでなく、Edge で開いた Web 版 Excel にも同じ方法で接続できます。
+## OfficeScript 経由での実行の仕組み
 
-Web 版 Excel のシートは、HTML の DOM ではなく Canvas で描画されています。Excel チームが2年かけて DOM から Canvas へ描画を移した、と2021年に紹介されています。そのため、画面の DOM からはセルの値を扱いにくくなっています。
+Officeスクリプトのコードエディターは、Web のページです。デスクトップ版では Office が作った WebView2 の中に、Web 版では Excel を開いている Edge のページの中にあります。どちらも Chromium なので、[からくり](/breakthrough/mechanism)で紹介した方法で CDP の接続ができます。
 
-Officeスクリプト経由なら、Canvas を通さずにセルの値を読み書きできます。
-
-## ファイル構成
-
-```
-OfficeScriptViaVBA/
-├── exCDP_OfficeScript.cls    ← Officeスクリプトの書き込み・実行・結果の受け取りを行う拡張クラス
-├── Demo_OfficeScript.bas     ← CDPBrowser の用意 (デスクトップ版 / Web 版) と、Demo 01〜05
-├── Demo_OfficeScript_Showcase.bas  ← 録画向けのショーケース (描画 3本・読み取り 2本)
-└── ReadMe.md                 ← 使い方と仕組みの詳細
-```
-
-## 動作条件
-
-| 項目 | デスクトップ版 Excel | Web 版 Excel |
-| --- | --- | --- |
-| 接続先 | Office の WebView2 | Excel を開いている Edge |
-| ユーザーデータフォルダー | `%LOCALAPPDATA%\Microsoft\Office\16.0\Wef\webview2\2\1\EBWebView` | `%LOCALAPPDATA%\Microsoft\Edge\User Data` |
-| 事前準備 | [自動化] タブからスクリプトを開き、コードエディターを表示しておく | Edge のリモートデバッグを有効にし（`edge://inspect/#remote-debugging` で許可など）、Web 版 Excel でコードエディターを表示しておく |
-| コードエディターの場所 | タブ（タイトル「コード エディター」） | Excel のページの中の iframe（URL に `index.html#/edit` を含む） |
-| 例外の詳細 | 「Office JS Sandbox」タブから受け取る（name / message / stack） | エディターの出力ログから受け取る（message のみ） |
-
-## 使い方
-
-### 1. CDPBrowser を用意する
-
-接続と切断は、bas 側で行います。`Demo_OfficeScript.bas` の `ConnectDesktopExcel` と `ConnectWebExcel` が、そのまま使える実装例です。
-
-```vb
-'デスクトップ版 Excel（Office の WebView2）へ接続する例
-Dim UserDataDir As String
-UserDataDir = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\2\1\EBWebView"
-
-BrowserCapabilities.Set_UserDataDirName = UserDataDir
-Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
-WebSocketCDP.EnsureWebView2DebugPort = 0                 'Web 版ではこの行は不要
-If Not WebSocketCDP.AutoConnectDevToolsActivePort(BrowserCapabilities) Then Exit Sub
-
-ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserDataDir
-Dim Browser As New CDPBrowser
-Browser.reattach ReattachOptions
-```
-
-Web 版の場合は、`UserDataDir` を Edge のユーザーデータフォルダーにして、`EnsureWebView2DebugPort` の行を外します。
-
-### 2. コードエディターを確保して実行する
-
-```vb
-Dim os As New exCDP_OfficeScript
-If Not os.Init(Browser) Then Exit Sub                    'デスクトップ版
-'If Not os.Init(Browser, WebMode:=True) Then Exit Sub    'Web 版
-
-Dim Script As String
-Script = "function main(workbook: ExcelScript.Workbook) {" & vbLf & _
-         "    workbook.getActiveWorksheet().getRange(""A1"").setValue(""Hello"");" & vbLf & _
-         "    console.log(""done"");" & vbLf & _
-         "}"
-
-Debug.Print os.RunScript(Script)     '→ Succeeded / Failed / Timeout など
-Debug.Print os.LastLogs              '状態の遷移、出力ログ、メッセージバーの内容
-```
-
-### 3. 非同期で実行する（整理券方式）
-
-`RunScriptAsync` は、実行を始めた時点で整理券番号を返します。結果は、整理券番号を渡して後から受け取ります。
-
-```vb
-Dim Ticket As Long
-Ticket = os.RunScriptAsync(Script)
-If Ticket = 0 Then Debug.Print "開始できませんでした: " & os.LastLogs: Exit Sub
-
-'(VBA 側で別の作業)
-
-Debug.Print os.WaitResult(Ticket, 60)            '完了まで待つ
-'または、待たずに1回だけ確認する
-'If os.TryGetResult(Ticket, Status) Then Debug.Print Status
-```
-
-`Application.OnTime` で結果を受け取る場合は、`exCDP_OfficeScript` と `CDPBrowser` の両方をモジュールレベル変数で持っておきます。
-
-::: warning デスクトップ版で、ブックの読み取りが多いスクリプトを動かすとき
-デスクトップ版の Officeスクリプトは、Excel と同じプロセスで動きます。そのため、`RunScript` や `WaitResult` で VBA が待っている間は、スクリプトのブックへの問い合わせが進まないことがあります。
-
-実際に、全シートを読み取るショーケースの「ブック棚卸し」では、手動で実行すると数十秒で終わるのに、VBA から同期で待つと結果が返らずにタイムアウトし、マクロが終わった直後に結果が届きました。
-
-`RunScriptAsync` で実行を始めたらマクロをいったん終え、`Application.OnTime` で `TryGetResult` を定期的に呼ぶ形にすると、最後まで実行できます。Web 版では、この問題は起きませんでした。
-:::
-
-### 4. 例外の詳細を見る
-
-```vb
-If Not os.LastExceptionDetails Is Nothing Then
-    Debug.Print os.LastExceptionMessage                      'intentional error from VBA
-    Debug.Print os.LastExceptionDetails.StringKey("stack")   'デスクトップ版のみ
-End If
-```
-
-### 5. 後片付け
-
-`os.Dispose` でコードエディターへの参照を手放してから、bas 側で切断します。
-
-```vb
-os.Dispose
-Browser.DisconnectCDP
-```
-
-::: tip 注意
-この順番は守る必要があります。`CDPContext` は破棄されるときに `Target.detachFromTarget` などを送るため、先に切断すると、閉じたソケットへの送信になり、WinSock のエラー 10038 が出ます。`DisconnectCDP` は CDP の接続を閉じるだけで、Excel や Edge は閉じません。
-:::
-
-## 主な API
-
-| メンバー | 内容 |
-| --- | --- |
-| `Init(Inheritance, [WebMode], [EditorKey])` | 接続済みの `CDPBrowser` を受け取り、コードエディターを確保します。確保できれば True |
-| `Dispose` | コードエディターと Sandbox への参照を手放します。`CDPBrowser` は切断しません |
-| `RunScript(Raw, [TimeoutSec])` | 書き込んで実行し、完了まで待って状態を返します |
-| `RunScriptAsync(Raw)` | 書き込んで実行を始め、整理券番号を返します。始められなければ 0 |
-| `TryGetResult(TicketID, [Status])` / `WaitResult(TicketID, [TimeoutSec])` | 整理券番号で結果を受け取ります |
-| `IsRunning` | スクリプトの実行中かどうか |
-| `LastStatus` / `LastLogs` / `LastOutputs` | 直近の状態、ログ全文、出力ログ |
-| `LastExceptionDetails` / `LastExceptionMessage` | 直近の例外の詳細（`BiDiCDPJConv`）とメッセージ |
-
-状態は `Succeeded` / `Failed` / `Unsupported` / `Timeout` / `NotStarted` / `Error` のどれかです。詳しくは [ReadMe](https://github.com/Eschamali/StarterWebScrapingKit/blob/Extensions/Extensions/MainUnit/CDP/OfficeScriptViaVBA/ReadMe.md) を参照してください。
-
-## 仕組み
+あとは、人がコードエディターでやることを、CDP で代わりにやるだけです。スクリプトを書いて、「実行」ボタンを押して、結果を見る。この3つです。
 
 ```mermaid
 flowchart TD
-    A["bas 側<br/>CDPBrowser を用意"] -->|"Init(Browser, WebMode)"| B["exCDP_OfficeScript.cls"]
-    B -->|"jsEval<br/>(Runtime.evaluate)"| C["コードエディター<br/>React + Monaco + Redux"]
-    C -->|"実行ボタンをクリック"| D["Sandbox<br/>(スクリプトの実行環境)"]
-    D -->|"状態・出力ログ"| C
-    D -->|"console.error<br/>(デスクトップ版のみ)"| E["Office JS Sandbox タブ"]
-    C -->|"整理券ごとの結果"| B
-    E -->|"例外の詳細"| B
+    A["Excel VBA"] -->|"Runtime.evaluate<br/>（CDP）"| B["コードエディター<br/>React + Monaco + Redux"]
+    B -->|"実行ボタンをクリック"| C["Sandbox<br/>（スクリプトの実行環境）"]
+    C -->|"状態・出力ログ"| B
+    C -->|"console.error<br/>（デスクトップ版のみ）"| D["Office JS Sandbox タブ"]
+    B -->|"整理券ごとの結果"| A
+    D -->|"例外の詳細"| A
 ```
+
+### 接続
+
+| | デスクトップ版 | Web 版 |
+| --- | --- | --- |
+| デバッグポート | 環境変数 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` で、Office が作る WebView2 のポートを開ける（[からくり](/breakthrough/mechanism)） | Edge 側でリモートデバッグを有効にする（`edge://inspect/#remote-debugging` で許可するなど） |
+| 接続先 | Office の WebView2 のユーザーデータフォルダ（`%LOCALAPPDATA%\Microsoft\Office\16.0\Wef\webview2\2\1\EBWebView`）の `DevToolsActivePort` に書かれた、ブラウザ用の WebSocket | Edge のユーザーデータフォルダ（`%LOCALAPPDATA%\Microsoft\Edge\User Data`）の `DevToolsActivePort` に書かれた、ブラウザ用の WebSocket |
+| コードエディターの場所 | タブ（タイトル「コード エディター」） | Excel のページの中の iframe（URL に `index.html#/edit` を含む） |
+
+デスクトップ版の環境変数は、WebView2 が起動する前に設定されている必要があります。
+
+`edge://inspect` でリモートデバッグを許可した Edge は、`/json` などの HTTP エンドポイントに `404` を返します。ただ、`DevToolsActivePort` に書かれたブラウザ用の WebSocket には接続できます（[技術資料: WebSocket 経路](/stories/DebugRouteTech/websocket-tech)）。そのため、Web 版もデスクトップ版と同じ方法で接続しています。
+
+Web 版のコードエディターは、デスクトップ版と同じアプリ（同じ React / Redux の構成）です。Excel のページの中に、別プロセスの iframe として置かれています。そのため、iframe のターゲットとして見つけてしまえば、以降の処理は共通です。
+
+なお、Web 版 Excel のシートは、HTML の DOM ではなく Canvas で描画されています（Excel チームが2年かけて DOM から Canvas へ移した、と2021年に紹介されています）。そのため、画面の DOM からはセルの値を扱いにくくなっています。コードエディター経由なら、Canvas を通さずにセルの値を読み書きできます。
 
 ### Monaco Editor と Officeスクリプトの関係
 
-Officeスクリプトのコードエディターは、Microsoft のドキュメントで「Visual Studio Code をもとにしている」と説明されています。実際、コードエディターの DOM には `.monaco-editor` の要素があり、Web 版の CDP のターゲット一覧には、Monaco が使う `editorWorkerService` と `typescript` の Worker が並んでいました。
+Officeスクリプトのコードエディターは、Microsoft のドキュメントで「Visual Studio Code をもとにしている」と説明されています。実際、コードエディターの DOM には `.monaco-editor` の要素があり、Web 版の CDP のターゲット一覧にも、Monaco が使う `editorWorkerService` と `typescript` の Worker が並んでいました。
 
-Monaco Editor は、VS Code のエディター部分をオープンソースで公開したものです。Officeスクリプトのアプリは、この Monaco Editor を React の部品として組み込み、実行ボタン、出力ログ、保存などを独自に作っています。そのため、この拡張が頼っている部分は、公開されている部分と、Office 独自の部分に分かれます。
+Monaco Editor は、VS Code のエディター部分をオープンソースで公開したものです。Officeスクリプトのアプリは、この Monaco Editor を React の部品として組み込み、実行ボタン、出力ログ、スクリプトの保存などを独自に作っています。そのため、ここで頼っている部分は、仕様が公開されている部分と、Office 独自の部分に分かれます。
 
-| 部分 | 出どころ | この拡張での扱い |
+| 部分 | 出どころ | 扱い |
 | --- | --- | --- |
-| エディターの編集操作（`getModel` / `executeEdits` / `pushUndoStop`） | Monaco Editor の公開 API | そのまま使って、全文を置き換えます |
-| React の内部情報と react-redux の `Provider` | React / Redux（オープンソース） | よく知られた調べ方で、エディターと store をたどります |
-| エディターの置き場所 | Office 独自 | `window.monaco` が公開されていないため、React の内部情報からさかのぼって探します |
-| Redux の state の形（`run.runningStatus` など） | Office 独自 | ドキュメントは無く、実際の store を読んで特定しました |
-| Sandbox と例外の出し方（`Command Error:`） | Office 独自 | 実際の出力を見て、受け取り方を決めました |
+| エディターの編集操作（`getModel` / `executeEdits` / `pushUndoStop` / `getFullModelRange`） | Monaco Editor の公開 API | そのまま使って、全文を置き換える。エディターのインスタンスかどうかも、`getModel` と `executeEdits` を持っているかで見分ける |
+| React の内部情報（`__reactFiber$...`）と react-redux の `Provider` | React / Redux（オープンソース） | よく知られた調べ方で、エディターと store をたどる |
+| エディターのインスタンスの置き場所 | Office 独自 | `window.monaco` が公開されていないため、React の内部情報からさかのぼって探す |
+| Redux の state の形（`run.runningStatus` など） | Office 独自 | ドキュメントは無く、実際の store を読み、実行前後の変化を見て特定した |
+| 実行ボタン、メッセージバーの表示タイミング | Office 独自 | 動かしたログをもとに、結果を確定する条件を決めた |
+| Sandbox と例外の出し方（`Command Error:`） | Office 独自 | 実際の出力を見て、受け取り方を決めた |
 
-Office 独自の部分にはドキュメントが無く、Office の更新で変わる可能性があります。冒頭の警告は、主にこの部分への依存によるものです。
+Office 独自の部分にはドキュメントが無く、Office の更新で変わる可能性があります。
+
+### コードエディターの掴み方
+
+接続したら、コードエディターのページにヘルパー（`window.__exCDP_OfficeScript`）を入れ、次の2つを掴みます。
+
+- **Monaco Editor のインスタンス**：DOM の `.monaco-editor` から React の内部情報（`__reactFiber$...`）をさかのぼり、`stateNode.editor` を探します
+- **Redux の store**：react-redux の `Provider` に渡されている `memoizedProps.store` を探します
+
+store からは、次の状態を読みます。
+
+| state のパス | 内容 |
+| --- | --- |
+| `run.runningStatus` | `None` → `InProgress` → `Succeeded` / `Failed` / `Unsupported` |
+| `bottomPanel.outputLogs` | 出力ログ。`{id, message, severity}` の配列 |
+| `bottomPanel.problemsLogs` | 問題ログ |
+| `messageBar` | 画面上部の通知（`isVisible`、`text`） |
+| `editor.active` | 開いているスクリプトの ID |
+| `scripts.scripts[id]` / `scripts.mruScripts` | スクリプトの本文（`localUpdates.body` / `storageScript.body`） |
 
 ### 書き込みと実行
 
-1. コードエディターのページにヘルパー（`window.__exCDP_OfficeScript`）を入れ、Monaco のエディターと Redux の store を掴みます。
-2. Monaco の `executeEdits` で全文を置き換え、store に反映されるまで待ちます。
-3. ツールバーの「実行」ボタンをクリックします。
-4. store の `run.runningStatus` の変化と、メッセージバーの表示をページの中で記録し、整理券番号ごとに結果を保持します。
+1. **書き込み**：Monaco の `executeEdits` で全文を置き換えます。前後に `pushUndoStop` を入れているので、エディター上で Ctrl+Z を押せば元に戻せます
+2. **反映待ち**：エディターの変更は、React の onChange を経由して Redux の store に反映されます。store 上の本文が、書き込んだ内容と一致するまで待ちます
+3. **実行**：ツールバーの「実行」ボタン（`aria-label` が「実行」または「Run」）をクリックします。実行されるのは、エディター上のまだ保存されていない内容です
 
 Officeスクリプトは、エディターに書き込んだ内容を自動で保存します。そのため、開いていたスクリプトの中身は上書きされます。
 
+### 整理券と結果の確定
+
+実行ボタンをクリックする前に store を購読し、VBA には整理券番号を返します。購読している間は、`runningStatus` の変化とメッセージバーの表示を、ページの中で記録しておきます。VBA は整理券番号で問い合わせるだけなので、好きなタイミングで結果を取りに行けます。
+
+`runningStatus` が終わりの状態になっても、結果のメッセージバー（「スクリプトが正常に実行されました。」など）は少し遅れて表示されます。そのため、次のどちらかを満たした時点で、結果を確定します。
+
+- 「実行中」と「結果」の2件のメッセージがそろい、最後の表示から200ミリ秒たった
+- 終わりの状態になってから3秒たった
+
+確定した時点で、その実行で増えた出力ログを整理券ごとに保存し、store の購読をやめます。
+
 ### 例外の詳細の受け取り方
 
-デスクトップ版では、スクリプトは別のタブ「Office JS Sandbox」で実行されます。例外の詳細は、このタブの `console.error` にだけ「`Command Error:`」の形で出て、エディターには「予期しないエラーが発生しました。」としか届きません。そこで、Sandbox タブの `console.error` を差し替えて、例外を受け取っています。
+デスクトップ版では、スクリプト本体は別のタブ「Office JS Sandbox」で実行されます。例外の詳細は、このタブの `console.error` にだけ、次の形で出力されます。エディターの出力ログには、「予期しないエラーが発生しました。」という決まった文しか届きません。
 
-Web 版では、Sandbox が実行のたびに作り直されるため、この方法は使えません。代わりに、エディターの出力ログに例外のメッセージがそのまま届くので、そこから受け取ります。
+```
+Command Error:
+{"message":"...","name":"Error","stack":"Error: ...\n    at main (...)"}
+```
+
+Sandbox 側のコードは、`console.error` を呼ぶたびに参照し直しています。そのため、Sandbox タブの `console.error` を差し替えるだけで、例外を受け取れます。CDP のイベントを購読する必要はありません。元の `console.error` もそのまま呼ぶので、Office 側の動作は変わりません。
+
+実行ごとの切り分けには、時刻を使います。整理券ごとに実行を始めた時刻を記録しておき、それ以降に出た例外だけを集めます。エディターと Sandbox は同じ PC の時計を使うので、そのまま比べられます。
+
+Web 版では、Sandbox が `about:srcdoc` の iframe と、その中の Web Worker として作られます。どちらも実行のたびに作り直されるので、差し替えておけません。その代わり、Web 版ではエディターの出力ログに、例外のメッセージがそのまま `severity: "error"` で届きます。そのため、Web 版では出力ログから受け取ります（stack は取れません）。
 
 ### Sandbox のコンソール履歴を捨てる
 
-Sandbox タブは Excel を閉じるまで残り、実行のたびにコンソールの出力がたまっていきます。`CDPContext` は接続時に `Runtime.enable` を送るため、たまった出力がまとめて送られてきます。履歴が約900KB（536件）たまった状態では、接続に16〜22秒かかっていました。
+デスクトップ版の Sandbox タブは Excel を閉じるまで残り、実行のたびにコンソールの出力がたまっていきます。CDP で接続して `Runtime.enable` を送ると、たまった出力が `Runtime.consoleAPICalled` としてまとめて送られてきます。履歴が約900KB（536件）たまった状態では、接続に16〜22秒かかっていました。
 
-そこで、Sandbox に接続した直後と `Dispose` のときに `Runtime.discardConsoleEntries` を送り、履歴を捨てています。これにより、接続は約2秒で終わるようになりました。
+そこで、Sandbox に接続した直後と、使い終わったときに `Runtime.discardConsoleEntries` を送り、履歴を捨てています。例外は差し替えた `console.error` 側で別に持っているので、受け取りには影響しません。これで、接続は約2秒で終わるようになりました。
 
-## 既知の制約
+### 仕組みから来る制約
 
-- 同時に実行できるのは1本だけです。コードエディターが1つしかないためです。
-- `main` に workbook 以外の引数を持つスクリプトは対象外です。パラメーターの入力ダイアログが表示されるためです。
-- デスクトップ版では、VBA が同期で待っている間、読み取りの多いスクリプトが進まないことがあります。Officeスクリプトが Excel と同じプロセスで動くためです。`RunScriptAsync` と `Application.OnTime` で結果を受け取ってください。
-- デスクトップ版では、Excel を起動して最初の実行の例外は受け取れません。「Office JS Sandbox」タブは、最初の実行が始まったときに作られるためです。1回実行した後に `Init` し直せば受け取れるようになります。
-- Web 版で Excel を複数開いている場合は、最初に見つかったコードエディターを確保します。
+- 同時に実行できるのは1本だけです。コードエディターが1つしかないためです
+- `main` に workbook 以外の引数を持つスクリプトは対象外です。パラメーターの入力ダイアログが表示されるためです
+- デスクトップ版の Officeスクリプトは、Excel と同じプロセスで動きます。そのため、VBA が結果を待っている間は、ブックの読み取りが多いスクリプトが進まないことがあります。実際に、全シートを読み取るスクリプトでは、手動なら数十秒で終わるのに、VBA から待つと結果が返らずにタイムアウトし、マクロが終わった直後に結果が届きました。Web 版では、この問題は起きませんでした
+- デスクトップ版では、Excel を起動して最初の実行の例外は受け取れません。「Office JS Sandbox」タブは、最初の実行が始まったときに作られるためです
+- Office 側の更新で動かなくなる可能性があります。React の内部情報、Redux の state の形、実行ボタンの `aria-label`、Sandbox の `console.error` の形に頼っているためです
+
+## Officejs としての実行の仕組み
+
+コードエディターのページには、Office.js（`Office` / `Excel` / `OfficeExtension`）が読み込まれていて、Excel 本体とつながっています。Office.js は、Office アドインが Excel を操作するための JavaScript の API です。
+
+つまり、エディターに書き込んで実行ボタンを押さなくても、そのページで `Excel.run` を直接呼べば、Excel を操作できます。VBA からは、`Runtime.evaluate` で次のような JavaScript を送っているだけです。
+
+```js
+Excel.run(async (context) => {
+    // ここに VBA から渡した中身が入る
+    const r = context.workbook.getSelectedRange();
+    r.load("address");
+    await context.sync();
+    return r.address;
+});
+```
+
+```mermaid
+flowchart LR
+    V["Excel VBA"]
+
+    subgraph Page["コードエディターのページ"]
+        E["エディター<br/>（Monaco）"]
+        O["Office.js<br/>Excel.run"]
+    end
+
+    S["Sandbox"]
+    X["Excel 本体"]
+
+    V -->|"① 書き込んで<br/>実行ボタン"| E --> S --> X
+    V -->|"② Runtime.evaluate で<br/>直接呼ぶ"| O --> X
+```
+
+① が OfficeScript 経由、② が Officejs としての実行です。
+
+### 呼び出し方
+
+- 送る JavaScript は、`Excel.run(async (context) => { ... })` で包みます。`Runtime.evaluate` に `awaitPromise` を付けて、Promise が終わるまで待ちます
+- return した値は、文字列ならそのまま、それ以外は `JSON.stringify` した文字列にして返します
+- Office.js のエラーは、`code`（無ければ `message`）と `debugInfo` を、`"NG: ..."` の形の文字列にして返します
+- JavaScript 側で `Promise.race` によるタイムアウトを掛け、時間を過ぎたら `"NG: timeout"` で打ち切ります
+
+接続したページで `Excel.run` が使えるかは、最初に `typeof Excel.run === "function"` で確かめています。デスクトップ版では、コードエディターのほかに「Office JS Sandbox」「Excel Copilot Chat Add-in」「操作レコーダー」のタブでも `Excel.run` が通りました。Web 版では、コードエディターの iframe と、Copilot アドインの iframe で通りました。
+
+### OfficeScript 経由との違い
+
+| | OfficeScript 経由 | Officejs として |
+| --- | --- | --- |
+| 動かし方 | エディターに書き込み、実行ボタンをクリック | ページの Office.js で `Excel.run` を直接呼ぶ |
+| 書くコード | Officeスクリプト（ExcelScript。同期的に書ける） | Office.js（Excel JavaScript API。`load` と `await context.sync()` が要る） |
+| 1回あたりの時間 | Web 版 約1.5秒、デスクトップ版 約4〜5秒 | 数百ミリ秒以下（全シートの読み取りは、Web 版 約0.6秒、デスクトップ版 約0.08秒） |
+| デスクトップ版で VBA が待つとき | 読み取りの多いスクリプトが進まないことがある | 止まらない |
+| エディターの中身 | 書き換わる（自動で保存される） | 書き換えない |
+| 例外の詳細 | デスクトップ版は Sandbox の `console.error` から | Office.js のエラー（`code` と `debugInfo`） |
+| Microsoft が公開している使い方か | Officeスクリプトとしての正規の流れ | 違う。エディターのページの Office.js を借りている |
+
+OfficeScript 経由は、Officeスクリプトの正規の流れを CDP でなぞったものです。一方 Officejs としての実行は、コードエディターのページが Office.js を読み込んでいることを利用したもので、Officeスクリプトの仕組み自体は通りません。
 
 ## 参考資料
 
@@ -262,6 +244,10 @@ Sandbox タブは Excel を閉じるまで残り、実行のたびにコンソ�
 
 * [microsoft/monaco-editor](https://github.com/microsoft/monaco-editor)（Monaco Editor は VS Code のフル機能のコードエディター）
 
+### Office.js
+
+* [Excel JavaScript API を使用した基本的なプログラミングの概念](https://learn.microsoft.com/ja-jp/office/dev/add-ins/excel/excel-add-ins-core-concepts)（`Excel.run`、`load`、`context.sync()`）
+
 ### Web 版 Excel の描画
 
 * [Excel on the web: Microsoft closes the gap on the desktop version](https://www.techrepublic.com/article/excel-on-the-web-microsoft-closes-the-gap-on-the-desktop-version/)（TechRepublic、2021年6月。Excel チームが2年かけて、Web 版の描画を HTML DOM から Canvas へ移した）
@@ -272,4 +258,4 @@ Sandbox タブは Excel を閉じるまで残り、実行のたびにコンソ�
 
 ### この拡張
 
-* [`Extensions` ブランチ：`Extensions/MainUnit/CDP/OfficeScriptViaVBA`](https://github.com/Eschamali/StarterWebScrapingKit/tree/Extensions/Extensions/MainUnit/CDP/OfficeScriptViaVBA)（クラス、デモ、ReadMe）
+* [`ex-OfficeJs` ブランチ：`Extensions/MainUnit/CDP/OfficeScriptViaVBA`](https://github.com/Eschamali/StarterWebScrapingKit/tree/ex-OfficeJs/Extensions/MainUnit/CDP/OfficeScriptViaVBA)（クラス、デモ、使い方は ReadMe）
