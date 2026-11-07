@@ -11,10 +11,11 @@ Excel には、年を重ねるごとにいろいろな機能が追加されて�
 - AI (Copilot)
 - ...
 
-そして意外にも、それに対応する VBA のメソッドも追加されています。比較的新しいものでいえば、次のようなものです。
+そして意外にも、それに対応する VBA のメソッド/改良も追加されています。比較的新しいものでいえば、次のようなものです。
 
 | 機能 | 対応する VBA |
 | --- | --- |
+| 正規表現 | `New RegExp`（Microsoft 365 のバージョン 2508 から VBA に組み込み。それまでは VBScript の `VBScript.RegExp` を借りていた） |
 | セルのチェックボックス | `Selection.CellControl.SetCheckbox` |
 | 計算方法の設定 > 互換性バージョン | `ActiveWorkbook.CompatibilityVersion` |
 
@@ -35,4 +36,6 @@ Excel には、年を重ねるごとにいろいろな機能が追加されて�
 
 ## 参考資料
 
+* [How to prepare VBA projects for VBScript deprecation](https://devblogs.microsoft.com/microsoft365dev/how-to-prepare-vba-projects-for-vbscript-deprecation/)（Microsoft 365 Developer Blog、2025年9月9日。Windows 版 Office のバージョン 2508（ビルド 19127.20154）から RegExp クラスが VBA に入り、参照設定なしで `New RegExp` と書ける）
 * [Range.CellControl property (Excel)](https://learn.microsoft.com/en-us/office/vba/api/excel.range.cellcontrol)（`Range("A1").CellControl.SetCheckbox` の例）
+* [Excelの新機能「リストとセル内配列」：1つのセルに複数の値](https://excel-ubara.com/excel1/EXCEL700_04.html)（解説記事内で使ってる例）
