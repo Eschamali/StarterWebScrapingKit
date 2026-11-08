@@ -4,6 +4,8 @@ description: VBA から Officeスクリプトを動かせる技術的な仕組�
 
 # Officeスクリプト
 
+<PromoMovie src="/promo/ReiwaIE_OfficeScripts.html" title="令和のIE ExcelVBAの限界突破 #1 ― Officeスクリプト" />
+
 Google で検索しても、出てくるのは次のような答えばかりでした。
 
 - VBA から、Officeスクリプトはいじれません
