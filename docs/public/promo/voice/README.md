@@ -83,7 +83,7 @@ promo/
   - `ReiwaIE_Policy.html` も、記事の画像を `img/Policy/` から相対パス（`../img/Policy/1.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMG_BASE` も直してください
   - `ReiwaIE_WebView2Story.html` は、記事の画像を `img/` の直下と `img/story/human/` から相対パス（`../img/化石コントロール.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMG_FILES` も直してください
 - `ReiwaIE_Policy` は2人の会話です。`narration.json` の各行に話し手（`speaker`）を書いています。春日部つむぎ（VOICEVOX のスタイル ID は 8）が案内役、ずんだもんが聞き役です
-- `ReiwaIE_GetTcpTable` は2人の会話です。東北イタコ（VOICEVOX のスタイル ID は 109）が案内役、ずんだもんが一緒に調べる聞き役です。記事の画像は使わず、絵はすべて Canvas で描いています
+- `ReiwaIE_GetTcpTable` は2人の会話です。東北イタコ（VOICEVOX のスタイル ID は 109）が案内役、ずんだもんが一緒に調べる聞き役です。記事の画像は使わず、絵はすべて Canvas で描いています。`ep1`〜`ep27`（`ep12` はなし）は、記事の「後日談: 本当にしれっと直った」の声です
 - `ReiwaIE_OfficeScripts` は2人の会話です。春日部つむぎ（VOICEVOX のスタイル ID は 8）が案内役、ずんだもんが聞き役です。最後の `cl0`〜`cl11` は、記事の「CDPは、VBA自身の機能拡張でもあった」を要約したものです
   - `clips/` の mp4 は、`img/breakthrough/` にある実機の録画から、使う区間だけを切り出したものです（音なし・15fps・横 1920）。HTML の中の `CLIP_DIR` で場所を指定し、video 要素で読み込んで Canvas に描きます。再生中は流し、止めているときやシークでは、その時刻のコマに合わせます
   - タスクマネージャーのスクリーンショット（`img/breakthrough/1.png`）は、HTML の中に埋め込んでいます
