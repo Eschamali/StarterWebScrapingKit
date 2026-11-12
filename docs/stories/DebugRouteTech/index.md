@@ -19,6 +19,7 @@ description: ブラウザの探し方と、Excel VBA からブラウザへつな
 | WebSocket（`--remote-debugging-port`） | WinSock でハンドシェイクとフレームを自作し、Pipe と同じ受信処理に流し込む | [WebSocket 経路](/stories/DebugRouteTech/websocket-tech) |
 | WebView2（`CallDevToolsProtocolMethod`） | vtable の番号とコールバックを VBA で組み立て、COM 経由で CDP を受け取る | [WebView2 経路](/stories/DebugRouteTech/webview2-tech) |
 | ポリシーの壁（Office・ASR・Edge） | 会社の PC で、Office 系のポリシー・ASR ルール・Edge のポリシーが CDP をどこで止めるか。| [ポリシーの壁](/stories/DebugRouteTech/Policy) |
+| ポリシーの壁 2（PAD と chrome.debugger） | Power Automate Desktop の「Web ページで JavaScript 関数を実行」が Edge でだけ動かなくなった原因と、拡張機能のポリシー ExtensionSettings が chrome.debugger を止める仕組み。| [ポリシーの壁 2](/stories/DebugRouteTech/Policy2) |
 
 3つの道は、最後はどれも「JSON ＋ `\0`」という同じ形のメッセージにそろい、同じ受信処理（`RaiseEvent`）に合流します。
 

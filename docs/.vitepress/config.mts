@@ -182,7 +182,8 @@ export default withMermaid(
             { text: 'Pipe 経路', link: '/stories/DebugRouteTech/pipe-tech' },
             { text: 'WebSocket 経路', link: '/stories/DebugRouteTech/websocket-tech' },
             { text: 'WebView2 経路', link: '/stories/DebugRouteTech/webview2-tech' },
-            { text: 'ポリシーの壁', link: '/stories/DebugRouteTech/Policy' }
+            { text: 'ポリシーの壁', link: '/stories/DebugRouteTech/Policy' },
+            { text: 'ポリシーの壁 2（PAD と chrome.debugger）', link: '/stories/DebugRouteTech/Policy2' }
           ]
         },
         {
