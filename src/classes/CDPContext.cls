@@ -1368,7 +1368,13 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
         '`SessionID`が切れたが、`targetId`は生存
         Case "Target.detachedFromTarget"
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
-            If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
+            If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then
+                'このイベントは、自ら切断以外にも以下のケースで登場します。参考までに
+                '・JavaScript実行による自動Close
+                '・ポリシー：DeveloperToolsAvailabilityBlocklist　に引っかかるページ遷移をした
+                ControlStatus.detachedFromTarget = True
+                printMsg WARN_, "The session(" & brTab.Url & ") was disconnected from the Chromium side. This log entry may occur in the following scenarios: the session was disconnected manually; it is subject to the `DeveloperToolsAvailabilityBlocklist` policy; or it was disconnected via JavaScript.", FromProcedureName
+            End If
 
         '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
         Case "Target.targetCrashed"
@@ -1386,6 +1392,8 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
         '`targetId`が消えて、`SessionID`も道ずれ破棄
         Case "Target.targetDestroyed"
             '1-1. 自分の`targetId`か確認し、そうであれば、フラグ更新
+            'このイベントは、自らタブ閉じ以外にも以下のケースで登場します。参考までに
+            '・JavaScript実行による自動Close
             If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("targetId") = brTab.targetID Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
         '一部のパラメーター(URL等)を更新します
