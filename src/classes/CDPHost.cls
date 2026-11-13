@@ -11,6 +11,43 @@ Attribute VB_Exposed = False
 '                             ローカルPC上のブラウザに関する機能群です
 '                            Chromium系のみ取り扱います。※WebView2を除く
 '==============================================================================================================
+'【ポリシーに関する補足】
+'  企業PCでは、ブラウザのポリシー設定によって CDP 制御が制限されることがあります。
+'  このクラスは起動前にレジストリからポリシーを読み、分かる範囲で事前に警告・停止します。
+'
+'  ■ 関係するポリシー
+'    ・RemoteDebuggingAllowed               0 だと、デバッグポート/パイプ自体が開かない（接続不可）
+'    ・DeveloperToolsAvailability           接続後、どのターゲットを attach できるかを決める
+'                                             未設定/0:強制インストール拡張のみ禁止 / 1:全許可 / 2:全禁止
+'                                             ※禁止されたターゲットは Target.attachToTarget が「Not allowed」で失敗
+'    ・DeveloperToolsAvailabilityAllowlist  (Edge148～) URL単位の許可リスト。Blocklist より優先
+'    ・DeveloperToolsAvailabilityBlocklist  (Edge148～) URL単位の禁止リスト
+'                                             ※どちらにも一致しない URL は DeveloperToolsAvailability に従う
+'    ・UserDataDir                          データ保存先の固定。デフォルトパス固定だとデバッグ不可
+'
+'  ■ どの値が採用されるか（「拒否優先」ではない）
+'    同じポリシーが複数箇所にある場合、ポリシーごとに勝者を1つ決め、その値だけが使われる
+'      1. 必須(Mandatory) ＞ 推奨(Recommended)  ※上記ポリシーはすべて必須のみなので今は、気にしなくて良い
+'      2. HKLM ＞ HKCU（HKLM に値があれば、HKCU は無視される）
+'         例）HKLM=1(許可) / HKCU=0(拒否) → 1 が採用され、制御できる
+'      3. リスト系(Allowlist/Blocklist)も合算されず、勝った側のリストがそのまま使われる
+'
+'  ■ このクラスの判定範囲
+'    ・読むのは HKLM / HKCU の SOFTWARE\Policies\<ブラウザ> のみ（GPO・Intune 由来はここに出る）
+'    ・クラウド配信のポリシー(Edge管理サービス等)は考慮しない
+'    ・そのため「レジストリに無い」＝「制限なし」とは限らない
+'      → 最終的な判定はブラウザ側の応答（「Not allowed」等）で行う
+'    ・正確な適用状況は edge://policy（chrome://policy）で確認できる。競合も表示されるのでなにかおかしい場合はまず、ここを見ることを推奨します
+'
+'  ■ WebView2 について
+'    WebView2 はブラウザ版 Edge のポリシー対象外のため、上記の制限を受けないことがある
+'
+'  ■ 制約について
+'    初期ブラウザ起動時のみこのClassを利用します。`ReattachOptions`による起動済みブラウザからの制御の場合は対象外です。
+'
+'  参考：https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/remotedebuggingallowed
+'        https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/developertoolsavailability
+'==============================================================================================================
 Option Explicit
 
 
@@ -27,6 +64,30 @@ Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
     ByRef pdwType As Long, _
     ByVal pvData As LongPtr, _
     ByRef pcbData As Long _
+) As Long
+
+'リスト系ポリシー(サブキー配下の"1","2"...)の列挙用API
+Private Declare PtrSafe Function RegOpenKeyExW Lib "Advapi32" ( _
+    ByVal hKey As LongPtr, _
+    ByVal lpSubKey As LongPtr, _
+    ByVal ulOptions As Long, _
+    ByVal samDesired As Long, _
+    ByRef phkResult As LongPtr _
+) As Long
+
+Private Declare PtrSafe Function RegEnumValueW Lib "Advapi32" ( _
+    ByVal hKey As LongPtr, _
+    ByVal dwIndex As Long, _
+    ByVal lpValueName As LongPtr, _
+    ByRef lpcchValueName As Long, _
+    ByVal lpReserved As LongPtr, _
+    ByRef lpType As Long, _
+    ByVal lpData As LongPtr, _
+    ByRef lpcbData As Long _
+) As Long
+
+Private Declare PtrSafe Function RegCloseKey Lib "Advapi32" ( _
+    ByVal hKey As LongPtr _
 ) As Long
 
 'DJP 20241105 to solve problems with terminating sessions on terminal server
@@ -76,6 +137,14 @@ Private Const RRF_RT_REG_DWORD      As Long = &H10          ' 32ビット数値 
 Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイト (32bit) と決まっている
 ' APIの戻り値
 Private Const RRF_SUCCESS           As Long = 0             '成功サイン
+Private Const ERROR_MORE_DATA       As Long = 234           'バッファー不足（必要サイズが返される）
+' レジストリキーのアクセス権（RegOpenKeyExW 用）
+Private Const KEY_READ              As Long = &H20019       '読み取り専用
+' 値の型（RegEnumValueW で返される種別）
+Private Const REG_SZ                As Long = 1             '文字列
+Private Const REG_EXPAND_SZ         As Long = 2             '環境変数を含む文字列
+' 値の名前の最大文字数（終端の NULL を含む）
+Private Const MAX_VALUE_NAME        As Long = 16384
 '==================================================
 
 'OpenProcess 用アクセス権（TerminateProcess / 終了待ち / 生存確認に必要な最小セット）
@@ -103,13 +172,17 @@ Private Type StatePolicy
 End Type
 
 Private Type CheckPolicy
-    UserDataDir As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
+    UserDataDir                         As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
+    RemoteDebuggingAllowed              As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
+    DeveloperToolsAvailability          As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/developertoolsavailability
+    DeveloperToolsAvailabilityAllowlist As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/developertoolsavailabilityallowlist
+    DeveloperToolsAvailabilityBlocklist As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/developertoolsavailabilityblocklist
 End Type
 Private currentPolicy As CheckPolicy
-Private UseChrome     As Boolean
+Private checkedPolicy As Boolean
 '--------------------------------------------------
 
-'取得するブラウザ設定
+'取得するデバックブラウザ設定
 Private UserBrowserMode         As BrowserList
 Private m_CustomChromiumPath    As String  'カスタムブラウザのexeフルパス。空ならプリセットに従う
 Private DebugUserName           As String
@@ -672,8 +745,104 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
             printMsg WARN_, ErrorMes, FromProcedureName
         End If
     End If
+
+    '5. デバックに支障が出る系の情報取り出しを行う
+    CheckRemoteDebuggingAvailabilityByPolicy
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：リモート デバッグに支障をきたす系の情報を確認します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・企業によっては、ポリシー設定で一部のURLに対してリモートデバッグが、できないようにしています。
+'　　　　　　・設定されていると、デバックはできるのに、ブロック先のURLに行くと、謎の「Not allowed」というあいまいエラーで???になるので、予めブロックリストを取ってあとで、失敗時にログに出すような仕組みを取ってます
+'
+'* 注意事項：・メジャーなブラウザ(Edge,Chrome)のみ対応します
+'            ・現時点では、「CDPBrowser-attachToTab」の判定側でのみ使用します。
+'            ・値の取り出しは別途、Getpropertyで取ってください
+'***************************************************************************************************
+Private Sub CheckRemoteDebuggingAvailabilityByPolicy()
+    Const FromProcedureName As String = ThisClassName & ".CheckRemoteDebuggingAvailabilityByPolicy"
+
+
+    '1. 動的系のデバックポリシー状況を取得していく
+    Dim DeveloperToolsAvailability_HKLM, DeveloperToolsAvailability_HKCU
+    DeveloperToolsAvailability_HKLM = CheckPolicy_DeveloperToolsAvailability(False)
+    DeveloperToolsAvailability_HKCU = CheckPolicy_DeveloperToolsAvailability(True)
+
+    Dim DeveloperToolsAvailabilityBlocklist_HKLM, DeveloperToolsAvailabilityBlocklist_HKCU
+    DeveloperToolsAvailabilityBlocklist_HKLM = CheckPolicy_DeveloperToolsAvailabilityList(False, False)
+    DeveloperToolsAvailabilityBlocklist_HKCU = CheckPolicy_DeveloperToolsAvailabilityList(True, False)
+
+    Dim DeveloperToolsAvailabilityAllowlist_HKLM, DeveloperToolsAvailabilityAllowlist_HKCU
+    DeveloperToolsAvailabilityAllowlist_HKLM = CheckPolicy_DeveloperToolsAvailabilityList(False, True)
+    DeveloperToolsAvailabilityAllowlist_HKCU = CheckPolicy_DeveloperToolsAvailabilityList(True, True)
+
+    '2. 優先順位を考慮した記録をする
+    printMsg info_, "Checking policy... DeveloperToolsAvailability", FromProcedureName
+    AchieveResultsPolicy currentPolicy.DeveloperToolsAvailability, DeveloperToolsAvailability_HKLM, DeveloperToolsAvailability_HKCU
+
+    printMsg info_, "Checking policy... DeveloperToolsAvailabilityBlocklist", FromProcedureName
+    AchieveResultsPolicy currentPolicy.DeveloperToolsAvailabilityBlocklist, DeveloperToolsAvailabilityBlocklist_HKLM, DeveloperToolsAvailabilityBlocklist_HKCU
+
+    printMsg info_, "Checking policy... DeveloperToolsAvailabilityAllowlist", FromProcedureName
+    AchieveResultsPolicy currentPolicy.DeveloperToolsAvailabilityAllowlist, DeveloperToolsAvailabilityAllowlist_HKLM, DeveloperToolsAvailabilityAllowlist_HKCU
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：優先順位を考慮した最終判定を、グローバル変数に残します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：LastResult グローバル変数に残すものを指定
+'           arg_HKLM    事前に取ったポリシーHKLM値
+'           arg_HKCU    事前に取ったポリシーHKCU値
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：適用優先は、HKLM > HKCU。HKLM に値があれば HKCU は無視される。拒否優先ではない
+'***************************************************************************************************
+Private Sub AchieveResultsPolicy(ByRef LastResult As StatePolicy, arg_HKLM As Variant, arg_HKCU As Variant)
+    Const FromProcedureName As String = ThisClassName & ".AchieveResultsPolicy"
+
+
+    '1. `HKLM`側に有効な値があるか？
+    If Not IsEmpty(arg_HKLM) Then
+        '1-1. `HKLM`側を記録
+        LastResult.isHKLM = True
+        LastResult.Contents = arg_HKLM
+        printMsg info_, "I have reviewed HKLM's policy. value: " & PolicyValueToString(arg_HKLM), FromProcedureName
+
+        '1-2. `HKCU`にもあったら、無視した旨を伝える
+        If Not IsEmpty(arg_HKCU) Then printMsg WARN_, "I have also checked HKCU's policy(" & PolicyValueToString(arg_HKCU) & "), but I will prioritize HKLM.", FromProcedureName
+
+    '2. `HKCU`側に有効な値があるか？
+    ElseIf Not IsEmpty(arg_HKCU) Then
+        '2-1. `HKCU`側を記録
+        LastResult.isHKLM = False
+        LastResult.Contents = arg_HKCU
+        printMsg info_, "I have reviewed HKCU's policy. value: " & PolicyValueToString(arg_HKCU), FromProcedureName
+    Else
+        '3. ない旨を伝える
+        LastResult.isHKLM = False
+        LastResult.Contents = Empty
+        printMsg info_, "There is no policy.", FromProcedureName
+    End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ポリシー値を、ログ表示用の文字列にします
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：PolicyValue    ポリシー値（数値/文字列/文字列配列）
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：リスト系ポリシー(Allowlist/Blocklist)は配列で持つため、そのまま`&`で連結すると型エラーになります。その対策です
+'***************************************************************************************************
+Private Function PolicyValueToString(ByVal PolicyValue As Variant) As String
+    If IsArray(PolicyValue) Then
+        PolicyValueToString = "[" & Join(PolicyValue, ", ") & "]"
+    Else
+        PolicyValueToString = CStr(PolicyValue)
+    End If
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] CDP系ポリシーの各種取り出し処理系
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
 '* 機能　　：`RemoteDebuggingAllowed`の確認を行います
 '---------------------------------------------------------------------------------------------------
@@ -746,6 +915,182 @@ Private Function CheckPolicy_UserDataDir(useHKCU As Boolean) As Variant
         CheckPolicy_UserDataDir = tmp
     End If
 End Function
+
+'***************************************************************************************************
+'* 機能　　：`DeveloperToolsAvailability`の確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：useHKCU            True ：HKEY_CURRENT_USER　側を確認
+'                               False：HKEY_LOCAL_MACHINE 側を確認
+'
+'* 返り値　：0    :ポリシーで強制インストールされた拡張機能のみ、DevTools禁止（未設定時の既定と同じ）
+'           1    :DevToolsをすべて許可
+'           2    :DevToolsをすべて禁止
+'           Empty:存在しない(※IsEmptyで判定可)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/developertoolsavailability
+'***************************************************************************************************
+Private Function CheckPolicy_DeveloperToolsAvailability(useHKCU As Boolean) As Variant
+    Const checkValueName As String = "DeveloperToolsAvailability"
+
+
+    '1. 必要な変数を用意
+    Dim KeyExists       As Long     '存在有無結果
+    Dim ValueContents   As Long     '値の中身
+    Dim ValueSize       As Long     '値の大きさ
+    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode)
+
+    '2. ルートキーをセット
+    Dim RootTree As Long
+    RootTree = IIf(useHKCU, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE)
+
+    '3. 32bit値としてチェックする
+    ValueSize = SIZE_REG_DWORD
+    KeyExists = RegGetValueW(RootTree, StrPtr(TargetBrowser), StrPtr(checkValueName), RRF_RT_REG_DWORD, 0, VarPtr(ValueContents), ValueSize)
+
+    '4. そのキー名があるか？
+    If KeyExists = RRF_SUCCESS Then CheckPolicy_DeveloperToolsAvailability = ValueContents
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`DeveloperToolsAvailabilityAllowlist/Blocklist`の確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：useHKCU            True ：HKEY_CURRENT_USER　側を確認
+'                               False：HKEY_LOCAL_MACHINE 側を確認
+'           useAllowlist       True ：`DeveloperToolsAvailabilityAllowlist` を確認
+'                               False：`DeveloperToolsAvailabilityBlocklist` を確認
+'
+'* 返り値　：URLパターンの文字列配列(0始まり)
+'           Empty:存在しない、または有効な値が1件もない(※IsEmptyで判定可)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・リスト系ポリシーは、サブキー配下に"1","2","3"...という名前の REG_SZ として保存されます
+'            ・Chromium(registry_dict.cc)は、名前が数字の値を「すべて」拾い、数字以外の名前は無視します
+'              番号が飛んでいても(1,2,5など)拾われるため、連番で読むのではなく全件を列挙しています
+'            ・並び順は RegEnumValueW の返却順で、番号順の保証はありません（ログ表示用途のため気にしない）
+'            ・同名の REG_SZ に JSON 文字列で書く形式も Chromium は受け付けますが、GPO/Intune は使わないため対象外です
+'            https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/developertoolsavailabilityallowlist
+'            https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-policies/developertoolsavailabilityblocklist
+'***************************************************************************************************
+Private Function CheckPolicy_DeveloperToolsAvailabilityList(useHKCU As Boolean, useAllowlist As Boolean) As Variant
+    '1. 必要な変数を用意
+    Dim TargetKey As String: TargetKey = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode) & "\DeveloperToolsAvailability" & IIf(useAllowlist, "Allowlist", "Blocklist")
+
+    '2. ルートキーをセット
+    Dim RootTree As Long
+    RootTree = IIf(useHKCU, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE)
+
+    '3. サブキーを開く。開けない(=存在しない)なら、ポリシーなしとして抜ける
+    Dim hKey As LongPtr
+    If RegOpenKeyExW(RootTree, StrPtr(TargetKey), 0, KEY_READ, hKey) <> RRF_SUCCESS Then Exit Function
+
+    '4. 値を全件列挙する
+    Dim Items       As Collection: Set Items = New Collection
+    Dim NameBuf     As String: NameBuf = String$(MAX_VALUE_NAME, vbNullChar)   '名前は最大長で確保しておくので、名前起因のバッファー不足は起きない
+    Dim DataBuf     As String: DataBuf = String$(1024, vbNullChar)             'URLパターン用。足りなければ、後述で拡張する
+    Dim Index       As Long
+    Dim namelen     As Long
+    Dim DataSize    As Long
+    Dim ValueType   As Long
+    Dim result      As Long
+    Dim ValueName   As String
+    Dim ValueData   As String
+    Dim NullPos     As Long
+
+    Do
+        '4-1. 入出力サイズを毎回リセット（API側で書き換えられるため）
+        namelen = Len(NameBuf)
+        DataSize = LenB(DataBuf)
+
+        '4-2. Index番目の値を取得
+        result = RegEnumValueW(hKey, Index, StrPtr(NameBuf), namelen, 0, ValueType, StrPtr(DataBuf), DataSize)
+
+        Select Case result
+            Case RRF_SUCCESS
+                '名前が数字、かつ文字列型のものだけ拾う（Chromiumと同じ扱い）
+                ValueName = Left$(NameBuf, namelen)
+                If LenB(ValueName) > 0 And Not ValueName Like "*[!0-9]*" Then
+                    If ValueType = REG_SZ Or ValueType = REG_EXPAND_SZ Then
+                        'DataSize はバイト数。終端の vbNullChar が含まれる場合があるので、最初の vbNullChar より前を採用
+                        ValueData = Left$(DataBuf, DataSize \ 2)
+                        NullPos = InStr(ValueData, vbNullChar)
+                        If NullPos > 0 Then ValueData = Left$(ValueData, NullPos - 1)
+                        Items.Add ValueData
+                    End If
+                End If
+
+                '次へ
+                Index = Index + 1
+
+            Case ERROR_MORE_DATA
+                'データ用バッファーが足りないので、必要サイズ(DataSize)で確保し直して、同じIndexを再取得
+                '※念のため、サイズが増えない場合は無限ループ防止で、その値は飛ばす
+                If DataSize > LenB(DataBuf) Then
+                    DataBuf = String$(DataSize \ 2 + 1, vbNullChar)
+                Else
+                    Index = Index + 1
+                End If
+
+            Case Else
+                'ERROR_NO_MORE_ITEMS(全件取得済み)、またはその他のエラー
+                Exit Do
+        End Select
+    Loop
+
+    '5. サブキーを閉じる
+    RegCloseKey hKey
+
+    '6. 1件もなければ、ポリシーなし(Empty)として返す
+    If Items.Count = 0 Then Exit Function
+
+    '7. 文字列配列にして返却
+    Dim UrlPatterns() As String
+    ReDim UrlPatterns(Items.Count - 1)
+
+    Dim i As Long
+    For i = 1 To Items.Count
+        UrlPatterns(i - 1) = Items(i)
+    Next
+
+    CheckPolicy_DeveloperToolsAvailabilityList = UrlPatterns
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] CDP系ポリシーの後で取り出す系
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：`DeveloperToolsAvailabilityAllowlist`を取り出します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に、`CheckRemoteDebuggingAvailabilityByPolicy`を行うこと
+'***************************************************************************************************
+Property Get CurrentDeveloperToolsAvailabilityAllowlist() As Variant
+    CurrentDeveloperToolsAvailabilityAllowlist = currentPolicy.DeveloperToolsAvailabilityAllowlist.Contents
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`DeveloperToolsAvailabilityBlocklist`を取り出します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に、`CheckRemoteDebuggingAvailabilityByPolicy`を行うこと
+'***************************************************************************************************
+Property Get CurrentDeveloperToolsAvailabilityBlocklist() As Variant
+    CurrentDeveloperToolsAvailabilityBlocklist = currentPolicy.DeveloperToolsAvailabilityBlocklist.Contents
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`DeveloperToolsAvailability`を取り出します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に、`CheckRemoteDebuggingAvailabilityByPolicy`を行うこと
+'***************************************************************************************************
+Property Get CurrentDeveloperToolsAvailability() As Variant
+    CurrentDeveloperToolsAvailability = currentPolicy.DeveloperToolsAvailability.Contents
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ポリシーチェックをしたかの判定を取り出します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：プリセット以外ではポリシーチェックはされないのでその目印にどうぞ
+'***************************************************************************************************
+Property Get isCheckedPolicy() As Boolean
+    isCheckedPolicy = checkedPolicy
+End Property
 
 
 
