@@ -161,7 +161,7 @@ Private Function EnumToStringBrowserList_BrowserPath(param As BrowserList) As St
         Case RunEdge_Canary:    EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge SxS"
 
         'カスタムパス系
-        Case Else:              EnumToStringBrowserList_BrowserPath = "\Microsoft\Office\16.0\Wef\Chromium" 'Officeのワークスペースフォルダを流用
+        Case Else:              EnumToStringBrowserList_BrowserPath = "\Microsoft\Office\" & Application.Version & "\Wef\Chromium"  'Officeのワークスペースフォルダを流用
     End Select
 End Function
 
