@@ -98,8 +98,8 @@ Private Const DebugModeSign             As String = "remote-debugging"      'デ
 '***************************************************************************************************
 '---------------- ポリシー状況一覧 ----------------
 Private Type StatePolicy
-    Exists      As Boolean  '存在有無
-    Contents    As Variant  '中身の値
+    Contents    As Variant  '中身の値。※存在しない場合は、Emptyとします。
+    isHKLM      As Boolean  'マシン単位としてのポリシーか？
 End Type
 
 Private Type CheckPolicy
@@ -214,7 +214,7 @@ Public Sub cleanUpSessions()
         '4. 起動中のブラウザ名であるか確認
         If LCase$(proc.Name) = LCase$(exeName) Then
             '5. Killタイプ判定
-            If currentPolicy.UserDataDir.Exists Then
+            If Not IsEmpty(currentPolicy.UserDataDir.Contents) Then
                 '6. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
                 printMsg Debug_, "The `UserDataDir` policy is in effect, so all running browser instances will be terminated..." & proc.CommandLine, FromProcedureName
                 proc.Terminate
@@ -254,7 +254,7 @@ Public Sub setCrashStateNormal()
 
     '状況に応じたクラッシュパス情報を指定する
     '`UserDataDir`のポリシーがあったらそっちを優先
-    If currentPolicy.UserDataDir.Exists Then
+    If Not IsEmpty(currentPolicy.UserDataDir.Contents) Then
         'Use this switch instead if your organization disables UserDataDir with policy
         filePath_Preferences = currentPolicy.UserDataDir.Contents & "\" & DebugUserName & "\Preferences"
     Else
@@ -352,7 +352,7 @@ End Property
 '            ・`--remote-debugging-port=0`で起動した際の、`DevToolsActivePort`を拝見して、自動で空いてるポートに繋げる仕組み
 '***************************************************************************************************
 Property Get getUserDataDirPath() As String
-    If currentPolicy.UserDataDir.Exists Then
+    If Not IsEmpty(currentPolicy.UserDataDir.Contents) Then
         '`UserDataDir`ポリシーがある場合はそっちを優先に返却
         getUserDataDirPath = currentPolicy.UserDataDir.Contents
     ElseIf InStr(1, DebugUserName, ":") = 2 Then
@@ -531,7 +531,7 @@ End Function
 '* 注意事項：`CheckRemoteDebuggingBlockedByPolicy`を事前に処理させておくこと
 '***************************************************************************************************
 Public Function GenerateArgUseUserData() As String
-    GenerateArgUseUserData = IIf(currentPolicy.UserDataDir.Exists, GenerateArgProfileDirectory, GenerateArgUserDataDir)
+    GenerateArgUseUserData = IIf(IsEmpty(currentPolicy.UserDataDir.Contents), GenerateArgUserDataDir, GenerateArgProfileDirectory)
 End Function
 
 '***************************************************************************************************
@@ -600,72 +600,78 @@ End Property
 '***************************************************************************************************
 '                                   ■■■ ポリシー情報 ■■■
 '***************************************************************************************************
-'* 機能　　：リモート デバッグに関するポリシーチェックを行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：BrowserMode    ブラウザタイプ
+' [ SECTION ] CDP系ポリシーの取り出し処理系
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：・企業によっては、ポリシー設定でリモートデバッグできないようにしています。
+'***************************************************************************************************
+'* 機能　　：リモート デバッグが出来るかの確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・企業によっては、ポリシー設定でリモートデバッグ自体が、できないようにしています。
 '　　　　　　・設定されていると、起動はできたのに、なんか操作できないといった混乱が発生するため、このチェックを設けています
-'            ・現在は下記の確認に対応してます
+'            ・ここのプロシージャでは特に、入口チェックをし、そもそもデバックできるかのチェックをし、事前に警告/停止します。具体的には下記です
 '               ・RemoteDebuggingAllowed
 '               ・UserDataDir
-'* 注意事項：メジャーなブラウザ(Edge,Chrome)のみ対応します
+'* 注意事項：・メジャーなブラウザ(Edge,Chrome)のみ対応します
+'            ・他のポリシー(DeveloperToolsAvailability等)は、別プロシージャにてチェックします。あくまでも、入口に関わるチェックのみです
 '***************************************************************************************************
 Public Sub CheckRemoteDebuggingBlockedByPolicy()
-    Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
+    Const FromProcedureName As String = ThisClassName & ".CheckRemoteDebuggingBlockedByPolicy"
 
 
-    'メジャーなブラウザ以外は即抜け
+    '1. メジャーなブラウザ以外は即抜け
     If UserBrowserMode = NoPreset Then printMsg WARN_, "The policy check will be skipped because a browser that does not support the policy has been detected.", FromProcedureName: Exit Sub
+    checkedPolicy = True
 
-    'ブラウザ名に応じて、ベースとなるキーパスを設定
-    Dim RegPathBrowser As String
-    RegPathBrowser = EnumToStringBrowserList_RegPath(UserBrowserMode)
+    '2. 入口系のデバックポリシー状況を取得していく
+    '※(RemoteDebuggingAllowed + UserDataDir)×(HKLM + HKCU)の4パターン
+    Dim RemoteDebuggingAllowed_HKLM, RemoteDebuggingAllowed_HKCU
+    RemoteDebuggingAllowed_HKLM = CheckPolicy_RemoteDebuggingAllowed(False)
+    RemoteDebuggingAllowed_HKCU = CheckPolicy_RemoteDebuggingAllowed(True)
 
-    '"HKLM(0)"と"HKCU(1)"を確認する
-    '最初は、PC単位、次に、現在のログインユーザー単位で確認します
-    Dim i As Long
+    Dim UserDataDir_HKLM, UserDataDir_HKCU
+    UserDataDir_HKLM = CheckPolicy_UserDataDir(False)
+    UserDataDir_HKCU = CheckPolicy_UserDataDir(True)
+
+    '3. 優先順位を考慮した記録をする
+    printMsg info_, "Checking policy... RemoteDebuggingAllowed", FromProcedureName
+    AchieveResultsPolicy currentPolicy.RemoteDebuggingAllowed, RemoteDebuggingAllowed_HKLM, RemoteDebuggingAllowed_HKCU
+
+    printMsg info_, "Checking policy... UserDataDir", FromProcedureName
+    AchieveResultsPolicy currentPolicy.UserDataDir, UserDataDir_HKLM, UserDataDir_HKCU
+
+    '4. グローバル変数を基に、制御可否判定を行う
+    '4-1. リモートデバックそのものが封じられてるか？
     Dim ErrorMes As String
-    For i = 0 To 1
-        ' ------------ 1. RemoteDebuggingAllowed ------------
-        '※これに引っかかると残念ですが、CDP制御はできません
-        If CheckBrowserPolicyRemoteDebuggingAllowed(i) Then
-            '通達
-            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせするか、WebView2ルートでの制御をお試しください。")
+    If Not IsEmpty(currentPolicy.RemoteDebuggingAllowed.Contents) Then
+        '拒否値か？
+        If currentPolicy.RemoteDebuggingAllowed.Contents = 0 Then
+            'ポリシー場所に応じたエラーメッセージにし、止める
+            ErrorMes = IIf(currentPolicy.RemoteDebuggingAllowed.isHKLM, "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせするか、WebView2ルートでの制御をお試しください。", _
+                                                                        "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。")
 
             printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
-            Exit For
+            Exit Sub
         End If
+    End If
 
+    '4-2. ブラウザ標準の`UserDataDir`になってしまってないか？
+    If Not IsEmpty(currentPolicy.UserDataDir.Contents) Then
+        '実質、拒否値か？
+        If currentPolicy.UserDataDir.Contents = "" Then
+            'ポリシー場所に応じたエラーメッセージにし、止める
+            ErrorMes = IIf(currentPolicy.UserDataDir.isHKLM, "会社のセキュリティポリシーにより、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "情報システム部門、お問い合わせするか、WebView2ルートでの制御をお試しください。", _
+                                                             "現在のログインPCアカウントでは、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて削除するか、何かパスを指定して下さい。")
 
-        '------------ 2. UserDataDir ------------
-        '※これに引っかかるとCDP制御はできますが、デバッグブラウザとは関係ない普通のブラウザも毎回、落とさないといけない制限となります
-        currentPolicy.UserDataDir.Contents = CheckBrowserPolicyUserDataDir(i)
-
-        'ポリシーとして存在してるなら中身のチェック
-        If StrPtr(currentPolicy.UserDataDir.Contents) Then
-            'フラグ立て
-            currentPolicy.UserDataDir.Exists = True
-
-            '空文字チェック
-            If LenB(currentPolicy.UserDataDir.Contents) = 0 Then
-                '空文字だとデフォルトパスで使用されて結果的にリモートデバッグ不可能になるので止める
-                ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて削除するか、何かパスを指定して下さい。", _
-                                  "会社のセキュリティポリシーにより、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "情報システム部門、お問い合わせするか、WebView2ルートでの制御をお試しください。")
-
-                printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
-                Exit For
-            End If
-
-            '通達
-            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。")
+            printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
+            Exit Sub
+        Else
+            'デバックがし辛くなるだけなので、警告のみに留める
+            ErrorMes = IIf(currentPolicy.UserDataDir.isHKLM, "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。", _
+                                                             "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。")
 
             printMsg WARN_, ErrorMes, FromProcedureName
-            Exit For
         End If
-    Next
+    End If
 End Sub
 
 '***************************************************************************************************
@@ -674,11 +680,13 @@ End Sub
 '* 引数　　：useHKCU            True ：HKEY_CURRENT_USER　側を確認
 '                               False：HKEY_LOCAL_MACHINE 側を確認
 '
-'* 返り値　：`RemoteDebuggingAllowed:=0`で、`True`となります
+'* 返り値　:0以外:リモート デバッグを使用できる
+'           0    :リモート デバッグを使用できません
+'           Empty:存在しない(※IsEmptyで判定可)
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
 '***************************************************************************************************
-Private Function CheckBrowserPolicyRemoteDebuggingAllowed(ByVal useHKCU As Boolean) As Boolean
+Private Function CheckPolicy_RemoteDebuggingAllowed(useHKCU As Boolean) As Variant
     Const checkValueName As String = "RemoteDebuggingAllowed"
 
 
@@ -697,11 +705,7 @@ Private Function CheckBrowserPolicyRemoteDebuggingAllowed(ByVal useHKCU As Boole
     KeyExists = RegGetValueW(RootTree, StrPtr(TargetBrowser), StrPtr(checkValueName), RRF_RT_REG_DWORD, 0, VarPtr(ValueContents), ValueSize)
 
     '4. そのキー名があるか？
-    If KeyExists = RRF_SUCCESS Then
-        '0:リモート デバッグを使用できません
-        '1:リモート デバッグを使用できる
-        CheckBrowserPolicyRemoteDebuggingAllowed = IIf(ValueContents = 0, True, False)
-    End If
+    If KeyExists = RRF_SUCCESS Then CheckPolicy_RemoteDebuggingAllowed = ValueContents
 End Function
 
 '***************************************************************************************************
@@ -710,11 +714,12 @@ End Function
 '* 引数　　：useHKCU            True ：HKEY_CURRENT_USER　側を確認
 '                               False：HKEY_LOCAL_MACHINE 側を確認
 '
-'* 返り値　：パスが返ったらそれが固定の保存場所です。`vbnullstring`の場合は、制限なしです
+'* 返り値　：パスが返ったらそれが固定の保存場所です。なお、空文字パターンもあり得ます。
+''           Empty:存在しない(※IsEmptyで判定可)
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
 '***************************************************************************************************
-Private Function CheckBrowserPolicyUserDataDir(ByVal useHKCU As Boolean) As String
+Private Function CheckPolicy_UserDataDir(useHKCU As Boolean) As Variant
     Const checkValueName As String = "UserDataDir"
 
 
@@ -733,10 +738,12 @@ Private Function CheckBrowserPolicyUserDataDir(ByVal useHKCU As Boolean) As Stri
     '4. そのキー名があるか？
     If KeyExists = RRF_SUCCESS Then
         '5. 得た文字数を基に、バッファーを確保しつつ、末尾の`vbNullChar`も落とすように調整する
-        CheckBrowserPolicyUserDataDir = String(ValueSize / 2 - 2, vbNullChar)
+        Dim tmp As String
+        tmp = String(ValueSize / 2 - 2, vbNullChar)
 
         '6. 返却
-        RegGetValueW RootTree, StrPtr(TargetBrowser), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, StrPtr(CheckBrowserPolicyUserDataDir), ValueSize
+        RegGetValueW RootTree, StrPtr(TargetBrowser), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, StrPtr(tmp), ValueSize
+        CheckPolicy_UserDataDir = tmp
     End If
 End Function
 
