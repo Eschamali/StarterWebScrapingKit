@@ -786,6 +786,26 @@ Private Sub CheckRemoteDebuggingAvailabilityByPolicy()
 
     printMsg info_, "Checking policy... DeveloperToolsAvailabilityAllowlist", FromProcedureName
     AchieveResultsPolicy currentPolicy.DeveloperToolsAvailabilityAllowlist, DeveloperToolsAvailabilityAllowlist_HKLM, DeveloperToolsAvailabilityAllowlist_HKCU
+
+    '3. 特定の状態の場合は警告する
+    'DeveloperToolsAvailability
+    Dim ErrorMes As String
+    If Not IsEmpty(currentPolicy.DeveloperToolsAvailability.Contents) Then
+        If currentPolicy.DeveloperToolsAvailability.Contents = 2 Then
+            ErrorMes = IIf(currentPolicy.DeveloperToolsAvailability.isHKLM, "会社のセキュリティポリシーにより、一部のCDP制御に制限がかかってます。何かうまくいかない場合は、WebView2ルートでの制御をお試しください。", _
+                                                                            "現在のログインPCアカウントでは、一部のCDP制御に制限がかかってます。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。")
+
+            printMsg WARN_, ErrorMes, FromProcedureName
+        End If
+    End If
+
+    'DeveloperToolsAvailabilityBlocklist
+    If Not IsEmpty(currentPolicy.DeveloperToolsAvailabilityBlocklist.Contents) Then
+        ErrorMes = IIf(currentPolicy.DeveloperToolsAvailability.isHKLM, "会社のセキュリティポリシーにより、一部のURL" & PolicyValueToString(currentPolicy.DeveloperToolsAvailabilityBlocklist.Contents) & "に対して、CDP制御に制限がかかってます。何かうまくいかない場合は、WebView2ルートでの制御をお試しください。", _
+                                                                        "現在のログインPCアカウントでは、一部のURL" & PolicyValueToString(currentPolicy.DeveloperToolsAvailabilityBlocklist.Contents) & "に対して、CDP制御に制限がかかってます。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。")
+
+        printMsg WARN_, ErrorMes, FromProcedureName
+    End If
 End Sub
 
 '***************************************************************************************************
@@ -1052,45 +1072,6 @@ Private Function CheckPolicy_DeveloperToolsAvailabilityList(useHKCU As Boolean, 
 
     CheckPolicy_DeveloperToolsAvailabilityList = UrlPatterns
 End Function
-
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] CDP系ポリシーの後で取り出す系
-'---------------------------------------------------------------------------------------------------
-'***************************************************************************************************
-'* 機能　　：`DeveloperToolsAvailabilityAllowlist`を取り出します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に、`CheckRemoteDebuggingAvailabilityByPolicy`を行うこと
-'***************************************************************************************************
-Property Get CurrentDeveloperToolsAvailabilityAllowlist() As Variant
-    CurrentDeveloperToolsAvailabilityAllowlist = currentPolicy.DeveloperToolsAvailabilityAllowlist.Contents
-End Property
-
-'***************************************************************************************************
-'* 機能　　：`DeveloperToolsAvailabilityBlocklist`を取り出します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に、`CheckRemoteDebuggingAvailabilityByPolicy`を行うこと
-'***************************************************************************************************
-Property Get CurrentDeveloperToolsAvailabilityBlocklist() As Variant
-    CurrentDeveloperToolsAvailabilityBlocklist = currentPolicy.DeveloperToolsAvailabilityBlocklist.Contents
-End Property
-
-'***************************************************************************************************
-'* 機能　　：`DeveloperToolsAvailability`を取り出します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に、`CheckRemoteDebuggingAvailabilityByPolicy`を行うこと
-'***************************************************************************************************
-Property Get CurrentDeveloperToolsAvailability() As Variant
-    CurrentDeveloperToolsAvailability = currentPolicy.DeveloperToolsAvailability.Contents
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ポリシーチェックをしたかの判定を取り出します
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：プリセット以外ではポリシーチェックはされないのでその目印にどうぞ
-'***************************************************************************************************
-Property Get isCheckedPolicy() As Boolean
-    isCheckedPolicy = checkedPolicy
-End Property
 
 
 
