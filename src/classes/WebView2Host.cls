@@ -205,7 +205,7 @@ Friend Sub Init(caps As BrowserCapabilities, AttachHwnd As LongPtr)
         WebView2UserDataDirPath = tmp
     Else
         'Officeのルールに従うようなパスにしておく
-        WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & tmp
+        WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\" & Application.Version & "\Wef\webview2\VBA\" & tmp
     End If
 
     '固有情報
