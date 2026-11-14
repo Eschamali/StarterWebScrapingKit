@@ -1318,7 +1318,8 @@ Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Bo
     If deserialize(caps.Set_UserDataDirName) Then DisconnectCDP
 
     '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
-    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.Init caps, False
+    Dim checkDevToolsActivePort As CDPHost: Set checkDevToolsActivePort = caps.ClsGet_CDPHost
+    checkDevToolsActivePort.Init caps, False
 
     '2. 情報を取得
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
