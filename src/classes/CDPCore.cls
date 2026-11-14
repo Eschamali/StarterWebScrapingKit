@@ -269,7 +269,7 @@ Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
     If deserialize Then CloseHandleBrowser
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
+    Dim ReadyCDP As CDPHost: Set ReadyCDP = caps.ClsGet_CDPHost
     With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
         .Init caps, True

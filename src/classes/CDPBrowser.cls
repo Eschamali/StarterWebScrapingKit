@@ -115,7 +115,7 @@ Public Function OpenBrowser(caps As BrowserCapabilities) As String
     Set PipeCore = caps.ClsGet_CDPCore
 
     '2. 起動後に使う設定値を確保
-    Dim UserName   As String: UserName = caps.Set_UserDataDirName
+    Dim UserName As String: UserName = caps.Set_UserDataDirName
     CustomUAMode = caps.Set_EnableUserAgentOverride
 
     '3. 起動モードに応じた分岐
@@ -133,10 +133,10 @@ Public Function OpenBrowser(caps As BrowserCapabilities) As String
         OpenBrowser = PipeCore.OpenBrowserAndConnectCDP(caps)
     End If
 
-    '3. 起動中のブラウザ情報を変数に記録
+    '4. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
 
-    '4. ブラウザステータス表示
+    '5. ブラウザステータス表示
     printParams
 End Function
 
@@ -428,6 +428,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     If Not tabfound Then
         info = IIf(LenB(tabName), tabName, IIf(LenB(Url), Url, "(no new tab found)"))
         printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
+        printMsg WARN_, "Quick check: Is the URL correct? If the target site uses lazy loading, the list might not be available immediately after calling `getTab`. In such cases, please adjust the polling via `doRetrySecond`. If the item still cannot be found, the `DeveloperToolsAvailability` policy might be the cause; in that instance, please try the WebView2 route.", FromProcedureName
         Exit Function
     Else
         printMsg info_, "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)", FromProcedureName
@@ -1148,21 +1149,42 @@ End Sub
 '            flatten: Enables "flat" access to the session via specifying sessionId attribute
 '            in the commands. Set to True by default to make attachToTab work.
 '            Returns: a session ID string that is needed for CDP automation.
-'* 注意事項：ポリシー`DeveloperToolsAvailability`があると、「Not allowed」で失敗します。
-'            その場合は、WebView2ルートをご利用ください
+'* 注意事項：・ポリシー`DeveloperToolsAvailability`系があると、「Not allowed」で失敗します。
+'              その場合は、WebView2ルートをご利用ください
+'            ・「Not allowed」で失敗した場合は、起動時に記録したポリシー情報(レジストリのみ)から、原因を推定してエラー表示します
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
+    Const FromProcedureName As String = ThisClassName & ".attachToTab"
+
+
     '1. コマンド準備
     Dim CDPparams As New Dictionary
     CDPparams.Add "targetId", tabId
     CDPparams.Add "flatten", True
 
     '2. 実行
+    '※独自のエラー処理が必要なのでここでは一旦、無視させる
     Dim tmp As BiDiCDPJConv
     Set tmp = ExecuteCDP("Target.attachToTarget", CDPparams, False)
 
     '3. 結果があれば、返却
-    If Not tmp Is Nothing Then attachToTab = tmp.StringKey("sessionId")
+    If Not tmp Is Nothing Then
+        attachToTab = tmp.StringKey("sessionId")
+    Else
+        '3-1. エラーメッセージを取り出す
+        Dim ErrMes As String
+        If Not LastCDPJsonError Is Nothing Then ErrMes = LastCDPJsonError("message")
+
+        '3-2. 「Not allowed」の場合は、ポリシー由来の原因を推定して添える
+        If ErrMes = "Not allowed" Then
+            ErrMes = ErrMes & ". If using WebView2 is an option, trying that might resolve the issue." & vbCrLf & vbCrLf & ViewDetails_Notallowed(tabId)
+
+            '3-3. 停止
+            printMsg ERROR_, "Failed to retrieve `SessionID`. Reason: " & ErrMes, FromProcedureName, doRaiseError:=True
+        Else
+            printMsg WARN_, "Failed to retrieve `SessionID`. Reason: " & ErrMes, FromProcedureName
+        End If
+    End If
 End Function
 
 '***************************************************************************************************
@@ -1184,6 +1206,53 @@ Public Sub DiscardSessionID(sessionID As String)
     '2. 破棄コマンド実行
     ExecuteCDPAsync "Target.detachFromTarget", CDPparams, False
 End Sub
+
+
+
+'***************************************************************************************************
+'                               ■■■ ヘルパーメソッド ■■■
+'***************************************************************************************************
+'* 機能　　：`Target.attachToTarget`が「Not allowed」になった原因を、ポリシー情報から推定します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：推定結果のメッセージ
+'* 引数　　：tabId  TargetID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Chromium`DeveloperToolsPolicyChecker::GetDevToolsAvailabilityForUrl`と同じ順で判定します
+'            1. URL が Allowlist に一致 → 許可
+'               ※両リストに一致した場合は、より具体的なパターンが勝ちます。同点なら Allowlist の勝ち
+'            2. Allowlist があり、Blocklist が無い → Allowlist にない URL はブロック
+'            3. URL が Blocklist に一致 → ブロック
+'            4. それ以外 → `DeveloperToolsAvailability`の値に従う
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも「推定」です。最終的な判定は、ブラウザ側の応答が正です
+'            ・レジストリ(HKLM/HKCU)のポリシーのみが対象です。クラウド配信のポリシーは見ていません
+'            ・URLパターンの照合は簡易版です(Chromium`URLBlocklist`の主要ルールのみ)
+'            ・起動済みブラウザへの接続時等、ポリシー情報を取得していない場合は、推定せずに確認先のみ案内します
+'***************************************************************************************************
+Private Function ViewDetails_Notallowed(tabId As String) As String
+    Const OutsideRegistry As String = "The cause is likely outside the registry policies (e.g. cloud-delivered policies, or a non-policy restriction)."
+
+
+    '対象タブのURLを取得
+    Dim TargetUrl As String
+    Dim CDPparams As New Dictionary
+    CDPparams.Add "targetId", tabId
+    Dim tmp As BiDiCDPJConv
+    Set tmp = ExecuteCDP("Target.getTargetInfo", CDPparams, False)
+    If Not tmp Is Nothing Then TargetUrl = tmp.NodeKey("targetInfo").StringKey("url")
+
+    '確認先のみ案内して抜ける
+    ViewDetails_Notallowed = "=== Policy diagnosis (registry: HKLM/HKCU) ===" & vbCrLf & _
+                           "Target URL                          : " & TargetUrl & vbCrLf & _
+                           "Probable cause                      : Policy info was not collected (e.g. attached to an already-running browser), so the cause cannot be estimated. " & _
+                           "It may be blocked by DeveloperToolsAvailability / DeveloperToolsAvailabilityAllowlist / DeveloperToolsAvailabilityBlocklist." & vbCrLf & _
+                           "How to check                        :" & vbCrLf & _
+                           "  1. Open chrome://policy (Edge also accepts it and redirects to edge://policy)." & vbCrLf & _
+                           "  2. If it is blocked, check these keys with the Registry Editor (reading them does not require administrator rights):" & vbCrLf & _
+                           "       Edge  : HKLM\SOFTWARE\Policies\Microsoft\Edge, HKCU\SOFTWARE\Policies\Microsoft\Edge" & vbCrLf & _
+                           "       Chrome: HKLM\SOFTWARE\Policies\Google\Chrome, HKCU\SOFTWARE\Policies\Google\Chrome" & vbCrLf & _
+                           "  3. If neither is available, ask your system administrator."
+End Function
 
 
 
