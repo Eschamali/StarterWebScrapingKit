@@ -428,6 +428,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     If Not tabfound Then
         info = IIf(LenB(tabName), tabName, IIf(LenB(Url), Url, "(no new tab found)"))
         printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
+        printMsg WARN_, "Quick check: Is the URL correct? If the target site uses lazy loading, the list might not be available immediately after calling `getTab`. In such cases, please adjust the polling via `doRetrySecond`. If the item still cannot be found, the `DeveloperToolsAvailability` policy might be the cause; in that instance, please try the WebView2 route.", FromProcedureName
         Exit Function
     Else
         printMsg info_, "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)", FromProcedureName
