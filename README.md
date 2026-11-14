@@ -4,23 +4,23 @@
 
 ![Logo](doc/Logo.png)
 
-> [!CAUTION]
-> **一般の方向けのツールではありません。**  
-> 「なぜ動かないのか」ではなく、「**どうやって動いているのか**」を低レイヤーから理解したい方のための研究リポジトリ（POC）兼、備忘録です。  
+> \[!CAUTION]
+> **一般の方向けのツールではありません。**\
+> 「なぜ動かないのか」ではなく、「**どうやって動いているのか**」を低レイヤーから理解したい方のための研究リポジトリ（POC）兼、備忘録です。\
 > 実務で安定したスクレイピングを行いたい方は、[下記の定番ツール](#%EF%B8%8F-実務で使うなら)をご利用ください。
 
----
+***
 
 ## これはなに？
 
 WebDriver（`msedgedriver.exe` / `chromedriver.exe` など）が担っている役割を、**VBAだけ**でどこまで再現できるかを検証するPOCです。
 
-外部ドライバ、SeleniumBasic、COM DLLの登録、管理者権限は**一切使いません**。  
+外部ドライバ、SeleniumBasic、COM DLLの登録、管理者権限は**一切使いません**。\
 Excel VBA（標準モジュール／クラスモジュール）と Windows 標準API だけで、Chromium系ブラウザ（Edge / Chrome）や WebView2 と直接会話します。（実は [Firefox](#-実はfirefox-も動きます) も少しだけ）
 
 [リリースページ](https://github.com/Eschamali/StarterWebScrapingKit/releases)から、ExcelかAccessを1つDLするだけで、追加の**インストール/ダウンロード**を必要としない、真のゼロ・インストールで試せます🦊
 
----
+***
 
 ## 立ち上げたきっかけ
 
@@ -70,7 +70,7 @@ flowchart LR
     style WD stroke-dasharray: 5 5
 ```
 
-SeleniumBasic はインストールが必要だったため、当初は確かに導入のハードルがありました。  
+SeleniumBasic はインストールが必要だったため、当初は確かに導入のハードルがありました。\
 しかし `WebDriver.exe` だけになった今は、ポータブルなexeを適切に配置し、決められたコマンドを打つだけで自動操作の準備が整います。
 
 ある意味、**ゼロインストール**で自動操作できる時代になったと言えます。
@@ -109,11 +109,11 @@ flowchart TB
     E1 --> E2 --> E3 --> E4
 ```
 
----
+***
 
 ## 「???」の正体
 
-WebDriver.exe が最終的にブラウザと交わしているのは **CDP（Chrome DevTools Protocol）** という JSON-RPC 形式のメッセージです。  
+WebDriver.exe が最終的にブラウザと交わしているのは **CDP（Chrome DevTools Protocol）** という JSON-RPC 形式のメッセージです。\
 であれば、VBAが直接 CDP を話せば WebDriver.exe はいらない――というのが本POCの出発点です。
 
 その「話し方（通信路）」として、現在は次の3つの経路を実装しています。
@@ -133,11 +133,11 @@ flowchart LR
     VBA -- "🥉 COM（vtable直呼び）<br/>CallDevToolsProtocolMethod(ForSession)" --> WV["🪟 WebView2<br/>（UserForm内）"]
 ```
 
-| 経路 | 通信方式 | 主な実装 | ひとこと |
-| --- | --- | --- | --- |
-| 🥇 **Pipe** | `--remote-debugging-pipe` による匿名パイプ | `CDPCore.cls` | 本POCの主軸。ポートを開かず、親子プロセス間だけで完結する |
-| 🥈 **Port** | `--remote-debugging-port` + WinSock による WebSocket | `CDPCoreViaWebSocket.cls` | 起動済みブラウザへの後付け接続や、別端末・Android実機への接続も可能 |
-| 🥉 **WebView2** | `ICoreWebView2::CallDevToolsProtocolMethod(ForSession)` | `CDPCoreViaWebView2.cls` / `WebView2Host.cls` | ポートもパイプも開かず、Excelのプロセス内でCDPをやり取りする |
+| 経路              | 通信方式                                                    | 主な実装                                          | ひとこと                                  |
+| --------------- | ------------------------------------------------------- | --------------------------------------------- | ------------------------------------- |
+| 🥇 **Pipe**     | `--remote-debugging-pipe` による匿名パイプ                      | `CDPCore.cls`                                 | 本POCの主軸。ポートを開かず、親子プロセス間だけで完結する        |
+| 🥈 **Port**     | `--remote-debugging-port` + WinSock による WebSocket       | `CDPCoreViaWebSocket.cls`                     | 起動済みブラウザへの後付け接続や、別端末・Android実機への接続も可能 |
+| 🥉 **WebView2** | `ICoreWebView2::CallDevToolsProtocolMethod(ForSession)` | `CDPCoreViaWebView2.cls` / `WebView2Host.cls` | ポートもパイプも開かず、Excelのプロセス内でCDPをやり取りする    |
 
 どの経路でも、上位の `CDPContext` / `CDPElement` からは**同じAPI**で操作できるよう抽象化しています。
 
@@ -169,13 +169,89 @@ sequenceDiagram
 ポイントは次の3点です。
 
 * メッセージの区切りは **NUL文字（`\0`）**。HTTPヘッダもWebSocketフレームもありません
+
 * パイプのハンドルは、CRTのファイルディスクリプタ継承の仕組み（`lpReserved2`）を使って子プロセスへ渡します
+
 * VBA内部は UTF-16LE、CDP は UTF-8 なので、**送受信のたびに相互変換**が必要です
+
+### 🥈 WebSocket 経路の流れ
+
+Microsoft 製の `winhttp.dll` にも WebSocket の API はあります。ただ、Pipe の `PeekNamedPipe` のような「届いているかだけ覗き見る」機能がありません。同期で待つと、届くまで Excel が固まります。非同期のコールバックを使うと、対策しない限り Excel ごと落ちます。\
+そこで、WebSocket は「TCP の上で決められたメッセージのルール」にすぎないので、**WinSock（`ws2_32.dll`）の上で、WebSocket のルールを VBA で再現**しています。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as Excel VBA
+    participant S as WinSock<br/>(ws2_32)
+    participant B as Edge / Chrome
+
+    V->>B: Shell で起動<br/>--remote-debugging-port=0
+    B-->>V: DevToolsActivePort ファイルに<br/>空いているポート番号とパスを書き出す
+    V->>S: socket → connect（TCP接続）
+    V->>B: GET /devtools/browser/<ID><br/>（Upgrade: websocket）
+    B-->>V: HTTP/1.1 101 Switching Protocols
+    Note over V: VBA文字列(UTF-16LE) → UTF-8 変換し、<br/>マスク付きのテキストフレームに組み立てる
+    V->>B: send: フレームヘッダー + {"id":1,"method":...}
+    loop 応答待ち
+        V->>S: ioctlsocket(FIONREAD)<br/>（ブロックせずに受信量を覗き見）
+    end
+    B-->>V: recv: フレームヘッダー + {"id":1,"result":{...}}
+    Note over V: フレームヘッダーを外し、<br/>Pipe と同じ受信バッファーへ（終わりに \0 を足す）
+```
+
+ポイントは次の3点です。
+
+* 接続先のポートとパスは、起動時に `--remote-debugging-port=0` を付けて、Chromium が書き出す `DevToolsActivePort` ファイルから読みます。起動済みのブラウザには、HTTP の `/json/version` などに問い合わせてつなぎます
+
+* `PeekNamedPipe` の代わりは、`ioctlsocket(FIONREAD)` です。今どれだけ届いているかを、ブロックせずに確かめられます
+
+* フレームの組み立て（FIN・opcode・長さ・マスク）と解析は、RFC 6455 に沿って VBA で手書きしています。取り出した中身は、Pipe と同じ `\0` 区切りの形にそろえるので、ここから先は Pipe 経路とまったく同じ処理です。しばらく何も届かないときは Ping を送り、その送信エラーで切断に気付くようにしています
+
+> \[!NOTE]
+> ハンドシェイクやフレームの詳細、`DevToolsActivePort` と「普段使いのブラウザへの接続」の関係は、[技術資料: WebSocket 経路](https://eschamali.github.io/StarterWebScrapingKit/stories/DebugRouteTech/websocket-tech) にまとめています。
+
+### 🥉 WebView2 経路の流れ
+
+Excel には、WebView2 を扱う公式のコントロールがありません。\
+そこで、C++ のアプリなら WebView2 の SDK（コンパイラーと COM 用のライブラリ）が裏で用意してくれるものを、VBA で手作業で組み立てています。新しい通信方式を発明したわけではなく、**WebView2 が裏でやっていることを再現しただけ**です。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as Excel VBA
+    participant T as 自作のCOMオブジェクト<br/>（機械語サンク）
+    participant L as WebView2Loader.dll<br/>（Office同梱）
+    participant W as WebView2
+
+    Note over V,T: VirtualAlloc で確保したメモリに<br/>vtable と機械語サンクを書き込み、<br/>完了ハンドラ（COMオブジェクト）を自作
+    V->>L: CreateCoreWebView2EnvironmentWithOptions
+    L-->>T: Invoke（Environment の完成）
+    Note over T,V: どの Invoke も、サンクが VBA クラスの<br/>Handler_Invoke の呼び出しに詰め替えて届ける
+    V->>W: DispCallFunc で vtable[3] を呼ぶ<br/>CreateCoreWebView2Controller（UserForm の hWnd）
+    W-->>T: Invoke（Controller の完成）
+    V->>W: vtable[36] CallDevToolsProtocolMethod<br/>（セッション指定は vtable[99] の ForSession）
+    W-->>T: Invoke(errorCode, 結果のJson)
+    T->>V: 記録しておいたコマンドIDを足して渡す
+    Note over V: {"id":N,"result":...} に組み立て直し、<br/>Pipe と同じ受信バッファーへ
+```
+
+ポイントは次の3点です。
+
+* `WebView2Loader.dll` は、最近の Office（Microsoft 365 など）に最初から入っています。`Declare` で名前を書くだけで呼べるので、DLL を追加で入れる必要はありません
+
+* COM のメソッドは名前で呼べないので、vtable の**番号**を数えて `DispCallFunc` で呼んでいます。結果を受け取るコールバック用の COM オブジェクトも、メモリ上に直接組み立てています（`WebView2Thunks.bas`）
+
+* WebView2 の結果には、CDP の `id`（どのコマンドの結果か）や `method`（どのイベントか）が含まれません。そこで、ハンドラ側に記録しておいた値を足して、Pipe と同じ形の JSON に戻しています。ここから先は、Pipe 経路とまったく同じ処理です
+
+> \[!NOTE]
+> 機械語サンク・vtable 呼び出しの心臓部は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（たーぼー氏）のロジックを移植したものです。\
+> 番号の数え方やコールバックの作り方の詳細は、[技術資料: WebView2 経路](https://eschamali.github.io/StarterWebScrapingKit/stories/DebugRouteTech/webview2-tech) にまとめています。
 
 ### 🔀 WebDriver BiDi はどうしているの？
 
-W3C で標準化が進む次世代プロトコル **WebDriver BiDi** にも対応しています。  
-本来は WebDriver.exe 側が BiDi ⇔ CDP の翻訳を担いますが、本POCでは Google 公式の [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi) の Mapper（`assset/mapperTab.js`）をブラウザ内の専用タブに注入し、**ブラウザ自身に翻訳させて**います。
+W3C で標準化が進む次世代プロトコル **WebDriver BiDi** にも対応しています。\
+本来は WebDriver.exe 側が BiDi ⇔ CDP 翻訳ファイルをブラウザ内の専用タブに注入するのを担いますが、本POCでは Google 公式の [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi) の Mapper（`assset/mapperTab.js`）をブラウザ内の専用タブに注入し、**ブラウザ自身に翻訳させて**います。
 
 ```mermaid
 flowchart LR
@@ -189,6 +265,7 @@ flowchart LR
 ```
 
 * Mapperタブには `Target.exposeDevToolsProtocol` で CDP の操作権を渡しています
+
 * BiDi で足りない部分は、`WebDriverBiDiContext.UpgradeBiDiPlus` により同じタブを CDP 制御へ切り替えられます（BiDi+）
 
 ### 🦊 実は、Firefox も動きます
@@ -197,7 +274,7 @@ Chromium 向けに作ったこの仕組みですが、実は **Firefox も同じ
 
 ![Excel VBAからFirefoxを制御している様子](doc/firefoxIntro.gif)
 
-Chromium は BiDi を話せないので Mapper に翻訳させていました。一方 Firefox は、**WebDriver BiDi をネイティブで話せます**。  
+Chromium は BiDi を話せないので Mapper に翻訳させていました。一方 Firefox は、**WebDriver BiDi をネイティブで話せます**。\
 そこで翻訳機を外し、BiDi の JSON を WebSocket でそのまま Firefox に送っています。
 
 ```mermaid
@@ -215,46 +292,48 @@ flowchart LR
 ```
 
 * 上側の `WebDriverBiDiMode` / `WebDriverBiDiContext` は、**Chromium のときと同じ使い方**です（`navigate` / `getTab` / `SubscribeBiDiEvent` など）
+
 * 切り替えは、`ReattachOptions.Set_DirectWebDriverBiDi = True` の **1プロパティ**だけです
+
 * `src/` への追加は **3ファイルで81行追加・6行削除**にとどまり、Firefox 専用のクラスは作っていません。Chromium 向けに積み上げてきた設計（責務分離と `RaiseEvent`、「BiDi で会話する側」としての `WebDriverBiDiMode`、`ReattachOptions`）が、そのまま下地になりました
 
 「Chromium で積み上げた設計が、本物の WebDriver BiDi にもそのまま通用した」という、ちょっとした答え合わせです。
 
-> [!NOTE]
-> コア（`src/`）への追記が必要なため、メインの配布物には含めていません。  
-> 使い方・制約・コア側の追記内容は [`ex-Firefox` ブランチの ReadMe](https://github.com/Eschamali/StarterWebScrapingKit/blob/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox/ReadMe.md) にまとめています。  
+> \[!NOTE]
+> コア（`src/`）への追記が必要なため、メインの配布物には含めていません。\
+> 使い方・制約・コア側の追記内容は [`ex-Firefox`](https://github.com/Eschamali/StarterWebScrapingKit/blob/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox/ReadMe.md) [ブランチの ReadMe](https://github.com/Eschamali/StarterWebScrapingKit/blob/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox/ReadMe.md) にまとめています。\
 > 接続は WebSocket ルートのみで、BiDi+ や `CDPContext` / `CDPElement` など Chromium 固有の機能は使えません。
 
----
+***
 
 ## WebDriver の仕事を分解すると
 
 「WebDriverがいらない」と言っても、WebDriverがやっていた仕事が消えるわけではありません。VBA側で一つずつ肩代わりしています。
 
-| WebDriver.exe の役割 | 本POCでの肩代わり先 |
-| --- | --- |
-| ブラウザプロセスの起動・引数組み立て | `CDPHost.cls` / `CDPCore.cls`（`CreateProcess`） |
-| ブラウザとの通信路の確保 | 匿名パイプ / WinSock / WebView2 COM |
-| メッセージのシリアライズ | 独自の高速JSONパーサー（`BiDiCDPJson.cls` など） |
-| 文字コードの扱い | `CharacterCodeConversion.cls`（UTF-16LE ⇄ UTF-8） |
-| セッション・タブ（Target）の管理 | `CDPBrowser.cls` / `CDPContext.cls` |
-| 要素検索・クリック・入力 | `CDPElement.cls`（`DOM` / `Runtime` / `Input` ドメイン） |
-| イベントの購読 | CDPイベント / BiDiイベントのキューイング |
-| W3C WebDriver BiDi 対応 | chromium-bidi Mapper の注入（`WebDriverBiDiCore.cls`） |
-| ブラウザとドライバのバージョン整合 | **不要**（ブラウザ本体の CDP を直接使うため） |
+| WebDriver.exe の役割     | 本POCでの肩代わり先                                        |
+| --------------------- | -------------------------------------------------- |
+| ブラウザプロセスの起動・引数組み立て    | `CDPHost.cls` / `CDPCore.cls`（`CreateProcess`）     |
+| ブラウザとの通信路の確保          | 匿名パイプ / WinSock / WebView2 COM                     |
+| メッセージのシリアライズ          | 独自の高速JSONパーサー（`BiDiCDPJson.cls` など）                |
+| 文字コードの扱い              | `CharacterCodeConversion.cls`（UTF-16LE ⇄ UTF-8）    |
+| セッション・タブ（Target）の管理   | `CDPBrowser.cls` / `CDPContext.cls`                |
+| 要素検索・クリック・入力          | `CDPElement.cls`（`DOM` / `Runtime` / `Input` ドメイン） |
+| イベントの購読               | CDPイベント / BiDiイベントのキューイング                          |
+| W3C WebDriver BiDi 対応 | chromium-bidi Mapper の注入（`WebDriverBiDiCore.cls`）  |
+| ブラウザとドライバのバージョン整合     | **不要**（ブラウザ本体の CDP を直接使うため）                        |
 
 ### VBA内部で付与している主な起動引数
 
-| 引数名 | 意味 |
-| --- | --- |
-| `remote-debugging-pipe` / `remote-debugging-port` | 外部プロセス（Excel）からのデバッグ接続を受け付けさせます。`pipe` は同一PCの親子プロセス間でのみ有効です。`port` は `0`（空きポートの自動割り当て）で起動し、接続先は `DevToolsActivePort` ファイルから取得します |
-| `user-data-dir` | プロファイルの保存先。[デバッグ機能を悪用したCookie盗難対策](https://developer.chrome.com/blog/remote-debugging-port?hl=ja)により、既定の `User Data` 以外を指定する必要があります。既定では同階層に `Automation Data` を作成します |
-| `homepage` | 余計な通信を抑えるため `about:blank` を指定します |
-| `app` | 最初のURLを指定した場合に付与。タブ生成やURL変更をある程度防げます（簡易キオスクモード） |
+| 引数名                                               | 意味                                                                                                                                                                    |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `remote-debugging-pipe` / `remote-debugging-port` | 外部プロセス（Excel）からのデバッグ接続を受け付けさせます。`pipe` は同一PCの親子プロセス間でのみ有効です。`port` は `0`（空きポートの自動割り当て）で起動し、接続先は `DevToolsActivePort` ファイルから取得します                                      |
+| `user-data-dir`                                   | プロファイルの保存先。[デバッグ機能を悪用したCookie盗難対策](https://developer.chrome.com/blog/remote-debugging-port?hl=ja)により、既定の `User Data` 以外を指定する必要があります。既定では同階層に `Automation Data` を作成します |
+| `homepage`                                        | 余計な通信を抑えるため `about:blank` を指定します                                                                                                                                      |
+| `app`                                             | 最初のURLを指定した場合に付与。タブ生成やURL変更をある程度防げます（簡易キオスクモード）                                                                                                                       |
 
 設定シート側で付与している引数（`no-first-run`, `disable-sync`, `enable-automation` など）や、より詳しい仕組みは [公式ドキュメント](https://eschamali.github.io/StarterWebScrapingKit/) にまとめています。
 
----
+***
 
 ## 研究上の縛り（制約）
 
@@ -265,7 +344,7 @@ POCとしての意味を保つため、次のルールを自らに課してい�
 3. 管理者権限が必要なレジストリ操作やインストーラーを実行しない
 4. Python / PowerShell などの別スクリプトを生成・実行しない（**VBA単体で完結**）
 
----
+***
 
 ## 最小コード
 
@@ -294,13 +373,14 @@ End Sub
 ```
 
 * Port経路は、設定シートの「WebSocketモード」をONにするだけで切り替わります（コードの変更は不要）
+
 * 起動済みブラウザへのアタッチは `Demo_CDP`、WebView2 は `Demo_WebView2` に同梱デモがあります
 
-> [!NOTE]
-> ダウンロードしたブックを開くと「保護ビュー」が表示され、マクロが動かないことがあります。  
+> \[!NOTE]
+> ダウンロードしたブックを開くと「保護ビュー」が表示され、マクロが動かないことがあります。\
 > Excelを閉じてからファイルを右クリック →「プロパティ」→「**許可する**」にチェックを入れて OK を押してください。（Mark of the Web の解除）
 
----
+***
 
 ## 📚 ドキュメント
 
@@ -308,71 +388,133 @@ API リファレンス、アーキテクチャ、開発秘話などは GitHub Pa
 
 ➡️ **[公式ドキュメント](https://eschamali.github.io/StarterWebScrapingKit/)**
 
----
+***
+
+## IEの頃にできた3種の神器
+
+冒頭で紹介した`CreateObject("InternetExplorer.Application")`は、あくまでIEを新しく起動するための方法です。
+
+実は、IEではほかに次の2つもできました。
+
+- 起動済みIEの制御
+  - `CreateObject("Shell.Application")`による[探索](https://kouten0430.hatenablog.com/entry/2018/08/11/150052)
+- UserFormへのIEの埋め込み
+  - WebBrowserコントロールを[埋め込む](https://bimori466-1.hatenablog.com/entry/2021/04/03/061552)
+
+この2つは、プロジェクトを立ち上げた当初には実現できていませんでした。\
+しかし、AIが発展したことで、どちらも実現できてしまいました。
+
+- 起動済みChrome/Edgeの制御：[AIによるコーディングエージェントのために](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja)
+  - こちらはブラウザ側の公式対応です。**AIが発展**したからこそ対応された機能なのかもしれません。
+- UserFormへのWebView2の埋め込み：[AIがWebView2の裏側を組んでくれた](https://qiita.com/fenblen_puyo/items/4271ab7bd7c9d648d803)
+  - 人間には到底できない超低レイヤーの土台を、AIが組んでくれました。
+
+前者は、AIの発展を受けて、企業が公式に対応してしまいました。\
+後者は、AIの発展のおかげで、非公式ながらUserFormへのWebView2の埋め込みに成功しました。
+
+AIって、ある意味恐ろしいものですね。
 
 ## 🛠️ 実務で使うなら
 
 一般的なWebスクレイピングやブラウザ自動化が目的であれば、成熟した次のツールを強くおすすめします。
 
-| ツール | 言語 | ひとこと |
-| --- | --- | --- |
-| [Playwright](https://playwright.dev/) | Node.js / Python / .NET / Java | 現代の定番。複数ブラウザ対応、待機処理も賢い |
-| [Puppeteer](https://pptr.dev/) | Node.js | CDP 直結の元祖的存在。本POCの発想の源のひとつ |
-| [Selenium](https://www.selenium.dev/) | 各種 | W3C WebDriver の本家 |
-| [TinySeleniumVBA](https://github.com/uezo/TinySeleniumVBA) | VBA | 軽量。VBAから WebDriver を直接叩く方式の先駆け |
-| [SeleniumVBA](https://github.com/GCuser99/SeleniumVBA) | VBA | 高機能。VBAでの実務利用ならまずこちら |
-| [WebDriver-BiDi-for-SeleniumVBA](https://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA) | VBA | SeleniumVBAの基盤にWebDriverBiDiプロトコル制御を拡張した物。<br>特に、SPAサイトへの攻略に重宝します |
+| ツール                                                                                                | 言語                             | ひとこと                                                          |
+| -------------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------- |
+| [Playwright](https://playwright.dev/)                                                              | Node.js / Python / .NET / Java | 現代の定番。複数ブラウザ対応、待機処理も賢い                                        |
+| [Puppeteer](https://pptr.dev/)                                                                     | Node.js                        | CDP 直結の元祖的存在。本POCの発想の源のひとつ                                    |
+| [Selenium](https://www.selenium.dev/)                                                              | 各種                             | W3C WebDriver の本家                                             |
+| [TinySeleniumVBA](https://github.com/uezo/TinySeleniumVBA)                                         | VBA                            | 軽量。VBAから WebDriver を直接叩く方式の先駆け                                |
+| [SeleniumVBA](https://github.com/GCuser99/SeleniumVBA)                                             | VBA                            | 高機能。VBAでの実務利用ならまずこちら                                          |
+| [WebDriver-BiDi-for-SeleniumVBA](https://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA) | VBA                            | SeleniumVBAの基盤にWebDriverBiDiプロトコル制御を拡張した物。特に、SPAサイトへの攻略に重宝します |
 
 本リポジトリは、あくまで「最後の橋渡しを外したらどうなるか」を確かめるための**研究リポジトリ**という立ち位置です。
 
----
+***
 
 ## 【Credits & Acknowledgments】
 
-このPOCは、世界中のVBA職人や開発チームが公開してくれた素晴らしいライブラリの数々の上に成り立っています。  
+このPOCは、世界中のVBA職人や開発チームが公開してくれた素晴らしいライブラリの数々の上に成り立っています。\
 偉大な先人たちの知恵とコードに、心からの敬意と感謝を表します。
 
 * **WebSocket実装のコアロジック**
+
   * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
+
     * 製作者：[@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)氏
+
 * **CDP制御・パイプ通信の基盤**
+
   * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
+
     * 製作者：longvh211氏
+
 * **WinHTTP 5.1 ラッパー**
+
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
+
     * オリジナル製作者：Tim Hall氏
+
 * **CDP/WebDriverBiDiレスポンス専用の超高速JSONパーサー**
+
   * [vbacollective-json](https://github.com/vbacollective/json)
+
     * 製作者：Ueslei Paim
+
     * `CopyMemory`不使用版に改良
+
 * **`VBA-JSON`の上位互換の高速JSONパーサー**
+
   * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
+
     * 製作者：Cristian Buse
-* **Microsoft製 `Scripting.Dictionary`の上位互換の高速Dictionary**
+
+* **Microsoft製** **`Scripting.Dictionary`の上位互換の高速Dictionary**
+
   * [VBA-FastDictionary](https://github.com/cristianbuse/VBA-FastDictionary)
+
     * 製作者：Cristian Buse
+
 * **高速な文字コード変換ラッパー**
+
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
+
     * David Ireland DI Management Services Pty
+
   * [VBAで Windows APIを使った UTF-8 ←→ Unicode相互変換](https://qiita.com/yamashiroakihito/items/9b609653fef6fa8a5ab2)
+
     * 製作者：@yamashiroakihito
+
 * **ログレベルの基礎部分**
+
   * [VBA-Log](https://github.com/VBA-tools/VBA-Log)
+
     * 製作者：timhall氏
+
 * **ChromiumブラウザをBiDi化するためのコアロジック**
+
   * [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)
+
     * 製作者：GoogleChromeLabsチーム
+
 * **UserFormにWebView2を追加DLなしで埋め込んだすごい方**
+
   * [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)
+
     * 製作者：[たーぼー氏](https://x.com/fenblen_puyo)
+
 * **「VBAから直接WebDriverへ」の道を切り拓いた方々**
+
   * [TinySeleniumVBA](https://github.com/uezo/TinySeleniumVBA)
+
     * 製作者：uezo氏
+
   * [SeleniumVBA](https://github.com/GCuser99/SeleniumVBA)
+
     * 製作者：GCuser99氏
 
 ## 免責事項
-このリポジトリは教育目的のみで提供されています。  
-いかなる目的においても、正確性、完全性、適合性についての保証は一切提供されません。使用は自己責任で。  
-作者は、このコードの使用、改変、配布に伴う損害、法的問題、保証違反について一切の責任を負いません。  
+
+このリポジトリは教育目的のみで提供されています。\
+いかなる目的においても、正確性、完全性、適合性についての保証は一切提供されません。使用は自己責任で。\
+作者は、このコードの使用、改変、配布に伴う損害、法的問題、保証違反について一切の責任を負いません。\
 法的違反等はユーザーの責任です。
