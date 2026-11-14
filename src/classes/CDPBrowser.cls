@@ -64,6 +64,30 @@ Private Type StateBrowser
 End Type
 Private br As StateBrowser
 
+'DeveloperToolsAvailabilityに関する情報
+Private Type DeveloperToolsAvailability
+    Allowlist   As Variant
+    Blocklist   As Variant
+    Fallback    As Variant
+    Collected   As Boolean  'ポリシー情報を取得済みか？ ※起動済みブラウザへの接続時等、`OpenBrowser`を通らない場合はFalse
+End Type
+Private CurrentDeveloperToolsAvailability As DeveloperToolsAvailability
+
+'`DeveloperToolsAvailabilityAllowlist/Blocklist`のURLパターン1件分の解析結果
+'※Chromium`url_matcher::util::FilterToComponents`の簡易版です
+Private Type UrlPatternInfo
+    Pattern         As String   '元のパターン文字列
+    Allow           As Boolean  'Allowlist側のパターンか？
+    Scheme          As String   'スキーム                 ※空ならすべてのスキーム
+    Host            As String   'ホスト                   ※サブドメイン一致の場合は先頭に"."。"*"の場合は空
+    MatchSubdomains As Boolean  'サブドメインも一致させるか？ ※先頭"."指定やIPアドレスの場合はFalse
+    port            As Long     'ポート番号               ※0ならすべてのポート
+    Path            As String   'パス(前方一致)           ※空ならすべてのパス
+    Query           As String   'クエリ条件               ※空なら条件なし
+    QueryCount      As Long     'クエリ条件の数
+    IsValid         As Boolean  '解析できたか？(一致検索の結果としては、一致したか？)
+End Type
+
 'CDPコマンドの結果を蓄積する変数
 Private ResultCommandCDP_Browser As Dictionary  '「ID - それに対するCDPコマンドの結果」というDictionary
 
@@ -116,11 +140,13 @@ Public Function OpenBrowser(caps As BrowserCapabilities) As String
 
     '2. 起動後に使う設定値を確保
     Dim UserName   As String: UserName = caps.Set_UserDataDirName
+    Dim PolicyList As CDPHost: Set PolicyList = caps.ClsGet_CDPHost
     CustomUAMode = caps.Set_EnableUserAgentOverride
 
     '3. 起動モードに応じた分岐
     If caps.Set_UseWebSocket Then
         '3-1. WebSocketとして起動
+        '※内部で､ポリシー情報も記録します
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
         OpenBrowser = WebSocketCore.OpenBrowserAndConnectCDP(caps)
 
@@ -129,14 +155,20 @@ Public Function OpenBrowser(caps As BrowserCapabilities) As String
         Set PipeCore.RemoteDebuggingPortMode(UserName) = WebSocketCore
     Else
         '3-1. Pipeとして起動
-        '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
+        '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録され、ポリシー情報も記録します
         OpenBrowser = PipeCore.OpenBrowserAndConnectCDP(caps)
     End If
 
-    '3. 起動中のブラウザ情報を変数に記録
+    '4. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
 
-    '4. ブラウザステータス表示
+    '5. 事前に`DeveloperToolsAvailability`情報を取得する
+    CurrentDeveloperToolsAvailability.Allowlist = PolicyList.CurrentDeveloperToolsAvailabilityAllowlist
+    CurrentDeveloperToolsAvailability.Blocklist = PolicyList.CurrentDeveloperToolsAvailabilityBlocklist
+    CurrentDeveloperToolsAvailability.Fallback = PolicyList.CurrentDeveloperToolsAvailability
+    CurrentDeveloperToolsAvailability.Collected = PolicyList.isCheckedPolicy
+
+    '6. ブラウザステータス表示
     printParams
 End Function
 
@@ -1148,21 +1180,42 @@ End Sub
 '            flatten: Enables "flat" access to the session via specifying sessionId attribute
 '            in the commands. Set to True by default to make attachToTab work.
 '            Returns: a session ID string that is needed for CDP automation.
-'* 注意事項：ポリシー`DeveloperToolsAvailability`があると、「Not allowed」で失敗します。
-'            その場合は、WebView2ルートをご利用ください
+'* 注意事項：・ポリシー`DeveloperToolsAvailability`系があると、「Not allowed」で失敗します。
+'              その場合は、WebView2ルートをご利用ください
+'            ・「Not allowed」で失敗した場合は、起動時に記録したポリシー情報(レジストリのみ)から、原因を推定してエラー表示します
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
+    Const FromProcedureName As String = ThisClassName & ".attachToTab"
+
+
     '1. コマンド準備
     Dim CDPparams As New Dictionary
     CDPparams.Add "targetId", tabId
     CDPparams.Add "flatten", True
 
     '2. 実行
+    '※独自のエラー処理が必要なのでここでは一旦、無視させる
     Dim tmp As BiDiCDPJConv
     Set tmp = ExecuteCDP("Target.attachToTarget", CDPparams, False)
 
     '3. 結果があれば、返却
-    If Not tmp Is Nothing Then attachToTab = tmp.StringKey("sessionId")
+    If Not tmp Is Nothing Then
+        attachToTab = tmp.StringKey("sessionId")
+    Else
+        '3-1. エラーメッセージを取り出す
+        Dim ErrMes As String
+        If Not LastCDPJsonError Is Nothing Then ErrMes = LastCDPJsonError("message")
+
+        '3-2. 「Not allowed」の場合は、ポリシー由来の原因を推定して添える
+        If ErrMes = "Not allowed" Then
+            ErrMes = ErrMes & vbCrLf & vbCrLf & ExplainDevToolsBlock(tabId)
+
+            '3-3. 停止
+            printMsg ERROR_, "Failed to retrieve `SessionID`. Reason: " & ErrMes, FromProcedureName, doRaiseError:=True
+        Else
+            printMsg WARN_, "Failed to retrieve `SessionID`. Reason: " & ErrMes, FromProcedureName
+        End If
+    End If
 End Function
 
 '***************************************************************************************************
@@ -1184,6 +1237,525 @@ Public Sub DiscardSessionID(sessionID As String)
     '2. 破棄コマンド実行
     ExecuteCDPAsync "Target.detachFromTarget", CDPparams, False
 End Sub
+
+
+
+'***************************************************************************************************
+'                               ■■■ ヘルパーメソッド ■■■
+'***************************************************************************************************
+'* 機能　　：`Target.attachToTarget`が「Not allowed」になった原因を、ポリシー情報から推定します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：推定結果のメッセージ
+'* 引数　　：tabId  TargetID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Chromium`DeveloperToolsPolicyChecker::GetDevToolsAvailabilityForUrl`と同じ順で判定します
+'            1. URL が Allowlist に一致 → 許可
+'               ※両リストに一致した場合は、より具体的なパターンが勝ちます。同点なら Allowlist の勝ち
+'            2. Allowlist があり、Blocklist が無い → Allowlist にない URL はブロック
+'            3. URL が Blocklist に一致 → ブロック
+'            4. それ以外 → `DeveloperToolsAvailability`の値に従う
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも「推定」です。最終的な判定は、ブラウザ側の応答が正です
+'            ・レジストリ(HKLM/HKCU)のポリシーのみが対象です。クラウド配信のポリシーは見ていません
+'            ・URLパターンの照合は簡易版です(Chromium`URLBlocklist`の主要ルールのみ)
+'            ・起動済みブラウザへの接続時等、ポリシー情報を取得していない場合は、推定せずに確認先のみ案内します
+'***************************************************************************************************
+Private Function ExplainDevToolsBlock(tabId As String) As String
+    Const OutsideRegistry As String = "The cause is likely outside the registry policies (e.g. cloud-delivered policies, or a non-policy restriction)."
+
+
+    '1. 対象タブのURLを取得
+    Dim TargetUrl As String: TargetUrl = GetTargetUrl(tabId)
+
+    '※ポリシー情報を取得していない場合は、推定できないので確認先のみ案内して抜ける
+    If Not CurrentDeveloperToolsAvailability.Collected Then
+        ExplainDevToolsBlock = "=== Policy diagnosis (registry: HKLM/HKCU) ===" & vbCrLf & _
+                               "Target URL                          : " & TargetUrl & vbCrLf & _
+                               "Probable cause                      : Policy info was not collected (e.g. attached to an already-running browser), so the cause cannot be estimated. " & _
+                               "It may be blocked by DeveloperToolsAvailability / DeveloperToolsAvailabilityAllowlist / DeveloperToolsAvailabilityBlocklist." & vbCrLf & _
+                               "How to check                        :" & vbCrLf & _
+                               "  1. Open chrome://policy (Edge also accepts it and redirects to edge://policy)." & vbCrLf & _
+                               "  2. If it is blocked, check these keys with the Registry Editor (reading them does not require administrator rights):" & vbCrLf & _
+                               "       Edge  : HKLM\SOFTWARE\Policies\Microsoft\Edge, HKCU\SOFTWARE\Policies\Microsoft\Edge" & vbCrLf & _
+                               "       Chrome: HKLM\SOFTWARE\Policies\Google\Chrome, HKCU\SOFTWARE\Policies\Google\Chrome" & vbCrLf & _
+                               "  3. If neither is available, ask your system administrator."
+        Exit Function
+    End If
+
+    '2. 判定材料を用意
+    With CurrentDeveloperToolsAvailability
+        Dim HasAllowlist As Boolean: HasAllowlist = IsArray(.Allowlist)
+        Dim HasBlocklist As Boolean: HasBlocklist = IsArray(.Blocklist)
+
+        '各リストで、URLに一致する最も優先度の高いパターンを探す
+        Dim AllowHit As UrlPatternInfo: AllowHit = FindHighestPriorityPattern(TargetUrl, .Allowlist, True)
+        Dim BlockHit As UrlPatternInfo: BlockHit = FindHighestPriorityPattern(TargetUrl, .Blocklist, False)
+
+        '両方に一致した場合は、より優先度の高い方が勝つ
+        Dim AllowWins As Boolean
+        If AllowHit.IsValid Then
+            If BlockHit.IsValid Then
+                AllowWins = Not PatternTakesPrecedence(BlockHit, AllowHit)
+            Else
+                AllowWins = True
+            End If
+        End If
+
+        '3. Chromiumと同じ順で原因を推定する
+        Dim Cause As String
+        If AllowWins Then
+            '3-1. Allowlist に一致 → 本来は許可されるはず
+            Cause = "[1] The URL matches the DeveloperToolsAvailabilityAllowlist pattern '" & AllowHit.Pattern & "', so it should be allowed. " & OutsideRegistry
+
+        ElseIf HasAllowlist And Not HasBlocklist Then
+            '3-2. Allowlist のみ構成 → Allowlist にない URL はブロック
+            Cause = "[2] DeveloperToolsAvailabilityAllowlist is configured but DeveloperToolsAvailabilityBlocklist is not, so any URL not in the Allowlist is blocked."
+
+        ElseIf BlockHit.IsValid Then
+            '3-3. Blocklist に一致 → ブロック
+            Cause = "[3] The URL matches the DeveloperToolsAvailabilityBlocklist pattern '" & BlockHit.Pattern & "'."
+
+        ElseIf IsEmpty(.Fallback) Then
+            '3-4. フォールバック(DeveloperToolsAvailability)が未設定 → 既定値0と同じ扱い
+            Cause = "[4] No URL rule matched, and DeveloperToolsAvailability is not set (default = 0: blocked only for force-installed extensions). " & IIf(LCase$(TargetUrl) Like "*extension://*", "The target looks like an extension page, so it may be a force-installed extension.", OutsideRegistry)
+
+        Else
+            '3-4. フォールバック(DeveloperToolsAvailability)の値に従う
+            Select Case CLng(.Fallback)
+                Case 2
+                    Cause = "[4] No URL rule matched, and DeveloperToolsAvailability = 2: DevTools are disallowed for all URLs."
+                Case 1
+                    Cause = "[4] No URL rule matched, and DeveloperToolsAvailability = 1: DevTools are allowed. " & OutsideRegistry
+                Case 0
+                    Cause = "[4] No URL rule matched, and DeveloperToolsAvailability = 0: blocked only for force-installed extensions. " & IIf(LCase$(TargetUrl) Like "*extension://*", "The target looks like an extension page, so it may be a force-installed extension.", OutsideRegistry)
+                Case Else
+                    Cause = "[4] No URL rule matched, and DeveloperToolsAvailability has an unknown value: " & CStr(.Fallback)
+            End Select
+        End If
+
+        '4. 判定材料と一緒に返却
+        ExplainDevToolsBlock = "=== Policy diagnosis (registry: HKLM/HKCU) ===" & vbCrLf & _
+                               "Target URL                          : " & TargetUrl & vbCrLf & _
+                               "DeveloperToolsAvailabilityAllowlist : " & PolicyValueToString(.Allowlist) & vbCrLf & _
+                               "DeveloperToolsAvailabilityBlocklist : " & PolicyValueToString(.Blocklist) & vbCrLf & _
+                               "DeveloperToolsAvailability          : " & PolicyValueToString(.Fallback) & vbCrLf & _
+                               "Probable cause                      : " & Cause
+    End With
+End Function
+
+'***************************************************************************************************
+'* 機能　　：TargetID から、現在のURLを取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：URL  ※取得できない場合は、`vbNullString`
+'* 引数　　：tabId  TargetID
+'***************************************************************************************************
+Private Function GetTargetUrl(tabId As String) As String
+    Dim CDPparams As New Dictionary
+    CDPparams.Add "targetId", tabId
+
+    Dim tmp As BiDiCDPJConv
+    Set tmp = ExecuteCDP("Target.getTargetInfo", CDPparams, False)
+    If Not tmp Is Nothing Then GetTargetUrl = tmp.NodeKey("targetInfo").StringKey("url")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ポリシー値を、ログ表示用の文字列にします
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：表示用文字列  ※リストは`[a, b]`、未設定は`(not set)`
+'* 引数　　：PolicyValue  ポリシー値
+'***************************************************************************************************
+Private Function PolicyValueToString(ByVal PolicyValue As Variant) As String
+    If IsArray(PolicyValue) Then
+        PolicyValueToString = "[" & Join(PolicyValue, ", ") & "]"
+    ElseIf IsEmpty(PolicyValue) Then
+        PolicyValueToString = "(not set)"
+    Else
+        PolicyValueToString = CStr(PolicyValue)
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：URLパターンのリストから、URLに一致する最も優先度の高いパターンを探します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：一致したパターンの解析結果  ※一致なしの場合は、`IsValid = False`
+'* 引数　　：Url          照合するURL
+'            PatternList  URLパターンの配列  ※未設定(Empty)なら一致なし
+'            isAllowlist  Allowlist側のリストか？
+'***************************************************************************************************
+Private Function FindHighestPriorityPattern(Url As String, PatternList As Variant, isAllowlist As Boolean) As UrlPatternInfo
+    If Not IsArray(PatternList) Then Exit Function
+
+    Dim Best As UrlPatternInfo
+    Dim i As Long
+    For i = LBound(PatternList) To UBound(PatternList)
+        Dim Candidate As UrlPatternInfo
+        Candidate = ParseUrlPattern(CStr(PatternList(i)), isAllowlist)
+        If Candidate.IsValid Then
+            If MatchUrlPattern(Url, Candidate) Then
+                If Not Best.IsValid Then
+                    Best = Candidate
+                ElseIf PatternTakesPrecedence(Candidate, Best) Then
+                    Best = Candidate
+                End If
+            End If
+        End If
+    Next
+    FindHighestPriorityPattern = Best
+End Function
+
+'***************************************************************************************************
+'* 機能　　：URLパターン(URLBlocklist形式)を解析します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：解析結果  ※解析できない場合は、`IsValid = False`
+'* 引数　　：Pattern      URLパターン  例：`*`、`https://`、`example.com`、`.example.com`、`https://example.com:8080/path?key=value`
+'            isAllowlist  Allowlist側のパターンか？
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Chromium`url_matcher::util::FilterToComponents`の主要ルールを移植しています
+'            ・`*`は、すべてのURLに一致
+'            ・`scheme:*`または`scheme://*`は、そのスキームのすべてのURLに一致
+'            ・ホストは、既定でサブドメインも一致。先頭に`.`を付けると、そのホストのみ一致。IPアドレスもそのホストのみ一致
+'            ・パスは前方一致
+'***************************************************************************************************
+Private Function ParseUrlPattern(ByVal Pattern As String, isAllowlist As Boolean) As UrlPatternInfo
+    Dim info As UrlPatternInfo
+    info.Pattern = Pattern
+    info.Allow = isAllowlist
+
+    Dim Rest As String: Rest = Trim$(Pattern)
+    If LenB(Rest) = 0 Then Exit Function
+
+    '1. `*`は、すべてのURLに一致
+    If Rest = "*" Then
+        info.MatchSubdomains = True
+        info.IsValid = True
+        ParseUrlPattern = info
+        Exit Function
+    End If
+
+    '2. スキーム部分を切り出す
+    Dim Pos As Long: Pos = InStr(Rest, "://")
+    If Pos > 0 Then
+        info.Scheme = LCase$(Left$(Rest, Pos - 1))
+        Rest = Mid$(Rest, Pos + 3)
+    ElseIf Right$(Rest, 2) = ":*" And InStr(Rest, "/") = 0 Then
+        '`scheme:*`形式
+        info.Scheme = LCase$(Left$(Rest, Len(Rest) - 2))
+        Rest = "*"
+    ElseIf LCase$(Left$(Rest, 5)) = "data:" Then
+        '`data:`は、中身を前方一致
+        info.Scheme = "data"
+        info.Path = Mid$(Rest, 6)
+        info.MatchSubdomains = True
+        info.IsValid = True
+        ParseUrlPattern = info
+        Exit Function
+    End If
+
+    '3. `scheme://*`形式、`file://`は、ホストなしで扱う
+    If Rest = "*" And LenB(info.Scheme) > 0 Then
+        info.MatchSubdomains = True
+        info.IsValid = True
+        ParseUrlPattern = info
+        Exit Function
+    ElseIf info.Scheme = "file" Then
+        info.Path = Replace(Rest, "\", "/")
+        If Left$(info.Path, 1) <> "/" Then info.Path = "/" & info.Path
+        info.MatchSubdomains = True
+        info.IsValid = True
+        ParseUrlPattern = info
+        Exit Function
+    End If
+
+    '4. フラグメント、クエリ、パスの順に切り出す
+    Pos = InStr(Rest, "#")
+    If Pos > 0 Then Rest = Left$(Rest, Pos - 1)
+
+    Pos = InStr(Rest, "?")
+    If Pos > 0 Then
+        info.Query = Mid$(Rest, Pos + 1)
+        Rest = Left$(Rest, Pos - 1)
+        info.QueryCount = CountQueryConditions(info.Query)
+    End If
+
+    Pos = InStr(Rest, "/")
+    If Pos > 0 Then
+        info.Path = Mid$(Rest, Pos)
+        Rest = Left$(Rest, Pos - 1)
+    End If
+
+    '5. ホストとポートに分ける
+    Dim HostPart As String, PortPart As String
+    If Not SplitHostPort(Rest, HostPart, PortPart) Then Exit Function
+    If LenB(HostPart) = 0 Then Exit Function    'ホストは必須
+
+    If LenB(PortPart) > 0 Then
+        If PortPart Like "*[!0-9]*" Or Len(PortPart) > 5 Then Exit Function
+        If CLng(PortPart) <= 0 Or CLng(PortPart) > 65535 Then Exit Function
+        info.port = CLng(PortPart)
+    End If
+
+    '6. ホストの一致方法を決める
+    If HostPart = "*" Then
+        'すべてのホスト
+        info.Host = vbNullString
+        info.MatchSubdomains = True
+    ElseIf Left$(HostPart, 1) = "." Then
+        '先頭`.`は、そのホストのみ
+        info.Host = LCase$(Mid$(HostPart, 2))
+        info.MatchSubdomains = False
+    ElseIf Left$(HostPart, 1) = "[" Or Not HostPart Like "*[!0-9.]*" Then
+        'IPアドレスは、そのホストのみ
+        info.Host = LCase$(HostPart)
+        info.MatchSubdomains = False
+    Else
+        'サブドメインも一致させる。ドメインの区切りで一致させるため、先頭に`.`を付ける
+        info.Host = "." & LCase$(HostPart)
+        info.MatchSubdomains = True
+    End If
+
+    info.IsValid = True
+    ParseUrlPattern = info
+End Function
+
+'***************************************************************************************************
+'* 機能　　：URLが、URLパターンに一致するか判定します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：True：一致
+'* 引数　　：Url   照合するURL
+'            Info  `ParseUrlPattern`で解析したURLパターン
+'***************************************************************************************************
+Private Function MatchUrlPattern(ByVal Url As String, info As UrlPatternInfo) As Boolean
+    '1. URLを分解
+    Dim uScheme As String, uHost As String, uPort As Long, uPath As String, uQuery As String
+    If Not SplitUrl(Url, uScheme, uHost, uPort, uPath, uQuery) Then Exit Function
+
+    '2. スキーム
+    If LenB(info.Scheme) > 0 Then
+        If uScheme <> info.Scheme Then Exit Function
+    End If
+
+    '3. ホスト
+    If LenB(info.Host) > 0 Then
+        If info.MatchSubdomains Then
+            If Right$("." & uHost, Len(info.Host)) <> info.Host Then Exit Function
+        Else
+            If uHost <> info.Host Then Exit Function
+        End If
+    End If
+
+    '4. ポート
+    If info.port <> 0 And uPort <> info.port Then Exit Function
+
+    '5. パス(前方一致)
+    If LenB(info.Path) > 0 Then
+        If Left$(uPath, Len(info.Path)) <> info.Path Then Exit Function
+    End If
+
+    '6. クエリ
+    If LenB(info.Query) > 0 Then
+        If Not MatchQuery(uQuery, info.Query) Then Exit Function
+    End If
+
+    MatchUrlPattern = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：2つのURLパターンのうち、左側が優先されるか判定します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：True：lhs が優先
+'* 引数　　：lhs, rhs  比較するURLパターン
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Chromium`FilterTakesPrecedence`の移植です。上から順に比べます
+'            1. Blocklist の`*`は、最も優先度が低い
+'            2. そのホストのみ一致(先頭`.`等)の方が優先
+'            3. ホストが長い方が優先
+'            4. パスが長い方が優先
+'            5. クエリ条件が多い方が優先
+'            6. 同点なら Allowlist 側が優先
+'***************************************************************************************************
+Private Function PatternTakesPrecedence(lhs As UrlPatternInfo, rhs As UrlPatternInfo) As Boolean
+    If IsWildcardBlockPattern(rhs) Then PatternTakesPrecedence = True: Exit Function
+    If IsWildcardBlockPattern(lhs) Then Exit Function
+
+    If lhs.MatchSubdomains <> rhs.MatchSubdomains Then PatternTakesPrecedence = Not lhs.MatchSubdomains: Exit Function
+    If Len(lhs.Host) <> Len(rhs.Host) Then PatternTakesPrecedence = Len(lhs.Host) > Len(rhs.Host): Exit Function
+    If Len(lhs.Path) <> Len(rhs.Path) Then PatternTakesPrecedence = Len(lhs.Path) > Len(rhs.Path): Exit Function
+    If lhs.QueryCount <> rhs.QueryCount Then PatternTakesPrecedence = lhs.QueryCount > rhs.QueryCount: Exit Function
+
+    PatternTakesPrecedence = lhs.Allow And Not rhs.Allow
+End Function
+
+'***************************************************************************************************
+'* 機能　　：Blocklist の`*`(すべてのURLに一致)か判定します
+'***************************************************************************************************
+Private Function IsWildcardBlockPattern(info As UrlPatternInfo) As Boolean
+    With info
+        IsWildcardBlockPattern = Not .Allow And LenB(.Scheme) = 0 And LenB(.Host) = 0 And LenB(.Path) = 0 And LenB(.Query) = 0 And .port = 0 And .MatchSubdomains
+    End With
+End Function
+
+'***************************************************************************************************
+'* 機能　　：URLを、スキーム/ホスト/ポート/パス/クエリに分解します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：True：分解できた
+'* 引数　　：Url                                  分解するURL
+'            Scheme, Host, Port, Path, Query      [ByRef]分解結果  ※ポートは省略時、スキームの既定値
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`about:blank`や`data:`等のホストがないURLは、`scheme:`以降をパスとして扱います
+'***************************************************************************************************
+Private Function SplitUrl(ByVal Url As String, ByRef Scheme As String, ByRef Host As String, ByRef port As Long, ByRef Path As String, ByRef Query As String) As Boolean
+    '1. スキーム
+    Dim Pos As Long: Pos = InStr(Url, ":")
+    If Pos <= 1 Then Exit Function
+    Scheme = LCase$(Left$(Url, Pos - 1))
+    Dim Rest As String: Rest = Mid$(Url, Pos + 1)
+
+    '2. フラグメント、クエリを切り出す
+    Pos = InStr(Rest, "#")
+    If Pos > 0 Then Rest = Left$(Rest, Pos - 1)
+
+    Pos = InStr(Rest, "?")
+    If Pos > 0 Then
+        Query = Mid$(Rest, Pos + 1)
+        Rest = Left$(Rest, Pos - 1)
+    End If
+
+    '3. ホストがないURL(`about:blank`等)
+    If Left$(Rest, 2) <> "//" Then
+        Path = Rest
+        SplitUrl = True
+        Exit Function
+    End If
+    Rest = Mid$(Rest, 3)
+
+    '4. パスを切り出す
+    Pos = InStr(Rest, "/")
+    If Pos > 0 Then
+        Path = Mid$(Rest, Pos)
+        Rest = Left$(Rest, Pos - 1)
+    Else
+        Path = "/"
+    End If
+
+    '5. ユーザー情報(`user:pass@`)を除く
+    Pos = InStrRev(Rest, "@")
+    If Pos > 0 Then Rest = Mid$(Rest, Pos + 1)
+
+    '6. ホストとポート
+    Dim PortPart As String
+    If Not SplitHostPort(Rest, Host, PortPart) Then Exit Function
+    Host = LCase$(Host)
+
+    If LenB(PortPart) > 0 And Not PortPart Like "*[!0-9]*" And Len(PortPart) <= 5 Then
+        port = CLng(PortPart)
+    Else
+        Select Case Scheme
+            Case "http", "ws":    port = 80
+            Case "https", "wss":  port = 443
+            Case "ftp":           port = 21
+            Case Else:            port = 0
+        End Select
+    End If
+
+    SplitUrl = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`host:port`を、ホストとポートに分けます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：True：分けられた
+'* 引数　　：HostPort        `host:port`形式の文字列  ※IPv6の`[::1]:8080`にも対応
+'            Host, PortPart  [ByRef]分けた結果  ※ポートなしの場合、PortPartは空
+'***************************************************************************************************
+Private Function SplitHostPort(ByVal HostPort As String, ByRef Host As String, ByRef PortPart As String) As Boolean
+    Dim Pos As Long
+    If Left$(HostPort, 1) = "[" Then
+        'IPv6
+        Pos = InStr(HostPort, "]")
+        If Pos = 0 Then Exit Function
+        Host = Left$(HostPort, Pos)
+        If Mid$(HostPort, Pos + 1, 1) = ":" Then PortPart = Mid$(HostPort, Pos + 2)
+    Else
+        Pos = InStrRev(HostPort, ":")
+        If Pos > 0 Then
+            Host = Left$(HostPort, Pos - 1)
+            PortPart = Mid$(HostPort, Pos + 1)
+        Else
+            Host = HostPort
+        End If
+    End If
+    SplitHostPort = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：URLのクエリが、URLパターンのクエリ条件をすべて満たすか判定します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：True：すべて満たす
+'* 引数　　：UrlQuery      URLのクエリ部分(`?`より後ろ)
+'            PatternQuery  URLパターンのクエリ条件(`?`より後ろ)
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：条件は`&`区切りで、それぞれ次のように照合します
+'            ・`key`        ：そのキーがある
+'            ・`key=value*` ：そのキーの値が前方一致
+'            ・`key=value`  ：そのキーの値が完全一致
+'***************************************************************************************************
+Private Function MatchQuery(ByVal UrlQuery As String, ByVal PatternQuery As String) As Boolean
+    Dim Conditions() As String: Conditions = Split(PatternQuery, "&")
+    Dim Elements() As String: Elements = Split(UrlQuery, "&")
+
+    Dim i As Long, j As Long
+    For i = LBound(Conditions) To UBound(Conditions)
+        If LenB(Conditions(i)) > 0 Then
+            Dim Found As Boolean: Found = False
+            For j = LBound(Elements) To UBound(Elements)
+                If MatchQueryElement(Elements(j), Conditions(i)) Then
+                    Found = True
+                    Exit For
+                End If
+            Next
+            If Not Found Then Exit Function
+        End If
+    Next
+    MatchQuery = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：クエリ要素1つが、クエリ条件1つを満たすか判定します  ※詳細は`MatchQuery`参照
+'***************************************************************************************************
+Private Function MatchQueryElement(ByVal Element As String, ByVal Condition As String) As Boolean
+    Dim ePos As Long: ePos = InStr(Element, "=")
+    Dim cPos As Long: cPos = InStr(Condition, "=")
+
+    '1. キーを比較
+    Dim eKey As String: eKey = IIf(ePos > 0, Left$(Element, ePos - 1), Element)
+    Dim cKey As String: cKey = IIf(cPos > 0, Left$(Condition, cPos - 1), Condition)
+    If eKey <> cKey Then Exit Function
+
+    '2. 値の条件がなければ、キーの一致だけでOK
+    If cPos = 0 Then MatchQueryElement = True: Exit Function
+
+    '3. 値を比較
+    Dim eValue As String
+    If ePos > 0 Then eValue = Mid$(Element, ePos + 1)
+    Dim cValue As String: cValue = Mid$(Condition, cPos + 1)
+    If Right$(cValue, 1) = "*" Then
+        cValue = Left$(cValue, Len(cValue) - 1)
+        MatchQueryElement = (Left$(eValue, Len(cValue)) = cValue)
+    Else
+        MatchQueryElement = (eValue = cValue)
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：クエリ条件の数を数えます  ※優先順位の比較用
+'***************************************************************************************************
+Private Function CountQueryConditions(ByVal PatternQuery As String) As Long
+    Dim Conditions() As String: Conditions = Split(PatternQuery, "&")
+    Dim i As Long
+    For i = LBound(Conditions) To UBound(Conditions)
+        If LenB(Conditions(i)) > 0 Then CountQueryConditions = CountQueryConditions + 1
+    Next
+End Function
 
 
 
