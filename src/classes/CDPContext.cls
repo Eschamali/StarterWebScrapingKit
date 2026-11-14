@@ -1377,10 +1377,9 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
             If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then
                 'このイベントは、自ら切断以外にも以下のケースで登場します。参考までに
-                '・JavaScript実行による自動Close
                 '・ポリシー：DeveloperToolsAvailabilityBlocklist　に引っかかるページ遷移をした
                 ControlStatus.detachedFromTarget = True
-                printMsg WARN_, "The session(" & brTab.Url & ") was disconnected from the Chromium side. This log entry may occur in the following scenarios: the session was disconnected manually; it is subject to the `DeveloperToolsAvailabilityBlocklist` policy; or it was disconnected via JavaScript.", FromProcedureName
+                printMsg WARN_, "The session(" & brTab.Url & ") was disconnected from the Chromium side. This log entry may occur in the following scenarios: the session was disconnected manually; it is subject to the `DeveloperToolsAvailabilityBlocklist` policy.", FromProcedureName
             End If
 
         '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
