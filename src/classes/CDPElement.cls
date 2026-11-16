@@ -1671,6 +1671,32 @@ Public Sub SetFileInputFiles(files As Collection)
     End If
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：現在の位置に対するDOMツリー情報を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：depth      深さ。defaultは、全子要素を返します
+'            pierce     `True`にすると、`ShadowDom`情報も付与します
+'* 返り値　：DOM.Node
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：主にデバッグ用途に使います。実際の値取得などの加工処理は、「jsEval」にやらせるべきです
+'***************************************************************************************************
+Public Function DumpDomTree(Optional Depth As Long = -1, Optional pierce As Boolean) As BiDiCDPJConv
+    Const FromProcedureName As String = ThisClassName & ".DumpDomTree"
+
+
+    '1. `objectId`がない場合は、エラー停止
+    If StrPtr(CurrentElement.objectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
+
+    '2. 事前に見つけたObjectIDを基準にセット
+    Dim params As New Dictionary
+    params.Add "depth", Depth
+    If pierce Then params.Add "pierce", pierce
+    params.Add "objectId", CurrentElement.objectId
+
+    '3. 返却する
+    Set DumpDomTree = ExecuteCDP("DOM.describeNode", params)
+End Function
+
 
 
 '***************************************************************************************************
