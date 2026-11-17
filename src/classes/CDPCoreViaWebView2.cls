@@ -265,8 +265,15 @@ Public Sub OpenWebView2AndConnectCDP(caps As BrowserCapabilities, Optional Attac
 
     '4. 正常に起動出来たか？
     If Not RunRes Then
+        '4-1. 破棄前に、エラー情報を取る
+        Dim ErrorMes    As String: ErrorMes = m_Host.LastErrorMessage
+        Dim ErrorCode   As Long: ErrorCode = m_Host.LastError
+
+        '4-2. 後始末
         Set m_Host = Nothing
-        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName, doRaiseError:=True
+
+        '4-3. エラー表示
+        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & ErrorCode & " - " & ErrorMes, FromProcedureName, doRaiseError:=True
 
         Exit Sub
     End If

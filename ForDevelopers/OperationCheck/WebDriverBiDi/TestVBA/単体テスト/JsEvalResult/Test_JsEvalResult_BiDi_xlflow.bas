@@ -261,7 +261,7 @@ Public Sub Test_Serialization_MaxDomDepth()
     Dim r As JsEvalResult
     Set r = br.jsEval("document.body", serializationOptions:=opt, returnByDetails:=True)
     CheckType r, "node", vbDataObject
-    AssertSame "BiDiCDPJson", TypeName(r.rawValue), "TypeName(rawValue)"
+    AssertSame "BiDiCDPJConv", TypeName(r.rawValue), "TypeName(rawValue)"
     AssertTrue r.rawValue.ExistsKey("children"), "children‚ªŠÜ‚Ü‚ê‚é‚±‚Æ"
 End Sub
 
@@ -425,7 +425,7 @@ End Sub
 Private Sub CheckJsonValue(expType As String, js As String)
     Dim r As JsEvalResult: Set r = Details(js)
     CheckType r, expType, vbObject
-    AssertSame "BiDiCDPJson", TypeName(r.value), "TypeName(value)"
+    AssertSame "BiDiCDPJConv", TypeName(r.value), "TypeName(value)"
 End Sub
 
 Private Function CheckHandle(expType As String, js As String) As JsEvalResult

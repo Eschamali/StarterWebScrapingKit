@@ -158,7 +158,7 @@ Private Sub Test03_NoValueTypes(br As WebDriverBiDiContext)
 End Sub
 
 '==============================================================================
-' ‡C value ‚ğNode(BiDiCDPJson)‚Å‚ÂŒ^ / dateiOwnership:=Falsej
+' ‡C value ‚ğNoBiDiCDPJConvson)‚Å‚ÂŒ^ / dateiOwnership:=Falsej
 '==============================================================================
 Private Sub Test04_ValueNodeTypes(br As WebDriverBiDiContext)
     PrintSection "‡C value ‚ğ‚ÂŒ^"
