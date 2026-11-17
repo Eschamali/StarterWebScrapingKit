@@ -343,3 +343,7 @@ VBA では、よくこう、うるさく言われていませんでしたか？
 * [Remove requirements for --remote-debugging-pipe and --enable-unsafe-extension-debugging for debugging of extensions via CDP](https://chromium-review.googlesource.com/c/chromium/src/+/7765453)（2026年4月、Chrome 149）
 
 * [puppeteer#14536](https://github.com/puppeteer/puppeteer/issues/14536)（Allow `enableExtensions` when using `--remote-debugging-port`）
+
+## 次に読む
+
+- [技術秘話: WebSocket 経路・その後](/stories/DebugRouteTech/websocket-tech2) — 安定版にはまだ入っていない、承認モードまわりの変更の更新記録

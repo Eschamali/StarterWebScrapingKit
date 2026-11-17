@@ -606,6 +606,7 @@ CDP⇔BiDi翻訳という仕組みを、最初は「なんて泥臭いその場�
 
 ## 次に読む
 
+- [BiDi 登場秘話・その後](/stories/DevHistory/bidi-story2) — 執筆後に見つかった Chromium 側の動きの更新記録
 - [アーキテクチャ](/concepts/architecture) — mapper が載る層の位置づけ
 - [CDP と BiDi](/concepts/cdp-vs-bidi) — どちらを使うか
 - [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol) — `ExecuteBiDi` / BiDi+
