@@ -1067,7 +1067,7 @@ Sub AutoConnectDevToolsActivePort()
 
     '6. WebSocketから切断
     '※下記をコメントアウト後、処理を済ませ、`reuseMode:=True`にすると、このプロシージャを実行するたびに、新規タブが湧き出します
-    t.ThisCDPBrowser.DisconnectCDP
+    b.DisconnectCDP
 End Sub
 
 '***************************************************************************************************
