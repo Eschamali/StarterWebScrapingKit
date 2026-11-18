@@ -991,7 +991,7 @@ Public Function Base64UrlDecode(Encoded As Variant, Optional Format As VbWebEnco
 End Function
 
 ''
-' Convert string to UTF-8 bytes (incl. surrogate pairs). Pure VBA (Windows & Mac).
+' Convert string to UTF-8 bytes (incl. surrogate pairs).
 '
 ' @method StringToUtf8Bytes
 ' @param {String} Text
@@ -1042,6 +1042,69 @@ Public Function StringToUtf8Bytes(Text As String) As Byte()
     Loop
     ReDim Preserve web_Bytes(0 To web_Count - 1)
     StringToUtf8Bytes = web_Bytes
+End Function
+
+''
+' Convert UTF-8 bytes to string (incl. 4-byte sequences -> surrogate pairs).
+'
+' Invalid or truncated sequences decode to U+FFFD (replacement character), one per invalid byte.
+'
+' @method Utf8BytesToString
+' @param {Byte()} Bytes | Must be allocated (an empty array is fine).
+' @return {String} | Empty string for an empty array.
+''
+Public Function Utf8BytesToString(Bytes() As Byte) As String
+    Dim web_Index As Long
+    Dim web_Next As Long
+    Dim web_Count As Long
+    Dim web_Code As Long
+    Dim web_Extra As Long
+    Dim web_Min As Long
+    Dim web_Valid As Boolean
+    
+    Utf8BytesToString = VBA.Space$(UBound(Bytes) - LBound(Bytes) + 1) ' Never more UTF-16 units than bytes.
+    web_Index = LBound(Bytes)
+    Do While web_Index <= UBound(Bytes)
+        ' Lead byte: payload bits, continuation byte count & minimum code point (rejects overlong forms).
+        Select Case Bytes(web_Index)
+        Case Is < &H80
+            web_Code = Bytes(web_Index): web_Extra = 0: web_Min = 0
+        Case &HC2 To &HDF
+            web_Code = Bytes(web_Index) And &H1F: web_Extra = 1: web_Min = &H80
+        Case &HE0 To &HEF
+            web_Code = Bytes(web_Index) And &HF: web_Extra = 2: web_Min = &H800
+        Case &HF0 To &HF4
+            web_Code = Bytes(web_Index) And &H7: web_Extra = 3: web_Min = &H10000
+        Case Else
+            web_Extra = -1 ' Stray continuation byte, or invalid lead (C0, C1, F5-FF).
+        End Select
+        
+        ' Continuation bytes.
+        web_Valid = (web_Extra >= 0) And (web_Index + web_Extra <= UBound(Bytes))
+        For web_Next = 1 To web_Extra
+            If Not web_Valid Then Exit For
+            If (Bytes(web_Index + web_Next) And &HC0) <> &H80 Then
+                web_Valid = False
+            Else
+                web_Code = (web_Code * &H40) Or (Bytes(web_Index + web_Next) And &H3F)
+            End If
+        Next web_Next
+        If web_Valid Then web_Valid = (web_Code >= web_Min) And (web_Code <= &H10FFFF) And Not (web_Code >= &HD800& And web_Code <= &HDFFF&)
+        If Not web_Valid Then web_Code = &HFFFD&: web_Extra = 0 ' Replace & resync on the next byte.
+        
+        ' Emit as UTF-16.
+        If web_Code >= &H10000 Then
+            web_Code = web_Code - &H10000
+            Mid$(Utf8BytesToString, web_Count + 1, 1) = VBA.ChrW$(&HD800& + (web_Code \ &H400))
+            Mid$(Utf8BytesToString, web_Count + 2, 1) = VBA.ChrW$(&HDC00& + (web_Code And &H3FF))
+            web_Count = web_Count + 2
+        Else
+            Mid$(Utf8BytesToString, web_Count + 1, 1) = VBA.ChrW$(web_Code)
+            web_Count = web_Count + 1
+        End If
+        web_Index = web_Index + 1 + web_Extra
+    Loop
+    Utf8BytesToString = VBA.Left$(Utf8BytesToString, web_Count)
 End Function
 
 ''
