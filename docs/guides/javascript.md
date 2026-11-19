@@ -85,7 +85,7 @@ result = t.jsEval("1 + 1")
 | 例外時の代替値 | `IFEXCEPTION` | 同左 |
 | iframe など実行場所 | `contextId`（`objectId` 指定時は無視） | `RealmTarget` |
 | Promise 完了待ち | `awaitPromise` | 同左 |
-| 人間操作としての偽装 | `userGesture` | `userActivation` |
+| ユーザー操作があった扱いにする | `userGesture` | `userActivation` |
 | シリアライズ細調整 | `serializationOptions` | 同左 |
 | 結果を待たない実行 | `RunAsyncCDP`（戻り値は実行 id） | `RunAsyncBiDi`（戻り値は実行 id） |
 | 詳細な結果を受け取る | `returnByDetails`（[`JsEvalResult`](/api/cdp/JsEvalResult) を返す） | 同左 |
@@ -129,11 +129,103 @@ BiDi では、要素は `script.SharedId`、それ以外のオブジェクトは
 ### その他のスイッチ
 
 - **`awaitPromise`**: JS 結果が Promise でも完了まで待つ（`True`）
-- **`userGesture` / `userActivation`**: 「人間が操作した」と偽装。スクレイピング対策向け
+- **`userGesture` / `userActivation`**: ページを「ユーザーが操作した直後」の状態にしてから実行。ファイル選択やポップアップなどで必要になります。詳しくは[ユーザー操作の扱い](#user-activation)を参照
 - **`allowUnsafeEvalBlockedByCSP`（CDP）**: CSP による外部 JS 規制を無視して実行許可
 - **`serializationOptions`**: 意地でも `value` で受け取るための細かい調整。指定時は CDP の `returnByValue` は無視されます
 - **`generatePreview`（CDP）**: `objectId` の中身をプレーンテキストでプレビュー。ログレベルを DEBUG 以下に。開発時向け
 - **`RunAsyncCDP` / `RunAsyncBiDi`**: 結果を待たず実行 id のみ返す。「この操作、`alert` が発動するな…」という場面向け。回収は [低レイヤーガイド](/guides/extend-raw-protocol) / [イベント購読](/guides/events) 参照
+
+## ユーザー操作の扱い {#user-activation}
+
+ブラウザには、ユーザーがクリックやキー入力をしたときだけ使える機能があります。ページが勝手にポップアップを開いたり、ファイル選択ダイアログを出したりするのを防ぐためです。この「ユーザーが操作した」という状態を **user activation** と呼びます。
+
+JS の `element.click()` は、ユーザーの操作ではないので user activation になりません。そのため、`jsEval` でボタンを押しても、ファイル選択ダイアログやポップアップが出ないことがあります。`userGesture:=True` は、この状態を作ってから JS を実行する引数です。
+
+::: info Chromium の中での動き
+CDP の `Runtime.evaluate` / `Runtime.callFunctionOn` は、`userGesture` が `True` のとき、実行の前に V8 の `pretendUserGesture` を呼びます（[v8-runtime-agent-impl.cc](https://chromium.googlesource.com/v8/v8/+/main/src/inspector/v8-runtime-agent-impl.cc)）。これを受けて、Blink がそのフレームに user activation を通知します（[thread_debugger_common_impl.cc](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/inspector/thread_debugger_common_impl.cc) の `beginUserGesture`）。
+
+BiDi の `userActivation` も、chromium-bidi の中で CDP の `userGesture` に置き換えられます（chromium-bidi の `Realm.ts`）。
+:::
+
+::: warning ボット対策をすり抜けるものではありません
+変わるのは user activation の状態だけです。`element.click()` で起きるイベントの `isTrusted` は `false` のままなので、`isTrusted` を見るボット対策には効きません。`isTrusted` を `true` にしたいときは、[`isTrusted` との関係](#istrusted)を参照してください。
+:::
+
+### `isTrusted` との関係 {#istrusted}
+
+イベントの `isTrusted` は、そのイベントをブラウザ自身が起こしたか（`true`）、JS が作ったか（`false`）を表します。ページ側の JS で読めるので、ボット対策に使われることがあります。
+
+`jsEval`（`Runtime.evaluate` / `Runtime.callFunctionOn`）で起こしたイベントは、`userGesture:=True` を付けても `isTrusted` が `false` になります。`true` にしたいときは、`jsEval` ではなく、入力系のメソッドを使います。
+
+| 操作の方法 | 使うプロトコル | `isTrusted` | user activation |
+| --- | --- | --- | --- |
+| `jsEval` で `element.click()` や `dispatchEvent` | `Runtime.evaluate` / `Runtime.callFunctionOn` | `false` | `userGesture:=True` のときだけ付く |
+| [`sendClick`](/api/cdp/CDPElement#sendclick) / [`sendHover`](/api/cdp/CDPElement#sendhover) / [`sendKey`](/api/cdp/CDPElement#sendkey) など | CDP: `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent`<br>BiDi: `input.performActions` | `true` | マウスの押下やキー入力で自然に付く |
+
+入力系のメソッドは、ブラウザが本物のマウスやキーボードと同じ入口から入力を送るので、ページからは区別がつきません。Puppeteer や Playwright のクリックも、同じ方法で動いています。
+
+ただし、座標で押すので、その座標でいちばん手前に表示されている要素が押されます。要素の上に別のもの（広告など）が重なっていると、そちらが押されます。
+
+::: details Chromium のソースでの確認
+`isTrusted` は、ページ側（Blink）がイベントを発火する直前に決まります。
+
+- **入力系（`true`）**：`Input.dispatchMouseEvent` は、DevTools の `InputHandler` から `ForwardMouseEvent` でページに送られます（[input_handler.cc](https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/protocol/input_handler.cc)）。`ForwardMouseEvent` は、本物のマウス入力と同じ入口です。ページ側では `MouseEventManager` が `target->DispatchEvent(*event)` で発火し（[mouse_event_manager.cc](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/input/mouse_event_manager.cc)）、この `DispatchEvent` の中で `event.SetTrusted(true)` が呼ばれます（[event_target.cc](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/dom/events/event_target.cc)）。
+- **`dispatchEvent`（`false`）**：JS から呼ぶと `dispatchEventForBindings` を通り、`event->SetTrusted(false)` が呼ばれます（[event_target.cc](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/dom/events/event_target.cc)）。
+- **`element.click()`（`false`）**：`HTMLElement::click()` は `SimulatedClickCreationScope::kFromScript` でクリックを作ります（[html_element.cc](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/html/html_element.cc)）。`isTrusted` が `true` になるのは `kFromAccessibility` か `kFromUserAgent` のときだけなので、`false` になります（[simulated_event_util.cc](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/events/simulated_event_util.cc)）。
+:::
+
+### 2 種類の user activation
+
+user activation には 2 種類あります（[MDN: User activation](https://developer.mozilla.org/ja/docs/Web/Security/Defenses/User_activation)）。
+
+| 種類 | 続く期間 | 主な用途 |
+| --- | --- | --- |
+| 一時的（transient） | 操作から短い時間だけ。一部の機能を使うと、その時点で消える（消費） | ポップアップ、ファイル選択など |
+| 持続的（sticky） | 一度でも操作があれば、そのページにいる間ずっと | ページを離れるときの確認ダイアログ、音の自動再生など |
+
+### `userGesture` が要る場面
+
+一時的（transient）な user activation が要る主なものです。
+
+| 場面 | 主な API | user activation を消費するか |
+| --- | --- | --- |
+| ファイル選択ダイアログ | `<input type="file">` の `click()`、`showPicker()`、`showOpenFilePicker()` | `<input type="file">` は消費する |
+| 別ウィンドウ（ポップアップ） | `window.open()`、`target="_blank"` のリンクの `click()` | 消費する |
+| 全画面表示 | `requestFullscreen()` | |
+| クリップボード | `navigator.clipboard.writeText()` / `readText()` など | |
+| 共有・支払い | `navigator.share()`、`PaymentRequest.show()` | |
+| 画面共有 | `getDisplayMedia()` | |
+| デバイスの選択 | `USB.requestDevice()`、`HID.requestDevice()`、`Serial.requestPort()` | |
+
+持続的（sticky）な user activation が要る主なものは、次のとおりです。
+
+- ページを離れるときの確認ダイアログ（`beforeunload`）
+- 音の自動再生（`AudioContext` など）
+- `navigator.vibrate()`
+
+ファイル選択ダイアログは、user activation がないと開かず、コンソールに `File chooser dialog can only be shown with a user activation.` という警告が出ます（[file_input_type.cc](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/html/forms/file_input_type.cc)）。
+
+::: warning ページを離れるときの確認ダイアログ
+一度 `userGesture:=True` で実行すると、そのページは持続的（sticky）な user activation を持ちます。そのため、ページ側が `beforeunload` を設定していると、以降のページ遷移でページを離れるときの確認ダイアログが出ることがあります。遷移が止まったら、[ダイアログ](#ダイアログ)の処理を入れてください。
+:::
+
+### 一度付けると、しばらく続く
+
+`userGesture:=True` で実行したあと、続けて `userGesture` を省略して実行しても、しばらくは user activation がある扱いになります。
+
+これは、一時的（transient）な user activation の有効期間が **5 秒** だからです。Chromium のソースで、`kActivationLifespan = base::Seconds(5)` と決まっています（[user_activation_state.h](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/public/common/frame/user_activation_state.h)）。5 秒は、`userGesture:=True` の JS を実行し始めた時点から数えます。また、JS の実行が終わっても、user activation は取り消されません。
+
+ただし、5 秒以内でも、消費する機能を一度使うと切れます。たとえばポップアップを 2 つ続けて開くときは、2 つ目にも `userGesture:=True` を付けてください。
+
+今の状態は `navigator.userActivation` で確かめられます。
+
+```vb
+Debug.Print t.jsEval("navigator.userActivation.isActive", userGesture:=True)  ' True
+Debug.Print t.jsEval("navigator.userActivation.isActive")                     ' 5秒以内なら True
+Application.Wait Now + TimeValue("0:00:06")
+Debug.Print t.jsEval("navigator.userActivation.isActive")                     ' False（一時的なものは切れた）
+Debug.Print t.jsEval("navigator.userActivation.hasBeenActive")                ' True（持続的なものは残る）
+```
 
 ## 詳細な結果を受け取る（`returnByDetails`）
 
