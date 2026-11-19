@@ -419,8 +419,15 @@ Private Sub InitAttachToSession(InitURL As String)
         End If
     Next
 
-2   If Not boolFound Then printMsg ERROR_, "Unable to find the browser session", FromProcedureName, doRaiseError:=True _
-    Else printMsg info_, "Now attaching CDP pipes to the browser session", FromProcedureName
+    '見つかったか判定
+    If boolFound Then
+        printMsg info_, "Now attaching CDP pipes to the browser session", FromProcedureName
+    Else
+        '大抵は下記が原因
+        '・`Target.setDiscoverTargets`が機能しない特殊なブラウザ(Electronブラウザ等)
+        '・ポリシー：`DeveloperToolsAvailability`系
+2       printMsg ERROR_, "Unable to find the browser session. Possible causes include: a specific type of browser in which `Target.setDiscoverTargets` does not function, or the impact of the `DeveloperToolsAvailability` policy.", FromProcedureName, doRaiseError:=True
+    End If
 
    'Establish connection with the CDP pipes
     brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
@@ -604,9 +611,11 @@ End Function
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
 '                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます(既定)
 '
-'            userGesture                    True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'            userGesture                    True ：ページを「ユーザーがクリックやキー入力をした直後」の状態(user activation)にしてから実行します。ファイル選択ダイアログやポップアップなど、ユーザー操作が要る機能で必要です
 '                                           False：特に施しません(既定)
-'                                           ※この引数はどうやらクールタイム制のようで、例えば最初に`userGesture:=True`すれば以降のJavaScript実行に`userGesture:=True`を付与しなくてもしばらくは、「人間がクリックやキーボード操作をした結果」とみなす仕様みたいです
+'                                           ※変わるのはuser activationの状態だけで、イベントの`isTrusted`は`False`のままです。ボット対策をすり抜けるものではありません
+'                                           ※user activationの有効期間は5秒です(Chromiumの`kActivationLifespan`)。一度`userGesture:=True`で実行すると、5秒以内なら省略しても、ユーザー操作があった扱いになります
+'                                           　ただし、ポップアップやファイル選択ダイアログを開くと、5秒以内でもその時点で切れます
 '
 '            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します(既定)
 '                                           False：サイトの外部JavaScript実行規制に従います
@@ -1368,7 +1377,12 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
         '`SessionID`が切れたが、`targetId`は生存
         Case "Target.detachedFromTarget"
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
-            If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
+            If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then
+                'このイベントは、自ら切断以外にも以下のケースで登場します。参考までに
+                '・ポリシー：DeveloperToolsAvailabilityBlocklist　に引っかかるページ遷移をした
+                ControlStatus.detachedFromTarget = True
+                printMsg WARN_, "The session(" & brTab.Url & ") was disconnected from the Chromium side. This log entry may occur in the following scenarios: the session was disconnected manually; it is subject to the `DeveloperToolsAvailabilityBlocklist` policy.", FromProcedureName
+            End If
 
         '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
         Case "Target.targetCrashed"
@@ -1386,6 +1400,8 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
         '`targetId`が消えて、`SessionID`も道ずれ破棄
         Case "Target.targetDestroyed"
             '1-1. 自分の`targetId`か確認し、そうであれば、フラグ更新
+            'このイベントは、自らタブ閉じ以外にも以下のケースで登場します。参考までに
+            '・JavaScript実行による自動Close
             If BiDiCDPJConv.Parse(RawJson).NodeKey("params").StringKey("targetId") = brTab.targetID Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
         '一部のパラメーター(URL等)を更新します

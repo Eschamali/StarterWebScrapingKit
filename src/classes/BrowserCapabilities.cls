@@ -36,6 +36,7 @@ Private m_WebDriverBiDiCore     As WebDriverBiDiCore
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 初期ブラウザ起動に関する設定
 '---------------------------------------------------------------------------------------------------
+Private m_BrowserHost           As CDPHost      'ローカルブラウザ周りの便利Class
 Private m_CustomChromiumPath    As String       'ブラウザのexeフルパス。空なら`UseBrowserPreset`に従って自動判定
 Private m_UserDataDirName       As String       '`--user-data-dir`につけるユーザーディレクトリ名。識別名称としても使う
 Private m_AddArguments          As String       '追加の起動引数
@@ -136,6 +137,12 @@ Property Get ClsGet_WebDriverBiDiCore() As WebDriverBiDiCore
     Set ClsGet_WebDriverBiDiCore = m_WebDriverBiDiCore
 End Property
 
+Property Get ClsGet_CDPHost() As CDPHost
+    '呼ばれるまで実体化させないようにし、初期化後は同じオブジェクトポインターとして振る舞う
+    If m_BrowserHost Is Nothing Then Set m_BrowserHost = New CDPHost
+    Set ClsGet_CDPHost = m_BrowserHost
+End Property
+
 Property Get Set_CustomChromiumPath() As String
     Set_CustomChromiumPath = m_CustomChromiumPath
 End Property
@@ -231,4 +238,5 @@ Private Sub Class_Terminate()
     '念のため、明示的に破棄
     Set m_CDPCore = Nothing
     Set m_WebDriverBiDiCore = Nothing
+    Set m_BrowserHost = Nothing
 End Sub
