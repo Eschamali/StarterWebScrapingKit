@@ -17,6 +17,7 @@ promo/
 ├─ ReiwaIE_GetTcpTable.html
 ├─ ReiwaIE_OfficeScripts.html
 ├─ ReiwaIE_Policy2.html
+├─ ReiwaIE_BiDiStory2.html
 └─ voice/
    ├─ README.md            … このファイル
    ├─ ReiwaIE_60s/         … ReiwaIE_60s.html の声
@@ -60,13 +61,19 @@ promo/
    │  ├─ bgm.mp3
    │  └─ clips/
    │     └─ desk.mp4, web.mp4, help.mp4, mirror.mp4
-   └─ ReiwaIE_Policy2/     … ReiwaIE_Policy2.html の声（2人の会話）と BGM、実機の録画のクリップと静止画
+   ├─ ReiwaIE_Policy2/     … ReiwaIE_Policy2.html の声（2人の会話）と BGM、実機の録画のクリップと静止画
+   │  ├─ narration.json
+   │  ├─ op1.wav, rp1.wav, …, en14.wav
+   │  ├─ bgm.mp3
+   │  └─ clips/
+   │     ├─ bug.mp4, cdp.mp4, canary.mp4
+   │     └─ reg.jpg, console.jpg, …（録画から切り抜いた静止画）
+   └─ ReiwaIE_BiDiStory2/  … ReiwaIE_BiDiStory2.html の声（2人の会話）と BGM、記事の画面写真
       ├─ narration.json
-      ├─ op1.wav, rp1.wav, …, en14.wav
+      ├─ op1.wav, nt1.wav, …, en6.wav
       ├─ bgm.mp3
-      └─ clips/
-         ├─ bug.mp4, cdp.mp4, canary.mp4
-         └─ reg.jpg, console.jpg, …（録画から切り抜いた静止画）
+      └─ img/
+         └─ chrome.png, edge.png
 ```
 
 ## ルール
@@ -84,9 +91,9 @@ promo/
   ```
 
 - 声が読み込めなかった場合、ムービーはナレーションなし（BGM・効果音・字幕のみ）で再生されます
-- `ReiwaIE_History`・`ReiwaIE_DebugRoute`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story`・`ReiwaIE_GetTcpTable`・`ReiwaIE_OfficeScripts`・`ReiwaIE_Policy2` は作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて `bgm.mp3` を置いています
+- `ReiwaIE_History`・`ReiwaIE_DebugRoute`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story`・`ReiwaIE_GetTcpTable`・`ReiwaIE_OfficeScripts`・`ReiwaIE_Policy2`・`ReiwaIE_BiDiStory2` は作り方が違います。HTML は Canvas に描く方式で、台本（字幕と開始秒）と描画コードを HTML の中に埋め込んでいます。このフォルダには、`narration.json`・`<id>.wav` に加えて `bgm.mp3` を置いています
   - `ReiwaIE_DebugRoute` の `bgm.mp3` は、BGM と効果音を事前に合成したものです
-  - `ReiwaIE_History`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story`・`ReiwaIE_GetTcpTable`・`ReiwaIE_OfficeScripts`・`ReiwaIE_Policy2` の `bgm.mp3` は曲だけです。効果音は mp3 に入れず、HTML の中で Web Audio API を使って鳴らしています。絵と同じ時刻表から鳴らすので、効果音の時刻を直したときは HTML を作り直すだけで済みます
+  - `ReiwaIE_History`・`ReiwaIE_BiDiStory`・`ReiwaIE_CoreCompare`・`ReiwaIE_VbaCompare`・`ReiwaIE_Policy`・`ReiwaIE_WebView2Story`・`ReiwaIE_GetTcpTable`・`ReiwaIE_OfficeScripts`・`ReiwaIE_Policy2`・`ReiwaIE_BiDiStory2` の `bgm.mp3` は曲だけです。効果音は mp3 に入れず、HTML の中で Web Audio API を使って鳴らしています。絵と同じ時刻表から鳴らすので、効果音の時刻を直したときは HTML を作り直すだけで済みます
   - `ReiwaIE_BiDiStory.html` は、記事の画像を `img/story/` から相対パス（`../img/story/1.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMGSRC` も直してください
   - `ReiwaIE_Policy.html` も、記事の画像を `img/Policy/` から相対パス（`../img/Policy/1.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMG_BASE` も直してください
   - `ReiwaIE_WebView2Story.html` は、記事の画像を `img/` の直下と `img/story/human/` から相対パス（`../img/化石コントロール.png` など）で読み込みます。画像を移動・改名したときは、HTML 内の `IMG_FILES` も直してください
@@ -98,6 +105,9 @@ promo/
 - `ReiwaIE_Policy2` は2人の会話です。春日部つむぎ（VOICEVOX のスタイル ID は 8）が捜査の主任、ずんだもんが見習いの聞き役です。記事「ポリシーの壁」の第2話で、絵は Canvas で描いた捜査ボードです
   - `clips/` の mp4 は、実機の録画3本から作ったものです（音なし・15fps・横 1920）。PAD が1分黙る様子（`bug`）、同じ PC でこのツールの CDP が動く様子（`cdp`）、Edge Canary で PAD が動く様子（`canary`）です。録画の中のブラウザには、よそのサイトの絵が映っているため、ページの部分をぼかしています
   - `clips/` の jpg は、同じ録画から切り抜いた静止画です。HTML の中の `CLIP_DIR` で場所を指定しています
+- `ReiwaIE_BiDiStory2` は2人の会話です。四国めたん（VOICEVOX のスタイル ID は 2。ささやき・あまあまの行は 36・0）が「Google社員みたいなもの」を名乗る現場の案内役、ずんだもんが見学者です。記事「BiDi 登場秘話・その後」の映像で、絵は Canvas で描いた工事現場（Chrome 本体ビルの断面）です
+  - 記事は日付順に記録を書き足していく形です。映像も、記録ごとに章（工区）をまとめ、工事の状態（済み・工事中・試作のみ など）は日付つきの表から描いています。記録が増えたら、その記録の声（新しい `<id>.wav`）と章を足し、`narration.json` と HTML を作り直します。前の記録の章は、その日の状態のまま描かれます
+  - `img/` の png は、記事の画面写真（Chrome Canary と Edge Canary に `/bidi-mapper.js` を送った画面）です。HTML の中の `IMG_DIR` で場所を指定しています
 - `ReiwaIE_WebView2Story` は、ずんだもんのひとり語りです。最後の4行（`ts1`〜`ts4`）だけ春日部つむぎがささやきます。つむぎにはささやきのスタイルがないため、合成した声に ffmpeg で響きと1オクターブ下の薄い重ねを足しています
 
 ## narration.json の書き方

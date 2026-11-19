@@ -4,6 +4,8 @@ description: 「BiDi 登場秘話」のその後。Chromium の WebDriver BiDi �
 
 # BiDi 登場秘話・その後
 
+<PromoMovie src="/promo/ReiwaIE_BiDiStory2.html" title="令和のIE 技術秘話 ― BiDi 登場秘話・その後" />
+
 [BiDi 登場秘話](/stories/DevHistory/bidi-story)は、2026年10月の執筆時点のお話です。
 
 その後、Chromium の WebDriver BiDi まわりが、思った以上に動き始めました。本編は執筆時点の内容のまま残し、このページに、見つかった動きを日付順に足していきます。新しい記録は、下に追記していきます。
