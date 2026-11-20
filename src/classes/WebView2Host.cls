@@ -1764,6 +1764,33 @@ Property Get ContainsFullScreenElement() As Boolean
     ContainsFullScreenElement = WebView2Thunks.GetBoolProperty(m_View.Pointer, 54, "View.get_ContainsFullScreenElement")
 End Property
 
+'***************************************************************************************************
+'* 機能　　：指定されたホストオブジェクトを、指定した名前でWebView上で実行中のスクリプトに追加します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CallName   `window.chrome.webview.hostObjects.{CallName}`の{CallName}を指定します
+'            pVariant   VARIANT * オブジェクトポインター
+'***************************************************************************************************
+Public Function AddHostObjectToScript(ByVal CallName As String, ByVal pVariant As LongPtr) As Boolean
+    '1. 紐づけ処理
+    m_lastError = WebView2Thunks.dcf(m_View.Pointer, 49, "View.AddHostObjectToScript", StrPtr(CallName), pVariant)
+
+    '2. 成功サインを返す
+    AddHostObjectToScript = (m_lastError = 0)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定した名前で指定されたホストオブジェクトを削除し、WebView 内の JavaScript コードからアクセスできなくなるようにします
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：DelName   `window.chrome.webview.hostObjects.{CallName}`の{CallName}を指定します
+'***************************************************************************************************
+Public Function RemoveHostObjectFromScript(ByVal DelName As String) As Boolean
+    '1. 紐づけ解除処理
+    m_lastError = WebView2Thunks.dcf(m_View.Pointer, 50, "View.RemoveHostObjectFromScript", StrPtr(DelName))
+
+    '2. 成功サインを返す
+    RemoveHostObjectFromScript = (m_lastError = 0)
+End Function
+
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2_3
 '---------------------------------------------------------------------------------------------------

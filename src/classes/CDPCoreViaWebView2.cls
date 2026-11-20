@@ -184,6 +184,9 @@ Private m_deleteProfileOnDisconnect As Boolean
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
 
+' AddHostObjectToScript時の管理
+Private m_hostObjects As Dictionary 'Key: JS公開名 / Value: 公開中のオブジェクト
+
 ' ログ識別ID
 Private m_LogID As String
 
@@ -296,6 +299,7 @@ End Sub
 Public Sub DisconnectCDP()
     '1. 残っている購読を全解除
     UnsubscribeAllCdpEvents
+    RemoveAllHostObjectFromScript
 
     '2. ホスト(Environment/Controller/View)を解放
     If Not (m_Host Is Nothing) Then
@@ -1033,6 +1037,46 @@ Property Get ContainsFullScreenElement() As Boolean
 End Property
 
 '***************************************************************************************************
+'* 機能　　：指定されたホストオブジェクトを、指定した名前でWebView上で実行中のスクリプトに追加します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CallName   `window.chrome.webview.hostObjects.{CallName}`の{CallName}を指定します
+'            obj        紐づけたいClassオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・`Obj`で定義したClass-Publicメソッド名でそのまま呼び出しができ、JS側でそれを呼ぶと処理がVBA側に委託されます
+'            ・VBA側による自前ポーリング不要で、UserForm開きっぱなしであればそこからの操作でウィンドウメッセージングコールバックにより、VBA側に処理が委託されます
+'            ・JS側で扱える`hostObjects`の実行オプションは、「https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2?#addhostobjecttoscript」をご覧下さい
+'* 注意事項：`Obj`で定義したClass-Publicメソッド名内の処理はなるべく軽量の処理に留めるように。
+'            でないと、重い処理の間はVBA側のメソッドが抜けない(End Sub等)と、WebView2がフリーズします。STA（Single-Threaded Apartment：シングルスレッド）という Windows と Excel の絶対的な宿命です
+'***************************************************************************************************
+Public Function AddHostObjectToScript(CallName As String, Obj As Object) As Boolean
+    '1. 紐づけ準備
+    Dim v As Variant: Set v = Obj    'VARIANT*(VT_DISPATCH)として渡すため包む
+
+    '2. 紐づけを行う
+    If Not m_Host.AddHostObjectToScript(CallName, VarPtr(v)) Then Exit Function
+
+    '3. まとめて削除ができるように記録はしておく
+    Set m_hostObjects(CallName) = Obj
+
+    '4. 成功サインを出す
+    AddHostObjectToScript = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定したJS関数名の購読を解除します
+'***************************************************************************************************
+Public Function RemoveHostObjectFromScript(ByVal DelName As String) As Boolean
+    '1. 紐づけされてないなら、即抜け
+    If Not m_hostObjects.Exists(DelName) Then Exit Function
+
+    '2. 紐づけ解除処理
+    RemoveHostObjectFromScript = m_Host.RemoveHostObjectFromScript(DelName)
+
+    '3. 記録側も消しておく
+    m_hostObjects.Remove DelName
+End Function
+
+'***************************************************************************************************
 '* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
 '***************************************************************************************************
 Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
@@ -1318,6 +1362,23 @@ Private Function GetApplicationHwnd() As LongPtr
     On Error GoTo 0
 End Function
 
+'***************************************************************************************************
+'* 機能　　：紐づけ中のHostObjectを一括解除します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：解除した件数
+'***************************************************************************************************
+Public Function RemoveAllHostObjectFromScript() As Long
+    '1. 紐づけ中のHostObject数を確認し、1つもない場合は、即抜け
+    Dim N As Long: N = m_hostObjects.Count
+    If N = 0 Then Exit Function
+
+    '2. 紐づけ中のJS関数名リストを取り出し、１つずつ解除していく
+    Dim JSName
+    For Each JSName In m_hostObjects.keys
+        If RemoveHostObjectFromScript(JSName) Then RemoveAllHostObjectFromScript = RemoveAllHostObjectFromScript + 1
+    Next
+End Function
+
 
 
 '***************************************************************************************************
@@ -1332,6 +1393,9 @@ Private Sub Class_Initialize()
     'CDPイベント購読管理の初期化
     Set m_subReceiver = New Dictionary
     Set m_subToken = New Dictionary
+
+    'HostObjectToScript管理の初期化
+    Set m_hostObjects = New Dictionary
 End Sub
 
 Private Sub Class_Terminate()
