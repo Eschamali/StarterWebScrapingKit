@@ -168,8 +168,8 @@ End Sub
 '* 注意事項：・空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '            ・`CDPElement`と同じ使い勝手にするため、プロパティ名は`CurrentObjectId`のままにしています
 '***************************************************************************************************
-Property Get CurrentObjectId() As String
-    CurrentObjectId = CurrentElement.sharedId
+Property Get CurrentElementId() As String
+    CurrentElementId = CurrentElement.sharedId
 End Property
 
 '***************************************************************************************************
@@ -405,80 +405,138 @@ Property Get checked() As Boolean
 
 End Property
 
-Property Let selected(selectedOption As String)
-'----------------------------------------------------------
-' Change the selected value of an html select element type.
-' eg. br.getElementbyId("list").selected = 2
-' Updated: 06/03/2025
-'----------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：<select> タグの項目を選択します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：Value    option の value 属性値で指定する場合（例: Value:="13"）
+'  　　　　　Label    画面に見えている表示文字で指定する場合（例: Label:="東京都"）
+'  　　　　　Index    0始まりの番号で指定する場合（例: Index:=1）
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：名前付き引数なしの1つの場合は、`Value`側として扱います
+'* 注意事項：どれか【1つだけ】を名前付き引数で指定してください（重複指定はエラーになります）
+'***************************************************************************************************
+Public Sub SelectOption(Optional value As String, Optional Label As String, Optional Index As Long = -1)
+    Const FromProcedureName As String = ThisClassName & ".SelectOption"
 
-    If checkExist Then If Not isExist Then Exit Property
+
+    If checkExist Then If Not isExist Then Exit Sub
 
 
+    ' --- 1. 【実質1択チェック】指定された個数を数える ---
+    Dim targetVal As String, searchMode As SelectOptionMode
+    Dim specifiedCount As Long
+    If StrPtr(value) Then specifiedCount = specifiedCount + 1:  targetVal = value: searchMode = SelectOptionMode.seValue
+    If StrPtr(Label) Then specifiedCount = specifiedCount + 1:  targetVal = Label: searchMode = SelectOptionMode.seLabel
+    If Index > -1 Then specifiedCount = specifiedCount + 1:     targetVal = Index: searchMode = SelectOptionMode.seIndex
+
+    If specifiedCount > 1 Then printMsg ERROR_, "This procedure accepts only one argument.", FromProcedureName, doRaiseError:=True: Exit Sub
+    If specifiedCount = 0 Then printMsg ERROR_, "Please specify one of the arguments.", FromProcedureName, doRaiseError:=True: Exit Sub
+
+
+    ' --- 2. 実行用 JavaScript を組み立てる ---
+    '2-1. 反映タイプに応じて、Selectに反映させるJavaScript文を生成
+    '※存在しない物を選ぶを例外エラーで止まります
+    Dim UseJs As String
+    Select Case searchMode
+        Case SelectOptionMode.seValue
+            ' value 属性値で探して選択する
+            UseJs = "function(val) {" & _
+                    "  const opt = Array.from(this.options).find(o => o.value === String(val));" & _
+                    "  if (!opt) throw new Error('Option with value \' + val + \' not found.');" & _
+                    "  opt.selected = true;" & _
+                    "}"
+
+        Case SelectOptionMode.seLabel
+            ' 表示文字（前後の空白トリム付き）で探して選択する
+            UseJs = "function(txt) {" & _
+                    "  const opt = Array.from(this.options).find(o => o.text.trim() === String(txt));" & _
+                    "  if (!opt) throw new Error('Option with label \' + txt + \' not found.');" & _
+                    "  opt.selected = true;" & _
+                    "}"
+
+        Case SelectOptionMode.seIndex
+            ' 0始まりのインデックス番号で直接選択する
+            UseJs = "function(idx) {" & _
+                    "  const i = parseInt(idx, 10);" & _
+                    "  if (i < 0 || i >= this.options.length) throw new Error('Index ' + i + ' is out of bounds (length: ' + this.options.length + ').');" & _
+                    "  this.selectedIndex = i;" & _
+                    "}"
+    End Select
+
+    '2-2. 引数部分を組み立て
     Dim args(0) As Dictionary
-    Dim arg As New Dictionary
-    arg.Add "value", selectedOption: arg.Add "type", "string"
-    Set args(0) = arg
-    jsEval "function(v){ this.selectedIndex = v }", args
+    Dim arg As New Dictionary: arg.Add "value", targetVal: arg.Add "type", "string": Set args(0) = arg
+
+    '3. 反映
+    '※存在しない選択肢の場合は、エラー停止します
+    '※BiDiの例外情報(`script.ExceptionDetails`)は、`text`にメッセージが入ります
+    If IsError(jsEval(UseJs, args)) Then printMsg ERROR_, "No candidates were found for the specified SelectOption. > " & main.LastJavaScriptException.StringKey("text"), FromProcedureName, doRaiseError:=True
+
+    '4. SPAにも対応すべく、`change`イベントを発火
     fireEvent "change"
+End Sub
 
-End Property
+'***************************************************************************************************
+'* 機能　　：<select> タグで、現在選択中の項目を取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：mode に応じた値　※未選択の場合は、seValue/seLabel：空文字、seIndex：-1
+'* 引数　　：mode     seValue：option の value 属性値
+'  　　　　　         seLabel：画面に見えている表示文字（前後の空白トリム）
+'  　　　　　         seIndex：0始まりの番号
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`SelectOption`で選んだ項目を、同じ基準(Value/Label/Index)で確認できます
+'* 注意事項：複数選択(multiple)の場合は、先頭の選択項目を返します
+'***************************************************************************************************
+Public Function GetSelection(mode As SelectOptionMode) As Variant
+    '※JavaScript側の`m`は、`SelectOptionMode`の値(0:seValue / 1:seLabel / 2:seIndex)
+    Const GetSelectionJS As String = "function(m) {" & _
+                                     "  if (m === 2) return this.selectedIndex;" & _
+                                     "  const opt = this.selectedOptions[0];" & _
+                                     "  if (!opt) return '';" & _
+                                     "  return (m === 1) ? opt.text.trim() : opt.value;" & _
+                                     "}"
 
-Property Get selected() As String
-'----------------------------------------------------------
-' Get the selected option. Only returns the first option.
-' Updated: 06/03/2025
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Property
-
-
-    selected = jsEval("function(){ return this.selectedOptions[0].text }")
-
-End Property
-
-Public Function setSelection(strOptionName As String)
-'----------------------------------------------------------
-' Set option value to a select element.
-' Updated: 06/03/2025
-'----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Function
 
 
-    jsEval "function(){ this.scrollIntoView(false) }"
-    Me.value = strOptionName
-    fireEvent "change"
+    '1. 引数部分を組み立て
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary: arg.Add "value", mode: arg.Add "type", "number": Set args(0) = arg
 
+    '2. 取得して、Indexは数値、それ以外は文字列で返却
+    Dim result As Variant
+    result = jsEval(GetSelectionJS, args)
+    If mode = SelectOptionMode.seIndex Then GetSelection = CLng(result) Else GetSelection = CStr(result)
 End Function
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 属性操作
 '---------------------------------------------------------------------------------------------------
-Public Function getAttribute(strAttributeName As String) As String
+Property Get PageAttribute(strAttributeName As String) As String
 '----------------------------------------------------------
 ' Get the value of an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Property
 
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
     arg.Add "value", strAttributeName: arg.Add "type", "string"
     Set args(0) = arg
-    getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
+    PageAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
 
-End Function
+End Property
 
-Public Function setAttribute(strAttributeName As String, strValue As String)
+Property Let PageAttribute(strAttributeName As String, strValue As String)
 '----------------------------------------------------------
 ' Set value to an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Property
 
 
     Dim args2(1) As Dictionary
@@ -486,7 +544,7 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
     Dim a2 As New Dictionary: a2.Add "value", strValue: a2.Add "type", "string":           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
-End Function
+End Property
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 要素本体の内容・値
@@ -617,31 +675,31 @@ End Property
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] フォーカス・選択・イベント
 '---------------------------------------------------------------------------------------------------
-Public Function selectText()
+Public Sub selectText()
 '----------------------------------------------------------
 ' Select all the text held by the element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Sub
 
 
     jsEval "function(){ let r = document.createRange(); let s = window.getSelection(); r.selectNodeContents(this); s.removeAllRanges(); s.addRange(r) }"
 
-End Function
+End Sub
 
-Public Function focus()
+Public Sub focus()
 '----------------------------------------------------------
 ' Set focus to an element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
-    If checkExist Then If Not isExist Then Exit Function
+    If checkExist Then If Not isExist Then Exit Sub
 
 
     jsEval "function(){ this.focus() }"
 
-End Function
+End Sub
 
 Public Function fireEvent(strEventName As String) As Boolean
 '------------------------------------------------------------
@@ -757,9 +815,9 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
             If Not Not CurrentElement.SearchArgs Then
                 '引数情報があるので、引数付きで実行
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentElementId, CurrentElement.SearchArgs)
             Else
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentElementId)
             End If
         End If
 
@@ -1393,7 +1451,7 @@ Public Function GetShadowRoot() As WebDriverBiDiElement
     If nodeResult.isException Or nodeResult.ResultType <> "node" Then printMsg WARN_, "The current `WebDriverBiDiElement` could not be serialized as a node.", FromProcedureName: Exit Function
 
     '2. `shadowRoot`の存在確認　※ない場合は`null`
-    Dim NodeValue As BiDiCDPJson: Set NodeValue = nodeResult.rawValue
+    Dim NodeValue As BiDiCDPJConv: Set NodeValue = nodeResult.rawValue
     Dim shadowRootNode As Variant
     If NodeValue.ExistsKey("shadowRoot") Then CDPHelpers.SetVar(shadowRootNode) = NodeValue.Item("shadowRoot")
     If Not IsObject(shadowRootNode) Then printMsg WARN_, "The `Shadow-Root` was not found in the current `WebDriverBiDiElement`.", FromProcedureName: Exit Function
@@ -1454,7 +1512,7 @@ End Sub
 '***************************************************************************************************
 '* 注意事項：`context`は、`WebDriverBiDiContext.ExecuteBiDi`側で付与されます
 '***************************************************************************************************
-Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJConv
     Set ExecuteBiDi = main.ExecuteBiDi(methodName, params, StopBiDiError)
 End Function
 

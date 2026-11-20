@@ -151,14 +151,14 @@ Sub JapaneseElementTest()
 
     ' ボタンクリック
     Demo_Japanese.ResetWaitState
-    Demo_Japanese.getElementByID("executebtn").SimpleClick
-    Demo_Japanese.WaitEvents
-    Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
-    CDPHelpers.Sleep 3
+    Demo_Japanese.getElementByXPath("//button[text()='計算' and @type='submit']").SimpleClick
 
     ' 体脂肪率を取得
     Dim 体脂肪率 As Double
-    体脂肪率 = Demo_Japanese.getElementByID("ans1").innerText
+    体脂肪率 = Demo_Japanese.getElementByID("ans1").onExist.innerText
+    Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
+    CDPHelpers.Sleep 3
+
     Debug.Print "体脂肪率は、" & 体脂肪率 & "% です。"
 
 
@@ -410,6 +410,66 @@ Sub iframeShadowRootTest()
     End With
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：子ウィンドウの捉え方を学ぶDemoです
+'***************************************************************************************************
+Sub PopupWindowDemo()
+    Dim TopPage As CDPContext
+    Set TopPage = ShSetting01_StartBrowser.StartCDPModeContext("https://www.customs.go.jp/toukei/srch/index.htm?M=01&P=0")
+    TopPage.show , 0, 30, 1280, 720
+
+    '1. iframe を探す
+    TopPage.printChildIframes (3)
+    Dim iframeele As CDPElement
+    Set iframeele = TopPage.getElementByIframe("FR_DISP", , 3)
+
+    '2. ポップアップウィンドウ捕獲準備
+    Dim SelectWindow As CDPContext
+    Set TopPage.ThisCDPBrowser.RunCollect_TargetCreated = New Collection                            'TargetCreatedイベントのみ確保させる枠を用意
+    iframeele.getElementByXPath("//input[@type='BUTTON' and @value='参照']").onExist.SimpleClick    'ここをクリックすることで別ウィンドウが開く
+    Set SelectWindow = TopPage.PopupCatch(5)                                                        '5s以内に出る子ウィンドウを捕獲
+    Set TopPage.ThisCDPBrowser.RunCollect_TargetCreated = Nothing                                   '用済みなので壊す
+
+    '------------------------------- ポップアップウィンドウエリア -------------------------------
+    '3. 指定の`Select-Option`要素を選ぶ
+    Dim SelectEle As CDPElement, SelectedItem As String
+    Set SelectEle = SelectWindow.getElementByXPath("//select[@class='center' and @name='LstHSGroup']").onExist
+    SelectEle.SelectOption "01"                        '`value`属性で選んで...
+    SelectedItem = SelectEle.GetSelection(seLabel)
+    Debug.Print "「" & SelectedItem & "」を選びました" '選んだラベルを確認
+    Set SelectEle = Nothing                            '用済みなので破棄
+
+    '4. 適用する
+    SelectWindow.getElementByXPath("//input[@type='BUTTON' and @value='決定']").SimpleClick
+
+    '5. 子ウィンドウが消えるまで待機
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
+    Do Until SelectWindow.isTargetClosed
+        SelectWindow.ThisCDPBrowser.TakeEvents          'イベントを取り出す
+
+        '6. 一定時間経っても`Target.targetDestroyed`が来ないなら、エラーで停止します
+        If CDPHelpers.TimerCounter - timerStart > 30000 Then Err.Raise CDPCustomErrorCodes.TIMEOUT, "Demo", "Timeout waiting for browser to return message."
+    Loop
+    Debug.Print "子ウィンドウが閉じられました"
+    Set SelectWindow = Nothing                          '閉じられたので、破棄
+    '---------------------------------------------------------------------------------------------
+
+    '7. ちゃんと選んだ内容が表示されてるか？
+    Dim ActualDisplay As String
+    ActualDisplay = iframeele.getElementByXPath("//input[@type='TEXT' and @name='TxtHSGroupNames']").value
+    Debug.Assert ActualDisplay = SelectedItem
+
+    '8. ページ遷移されてるので待機ステータスをリセット後、検索！
+    TopPage.ResetWaitState
+    iframeele.getElementByXPath("//input[@type='SUBMIT']").SimpleClick
+
+    '9. イベントによる待機をする
+    TopPage.WaitEvents
+
+    '10. 検索結果が出るiframeを捕獲し、結果が出るまで待機
+    Debug.Print TopPage.getElementByIframe(Url:="https://www.customs.go.jp/JCWSV01/servlet/JCWSV01", doRetrySecond:=30).getElementByXPath("//*[@id='maincolumn']/h2").onExist.innerText & " がでました！"
+End Sub
+
 Sub RunChromium()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
@@ -607,8 +667,8 @@ Sub runNewTab()
     Dim targetElement As CDPElement
     '※2026/10/17確認時、Googleの検索結果リンクは`href="/goto?url=..."`(リダイレクト)形式に変わったため、リンク内に表示されるURL(`cite`)でも判定する
     Set targetElement = chrome.getElementByXPath("//a[contains(@href, 'https://www.newstarget.com/') or .//cite[contains(., 'https://www.newstarget.com')]]")
-    targetElement.setAttribute "target", "_blank"   'Modify the element attribute to open in a new tab instead
-    targetElement.click                             'Click the link, a new tab will be spontaneously open. 別タブで開いてしまうため、ここは待機なしクリックにする
+    targetElement.PageAttribute("target") = "_blank"    'Modify the element attribute to open in a new tab instead
+    targetElement.click                                 'Click the link, a new tab will be spontaneously open. 別タブで開いてしまうため、ここは待機なしクリックにする
 
    'Use getTabNew to quickly refer to the next newly open tab
     Dim targetTab As New CDPContext
@@ -728,8 +788,8 @@ Sub switchMain()
 
     Dim chrome As CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
-    chrome.ThisCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
-    chrome.ThisCDPBrowser.getTab(EmptyPageName).closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
+    chrome.ThisCDPBrowser.newTab "http://google.com", setMain:=True 'the chrome object will now directly refer to the Google tab
+    chrome.closeTab                                                 'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
 
 End Sub
@@ -1007,7 +1067,7 @@ Sub AutoConnectDevToolsActivePort()
 
     '6. WebSocketから切断
     '※下記をコメントアウト後、処理を済ませ、`reuseMode:=True`にすると、このプロシージャを実行するたびに、新規タブが湧き出します
-    t.ThisCDPBrowser.DisconnectCDP
+    b.DisconnectCDP
 End Sub
 
 '***************************************************************************************************
