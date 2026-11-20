@@ -1330,6 +1330,15 @@ Property Let NonClientRegionSupportEnabled(v As Boolean)
     m_Host.NonClientRegionSupportEnabled = v
 End Property
 
+'***************************************************************************************************
+'* 機能　　：共有バッファオブジェクトを作成します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sizeBytes  確保バッファーサイズ
+'***************************************************************************************************
+Public Function CreateSharedBuffer(sizeBytes As LongLong) As WebView2SharedBuffer
+    Set CreateSharedBuffer = m_Host.CreateSharedBuffer(sizeBytes)
+End Function
+
 
 
 '***************************************************************************************************
