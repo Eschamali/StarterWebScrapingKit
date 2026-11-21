@@ -101,7 +101,7 @@ Private m_LogID As String
 Private Type callFunctionOnParameters
     StopException    As Boolean         'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
     RunAsyncCDP      As Boolean         '非同期実行
-    userGesture      As Boolean         '人間が押したかのように偽装するか？
+    userGesture      As Boolean         'ユーザー操作があった扱い(user activation)にするか？
 End Type
 Private RunOption As callFunctionOnParameters
 
@@ -1671,6 +1671,32 @@ Public Sub SetFileInputFiles(files As Collection)
     End If
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：現在の位置に対するDOMツリー情報を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：depth      深さ。defaultは、全子要素を返します
+'            pierce     `True`にすると、`ShadowDom`情報も付与します
+'* 返り値　：DOM.Node
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：主にデバッグ用途に使います。実際の値取得などの加工処理は、「jsEval」にやらせるべきです
+'***************************************************************************************************
+Public Function DumpDomTree(Optional Depth As Long = -1, Optional pierce As Boolean) As BiDiCDPJConv
+    Const FromProcedureName As String = ThisClassName & ".DumpDomTree"
+
+
+    '1. `objectId`がない場合は、エラー停止
+    If StrPtr(CurrentElement.objectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
+
+    '2. 事前に見つけたObjectIDを基準にセット
+    Dim params As New Dictionary
+    params.Add "depth", Depth
+    If pierce Then params.Add "pierce", pierce
+    params.Add "objectId", CurrentElement.objectId
+
+    '3. 返却する
+    Set DumpDomTree = ExecuteCDP("DOM.describeNode", params)
+End Function
+
 
 
 '***************************************************************************************************
@@ -1770,7 +1796,7 @@ Property Let SetOptionRunAsyncCDP(v As Boolean)
 End Property
 
 '***************************************************************************************************
-'* 機能　　：True で「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'* 機能　　：True でページを「ユーザーがクリックやキー入力をした直後」の状態(user activation)にしてから実行します。ファイル選択ダイアログやポップアップなど、ユーザー操作が要る機能で必要です
 '***************************************************************************************************
 Property Let SetOptionUserGesture(v As Boolean)
     RunOption.userGesture = v

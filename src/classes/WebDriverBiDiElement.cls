@@ -72,7 +72,7 @@ Private m_LogID As String
 Private Type callFunctionParameters
     StopException    As Boolean         'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
     RunAsyncBiDi     As Boolean         '非同期実行
-    userGesture      As Boolean         '人間が押したかのように偽装するか？
+    userGesture      As Boolean         'ユーザー操作があった扱い(user activation)にするか？
 End Type
 Private RunOption As callFunctionParameters
 
@@ -1654,7 +1654,7 @@ Property Let SetOptionRunAsyncBiDi(v As Boolean)
 End Property
 
 '***************************************************************************************************
-'* 機能　　：True で「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'* 機能　　：True でページを「ユーザーがクリックやキー入力をした直後」の状態(user activation)にしてから実行します。ファイル選択ダイアログやポップアップなど、ユーザー操作が要る機能で必要です
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`script.callFunction`の`userActivation`として扱います
 '***************************************************************************************************
