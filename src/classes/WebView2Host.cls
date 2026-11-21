@@ -71,7 +71,7 @@ End Enum
 '***************************************************************************************************
 '* 機能　　：メイン制御ポインター＋たどり着けた階層レベル
 '---------------------------------------------------------------------------------------------------
-'* 機能　　：メイン制御ポインターと、そのポインターがQueryInterfaceで実際に辿り着けた
+'* 詳細説明：メイン制御ポインターと、そのポインターがQueryInterfaceで実際に辿り着けた
 '            `ICoreWebView2~N`(バージョン付きインターフェース)のNを1組にまとめます
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`LastLevel`は基底のみなら1(`m_Profile`のみ未取得の場合があり、その場合は0)
@@ -505,20 +505,21 @@ End Sub
 '* 機能　　：`m_Environment.Pointer`の`ICoreWebView2EnvironmentN`最新対応バージョンを判定し、
 '            `m_Environment.LastLevel`を更新します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：現状`_11`(`FailureReportFolderPath`)までしか消費していないため、探索もそこまでに留める
+'* 注意事項：現状`_12`(`CreateSharedBuffer`)までしか消費していないため、探索もそこまでに留める
 '***************************************************************************************************
 Private Sub DetectEnvironmentLevel()
-    Dim iids(1 To 10) As String
-    iids(1) = "f0913dc6-a0ec-42ef-9805-91dff3a2966a"    ' ICoreWebView2Environment11
-    iids(2) = "ee0eb9df-6f12-46ce-b53f-3f47b9c928e0"    ' ICoreWebView2Environment10
-    iids(3) = "f06f41bf-4b5a-49d8-b9f6-fa16cd29f274"    ' ICoreWebView2Environment9
-    iids(4) = "d6eb91dd-c3d2-45e5-bd29-6dc2bc4de9cf"    ' ICoreWebView2Environment8
-    iids(5) = "43c22296-3bbd-43a4-9c00-5c0df6dd29a2"    ' ICoreWebView2Environment7
-    iids(6) = "e59ee362-acbd-4857-9a8e-d3644d9459a9"    ' ICoreWebView2Environment6
-    iids(7) = "319e423d-e0d7-4b8d-9254-ae9475de9b17"    ' ICoreWebView2Environment5
-    iids(8) = "20944379-6dcf-41d6-a0a0-abc0fc50de0d"    ' ICoreWebView2Environment4
-    iids(9) = "80a22ae3-be7c-4ce2-afe1-5a50056cdeeb"    ' ICoreWebView2Environment3
-    iids(10) = "41f3632b-5ef4-404f-ad82-2d606c5a9a21"   ' ICoreWebView2Environment2
+    Dim iids(1 To 11) As String
+    iids(1) = "f503db9b-739f-48dd-b151-fdfcf253f54e"    ' ICoreWebView2Environment12
+    iids(2) = "f0913dc6-a0ec-42ef-9805-91dff3a2966a"    ' ICoreWebView2Environment11
+    iids(3) = "ee0eb9df-6f12-46ce-b53f-3f47b9c928e0"    ' ICoreWebView2Environment10
+    iids(4) = "f06f41bf-4b5a-49d8-b9f6-fa16cd29f274"    ' ICoreWebView2Environment9
+    iids(5) = "d6eb91dd-c3d2-45e5-bd29-6dc2bc4de9cf"    ' ICoreWebView2Environment8
+    iids(6) = "43c22296-3bbd-43a4-9c00-5c0df6dd29a2"    ' ICoreWebView2Environment7
+    iids(7) = "e59ee362-acbd-4857-9a8e-d3644d9459a9"    ' ICoreWebView2Environment6
+    iids(8) = "319e423d-e0d7-4b8d-9254-ae9475de9b17"    ' ICoreWebView2Environment5
+    iids(9) = "20944379-6dcf-41d6-a0a0-abc0fc50de0d"    ' ICoreWebView2Environment4
+    iids(10) = "80a22ae3-be7c-4ce2-afe1-5a50056cdeeb"   ' ICoreWebView2Environment3
+    iids(11) = "41f3632b-5ef4-404f-ad82-2d606c5a9a21"   ' ICoreWebView2Environment2
 
     m_Environment.LastLevel = DetectLevel(m_Environment.Pointer, iids, "Env.QueryInterface")
 End Sub
@@ -1021,6 +1022,32 @@ Property Get FailureReportFolderPath() As String
     If m_Environment.LastLevel < 11 Then Exit Property
     FailureReportFolderPath = WebView2Thunks.GetStringProperty(m_Environment.Pointer, 23, "Env11.get_FailureReportFolderPath")
 End Property
+
+'***************************************************************************************************
+'* 機能　　：共有バッファオブジェクトを作成します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sizeBytes  確保バッファーサイズ
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・引数の型が「UINT64 サイズ」につき、longlongとなりますが上限は今のところ、2GB（2^31）です。Chromium の共有メモリや、プロセス間通信（Mojo）まわりには、サイズを int 相当で扱う箇所が多く残っているためと思われます。
+'            ・一度決めた「sizeBytes」は後から変更できません。事前に必要なサイズが分かる場合は事前に調べたうえで渡してください
+'            ・現時点では、トップレベルのページ(UserFormに写ってるWebページ)のみ有効です
+'            ・失敗時は`Nothing`です
+'***************************************************************************************************
+Public Function CreateSharedBuffer(ByVal sizeBytes As LongLong) As WebView2SharedBuffer
+    '1. versionチェック
+    If m_Environment.LastLevel < 12 Then Exit Function
+
+    '2, `ICoreWebView2SharedBuffer`ポインターを得る
+    Dim pBuf As LongPtr
+    m_lastError = WebView2Thunks.dcf(m_Environment.Pointer, 24, "Env12.CreateSharedBuffer", CLngLng(sizeBytes), VarPtr(pBuf))
+
+    '3. ちゃんと取れてるか？
+    If m_lastError <> 0 Then Exit Function
+
+    '4. 専用のClassを返す準備
+    Set CreateSharedBuffer = New WebView2SharedBuffer
+    CreateSharedBuffer.Activation pBuf, m_View.Pointer
+End Function
 
 
 
@@ -1763,6 +1790,33 @@ End Property
 Property Get ContainsFullScreenElement() As Boolean
     ContainsFullScreenElement = WebView2Thunks.GetBoolProperty(m_View.Pointer, 54, "View.get_ContainsFullScreenElement")
 End Property
+
+'***************************************************************************************************
+'* 機能　　：指定されたホストオブジェクトを、指定した名前でWebView上で実行中のスクリプトに追加します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CallName   `window.chrome.webview.hostObjects.{CallName}`の{CallName}を指定します
+'            pVariant   VARIANT * オブジェクトポインター
+'***************************************************************************************************
+Public Function AddHostObjectToScript(ByVal CallName As String, ByVal pVariant As LongPtr) As Boolean
+    '1. 紐づけ処理
+    m_lastError = WebView2Thunks.dcf(m_View.Pointer, 49, "View.AddHostObjectToScript", StrPtr(CallName), pVariant)
+
+    '2. 成功サインを返す
+    AddHostObjectToScript = (m_lastError = 0)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定した名前で指定されたホストオブジェクトを削除し、WebView 内の JavaScript コードからアクセスできなくなるようにします
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：DelName   `window.chrome.webview.hostObjects.{CallName}`の{CallName}を指定します
+'***************************************************************************************************
+Public Function RemoveHostObjectFromScript(ByVal DelName As String) As Boolean
+    '1. 紐づけ解除処理
+    m_lastError = WebView2Thunks.dcf(m_View.Pointer, 50, "View.RemoveHostObjectFromScript", StrPtr(DelName))
+
+    '2. 成功サインを返す
+    RemoveHostObjectFromScript = (m_lastError = 0)
+End Function
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2_3

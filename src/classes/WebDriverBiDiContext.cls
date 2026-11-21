@@ -314,8 +314,9 @@ End Property
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
 '                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます
 '
-'            userActivation                 True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'            userActivation                 True ：ページを「ユーザーがクリックやキー入力をした直後」の状態(user activation)にしてから実行します。ファイル選択ダイアログやポップアップなど、ユーザー操作が要る機能で必要です
 '                                           False：特に施しません
+'                                           ※Chromiumでは、CDPの`userGesture`と同じ動きです。詳しくは`CDPContext.jsEval`の`userGesture`の説明を参照
 '
 '            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
 '
