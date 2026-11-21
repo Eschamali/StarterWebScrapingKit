@@ -574,6 +574,26 @@ el.ExposeDevTools "el"
 サイトによっては不自然なグローバル変数を検知する対策があります。本番スクレイピングでは使わないでください。
 :::
 
+### `DumpDomTree`
+
+```vb
+Public Function DumpDomTree(Optional Depth As Long = -1, Optional pierce As Boolean) As BiDiCDPJConv
+```
+
+保持中の要素を起点に、DOM ツリーの情報を返します（CDP の `DOM.describeNode`）。主にデバッグ用です。値を取り出したり加工したりするのは、[`jsEval`](#jseval) で行ってください。
+
+| 引数 | 意味 |
+| --- | --- |
+| `Depth` | 子要素をどの深さまで含めるか。既定の `-1` は、すべての子孫を含めます |
+| `pierce` | `True` で、Shadow DOM の中もたどります（CDP の仕様では iframe の中も対象） |
+
+```vb
+Dim el As CDPElement
+Set el = t.getElementByQuery("my-widget")
+
+Debug.Print el.DumpDomTree(Depth:=1, pierce:=True).Stringify
+```
+
 ### `CurrentElementId`
 
 ```vb
@@ -649,7 +669,7 @@ Property Let SetOptionUserGesture(v As Boolean)
 | --- | --- |
 | `SetOptionStopException` | `True` で、JS 例外発生時に `Err.Raise` で停止。基本は開発時のみ `True` を推奨 |
 | `SetOptionRunAsyncCDP` | `True` で、結果を待たない非同期実行に切り替える。使い終わったら必ず `False` に戻すこと |
-| `SetOptionUserGesture` | `True` で、人間の操作であるかのように偽装する。スクレイピング対策の回避に有効な場合がある |
+| `SetOptionUserGesture` | `True` で、ページを「ユーザーが操作した直後」の状態（user activation）にしてから実行する。ファイル選択ダイアログやポップアップなど、ユーザー操作が要る機能で必要。イベントの `isTrusted` は `false` のままで、ボット対策をすり抜けるものではない（[JavaScript 実行](/guides/javascript)） |
 
 ```vb
 el.SetOptionStopException = True   ' デバッグ中だけ例外で止める

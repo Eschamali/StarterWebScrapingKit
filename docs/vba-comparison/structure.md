@@ -21,6 +21,7 @@ src/classes/
 ├── CDPHost.cls                              ← ローカルブラウザの起動・後始末（v3.0.0〜、v3.1.0で`CDPCoreHost`から改名）
 ├── WebView2Host.cls / WebView2CallbackHandler.cls ← WebView2 COMコールバックの受け皿（v3.0.0〜、v3.1.0で拡張・改名）
 ├── WebView2EnvOptions.cls                  ← `ICoreWebView2EnvironmentOptions`エミュレーション（v3.1.0〜）
+├── WebView2SharedBuffer.cls                ← `ICoreWebView2SharedBuffer`（VBA とページの共有メモリ、v4.2.2〜）
 ├── CDPBrowser.cls                          ← ブラウザ単位
 ├── CDPContext.cls                          ← タブ単位
 ├── CDPElement.cls                          ← 要素単位

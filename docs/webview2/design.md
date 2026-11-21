@@ -34,6 +34,8 @@ Public Function RemoveBrowserExtension(extensionId As String) As Boolean
 
 ::: tip ついでに全部載せた
 `ICoreWebView2EnvironmentOptions`のvtableを一度組み上げてしまうと、他の関連インターフェース（`ICoreWebView2` / `ICoreWebView2Controller` / `ICoreWebView2Environment` / `ICoreWebView2Settings` / `ICoreWebView2Profile`）についても、コールバックが要らない**スカラー値のプロパティ**であれば追加コストがほぼ無いことがわかりました。そこで、CDPで完結しないWebView2固有の見た目・挙動設定（ズーム倍率、ダウンロード先フォルダ、DevTools有効/無効等）も、まとめてプロパティメソッドとして公開しています。ただし、①完了コールバックが要るもの、②イベント系、③さらに別インターフェースへ依存するネスト系、の3種類は「あくまでCDP制御主体のツール」という線引きのため対象外です。
+
+v4.2.2 で、VBA とページのやり取りに使うホストオブジェクトの公開（`AddHostObjectToScript`）と共有バッファ（`CreateSharedBuffer`）だけは、例外として実装しました。CDP だけでは、JS から VBA を呼んだり、大きなデータをディスクを経由せずに渡したりしにくいためです。詳しくは[WebView2モードでできること](/webview2/capabilities)を参照してください。
 :::
 
 ## 既知の制約

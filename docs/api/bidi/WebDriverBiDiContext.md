@@ -190,7 +190,7 @@ Public Function jsEval(JavaScriptStr As String, _
 | `RealmTarget` | iframe 等の realm を指定して実行したいとき |
 | `Ownership` | `True` で `resultOwnership: "root"`。要素以外のオブジェクトは `script.Handle` で返り、次回の `objectArguments` に流用できます |
 | `awaitPromise` | Promise 完了まで待つか |
-| `userActivation` | 人間操作として偽装するか（スクレイピング対策向け） |
+| `userActivation` | `True` で、ページを「ユーザーが操作した直後」の状態（user activation）にしてから実行します。ファイル選択ダイアログやポップアップなど、ユーザー操作が要る機能で必要です。Chromium では CDP の `userGesture` と同じ動きです（[JavaScript 実行](/guides/javascript)） |
 | `serializationOptions` | 意地でも `value` で受け取るための細かい調整 |
 | `returnByDetails` | `True` で、値の代わりに [`JsEvalResult`](/api/cdp/JsEvalResult)（型・`sharedId`・`handle`・例外情報など）を返します。`Set` で受けてください |
 | `RunAsyncBiDi` | `True` で結果を待たず実行 id のみ返す |

@@ -229,6 +229,105 @@ End With
 
 同梱デモ: `Demo_WebView2.RunEnvironmentOptionsDemo`
 
+## ホストオブジェクトの公開（v4.2.2〜）
+
+VBA のクラスのオブジェクトを、ページの JavaScript から `chrome.webview.hostObjects.{名前}` で呼べるようにします（WebView2 の `AddHostObjectToScript`）。JS 側で呼ぶと、処理が VBA 側のメソッドに渡されます。VBA 側でポーリングする必要はなく、UserForm を開いたままにしておけば、ページ上の操作から VBA のメソッドが呼ばれます。
+
+```vb
+Public Function AddHostObjectToScript(CallName As String, Obj As Object) As Boolean
+Public Function RemoveHostObjectFromScript(ByVal DelName As String) As Boolean
+Public Function RemoveAllHostObjectFromScript() As Long   ' 戻り値: 解除した件数
+```
+
+| 引数 | 意味 |
+| --- | --- |
+| `CallName` / `DelName` | `chrome.webview.hostObjects.{名前}` の `{名前}` の部分 |
+| `Obj` | 公開するクラスのオブジェクト。Public メソッドを、JS からそのままの名前で呼べます |
+
+```vb
+' クラスモジュール「VbaApi」
+Public Function Hello(ByVal name As String) As String
+    Hello = "Hello, " & name & " from VBA"
+End Function
+```
+
+```vb
+Dim api As New VbaApi
+WebView2Form.ThisWebView2.AddHostObjectToScript "vba", api
+```
+
+```js
+// ページ側。既定では Promise が返ります
+const msg = await chrome.webview.hostObjects.vba.Hello("Excel");
+```
+
+JS 側の呼び方（同期で呼ぶ `hostObjects.sync` など）は、Microsoft の [AddHostObjectToScript](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2#addhostobjecttoscript) を参照してください。公開したオブジェクトは、`DisconnectCDP` のときにまとめて解除されます。
+
+::: warning メソッドの処理は軽くする
+公開したメソッドは、VBA と同じスレッドで動きます。VBA のメソッドが終わるまで、WebView2 は止まったままです。Excel も WebView2 の UI も STA（シングルスレッド）で動くためで、避けられません。重い処理は入れないでください。
+:::
+
+## 共有バッファ（`WebView2SharedBuffer`、v4.2.2〜）
+
+VBA とページの JavaScript で、同じメモリ領域を読み書きします（WebView2 の `ICoreWebView2SharedBuffer`）。ページ内で作った大きなデータを、ディスクを経由せずに VBA へ渡したいときに使います。
+
+CDP だけでも VBA へデータを渡せますが、それぞれ弱点があります。
+
+| 方法 | 弱点 |
+| --- | --- |
+| `Runtime.addBinding` で受け取る | 大きなデータには向かない。軽いデータ向け |
+| `blob:` の URL をダウンロードし、`Browser.downloadProgress` で待つ | 大きなデータも渡せるが、一度ディスクに保存する必要がある |
+
+```vb
+' CDPCoreViaWebView2
+Public Function CreateSharedBuffer(sizeBytes As LongLong) As WebView2SharedBuffer   ' 失敗時は Nothing
+```
+
+| `WebView2SharedBuffer` のメンバー | 意味 |
+| --- | --- |
+| `PostToScript(Optional access, Optional additionalDataAsJson) As Boolean` | 共有バッファをページの JS へ渡す。`access` は `SharedBuffer_ReadOnly` / `SharedBuffer_ReadWrite`（既定）。`additionalDataAsJson` は、JS 側の `e.additionalData` になる JSON 文字列 |
+| `Position`（Get/Let） | 読み書きの現在位置（先頭からのバイト数） |
+| `WriteBytes(Data() As Byte) As Boolean` | 現在位置から書き込む。書いた分だけ `Position` が進む。はみ出す場合は何も書かずに `False` |
+| `ReadBytes(Optional NumBytes As Long) As Byte()` | 現在位置から読み出す。省略すると末尾まで。読んだ分だけ `Position` が進む |
+| `get_Size`（Get） | 確保したバイト数 |
+| `get_Buffer`（Get） | 共有メモリの先頭アドレス |
+| `get_FileMappingHandle()` | 共有メモリのファイルマッピングオブジェクトのハンドル |
+
+`Position` / `WriteBytes` / `ReadBytes` は、`ADODB.Stream` に似せた使い方です。中身は共有メモリ上の `IStream` で、コピーは WebView2 側のネイティブ処理が行います。
+
+```vb
+Dim wv2 As CDPCoreViaWebView2
+Set wv2 = WebView2Form.ThisWebView2
+
+Dim sb As WebView2SharedBuffer
+Set sb = wv2.CreateSharedBuffer(1024)
+If sb Is Nothing Then MsgBox "共有バッファを作れませんでした": Exit Sub
+
+'1. 受け取る側のリスナーを、先にページへ登録しておく
+t.jsEval "chrome.webview.addEventListener('sharedbufferreceived', e => { window.__buf = new Uint8Array(e.getBuffer()); });"
+
+'2. 共有バッファをページへ渡す
+sb.PostToScript SharedBuffer_ReadWrite
+
+'3. ページ側で書き込む
+t.jsEval "window.__buf.set(new TextEncoder().encode('hello'), 0); 'done'"
+
+'4. VBA 側で読み出す
+sb.Position = 0
+Dim bytes() As Byte
+bytes = sb.ReadBytes(5)
+Debug.Print StrConv(bytes, vbUnicode)   ' hello
+```
+
+::: warning 注意
+- 使えるのは、トップレベルのページ（UserForm に表示しているページ）だけです
+- `PostToScript` の時点でページ側にリスナーが無いと、共有バッファは届きません
+- 確保したサイズは、あとから変えられません。上限は今のところ 2GB（2^31 バイト）です
+- `ReadBytes` は VBA の Byte 配列に丸ごとコピーします。数百 MB 以上を一度に読むとメモリを圧迫するので、`NumBytes` で区切って読んでください
+- このクラスは、JS 側の「書き込み終わり」の合図を持っていません。非同期で受け取るなら、`Runtime.addBinding` と `Runtime.bindingCalled` などで合図を送ってください。上の例のように、同期の `jsEval` で書き込みを済ませてから読む方法でも構いません
+- WebView2 Runtime が古く、`ICoreWebView2Environment12` が無い場合、`CreateSharedBuffer` は `Nothing` を返します
+:::
+
 ## その他のインターフェースのプロパティ（v3.1.0〜、v3.1.1で追加分あり）
 
 拡張機能対応のために`ICoreWebView2` / `ICoreWebView2Controller` / `ICoreWebView2Environment` / `ICoreWebView2Settings` / `ICoreWebView2Profile`のvtableを組み上げたので、ついでにコールバック・イベントを伴わない**スカラー値のプロパティ**は一通り公開しています。用途別に代表例を挙げます（全量はソースコードのコメント、または`Demo_WebView2`内の`Run○○FamilyDemo`各プロシージャを参照）。
@@ -246,6 +345,8 @@ End With
 - 完了コールバックが必要なメソッド（`ExecuteScriptAsync`等）
 - WebView2ネイティブのイベント（`NavigationCompleted`等）— CDPの`Page.*`イベントで代替してください
 - 他のインターフェースへネストして依存するもの
+
+ただし、VBA とページのやり取りに使う「ホストオブジェクトの公開」と「共有バッファ」（どちらも上の節）は、CDP だけでは扱いにくいため例外として実装しています（共有バッファは、別インターフェースの `ICoreWebView2SharedBuffer` を使います）。
 :::
 
 ## 関連

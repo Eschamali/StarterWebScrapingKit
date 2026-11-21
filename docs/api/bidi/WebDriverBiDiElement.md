@@ -55,6 +55,7 @@ t.getElementByQuery("button#go").click
 | Shadow DOM | `GetShadowRoot(Optional Index)` / `GetShadowRoots` | `GetShadowRoot()` のみ（Index 引数なし）。1段ずつ辿ります |
 | `jsEval` の引数 | `returnByValue` / `generatePreview` あり | `returnByValue` の代わりに `Ownership`、`generatePreview` はなし |
 | 非同期実行オプション | `SetOptionRunAsyncCDP` | `SetOptionRunAsyncBiDi` |
+| DOM ツリーの書き出し | [`DumpDomTree`](/api/cdp/CDPElement#dumpdomtree)（`DOM.describeNode`） | **なし** |
 | 後始末 | オブジェクトの解放あり | 解放不要 |
 
 `keyboardCode`（`sendKey` のキー）、`SelectOptionMode`（`GetSelection` の基準）、`NodeNodeType`（`CurrentNodeType` の値）の列挙型は、`CDPElement.cls` 側で定義しています。両方のクラスをインポートしてください。
