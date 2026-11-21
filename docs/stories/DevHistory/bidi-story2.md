@@ -52,6 +52,8 @@ Chrome Canary が返したのは、縮めた（minify した）`mapperTab.js` �
 
 Edge Canary の404は、Edge のビルドではこの設定が無効になっているのか、Edge Canary の元になった Chromium がまだこの変更より古いのか、今のところ区別できません。
 
+（その後、2026年11月20日に更新した Edge Canary では、`/bidi-mapper.js` が Mapper を返しました。[2026年11月20日の記録](#edge-canary-20261120)を見てください）
+
 ### 変わっていないこと
 
 * **Mapper が動く場所は、今もタブです。** 今回変わったのは「Mapper がどこに入っているか」で、「どこで動くか」ではありません。取ってきた Mapper をタブに注入して動かす流れは、これまでと同じです
@@ -210,14 +212,108 @@ Chrome 側の工事をまとめると、次の3つになります。
 
 Mapper の置き場所を巡る話は、まだまだ続きそうです。
 
+## 2026年11月20日：Edge Canary も Mapper を返すようになった {#edge-canary-20261120}
+
+11月17日の記録で404だった Edge Canary を更新して、もう一度デバッグ用ポートに `GET /bidi-mapper.js` を送ってみました。今度は、Mapper が返ってきました。
+
+![Edge Canary 160.0.4414.0 の edge://version と、/bidi-mapper.js が返した Mapper](/img/bidi-story2/edge-canary-160.0.4414.0.png)
+
+| 確かめた日 | Edge Canary | 元の Chromium | 結果 |
+| --- | --- | --- | --- |
+| 2026-11-17 | 160.0.4408.0 | ― | 404 |
+| 2026-11-17（夜） | 160.0.4409.0 | 160.0.8156.0 | 404 |
+| 2026-11-20 | 160.0.4414.0 | 160.0.8160.0 | **Mapper が返ってきた** |
+
+返ってきたのは、Chrome Canary のときと同じく、Google と Microsoft の著作権表示が入った、縮めた `mapperTab.js` でした。大きさや、中のコマンド名・イベント名の件数は、今回は比べていません。
+
+### ここから言えること
+
+* **Edge のビルドでも、同梱の設定（`bundle_chrome_bidi_mapper`）は有効です。** 少なくとも Edge Canary 160.0.4414.0 では、Chrome と同じように `/bidi-mapper.js` から Mapper が取れます
+* 11月17日の404の理由は、2つの候補のうち「Edge Canary の元になった Chromium が、まだこの変更より古かった」ほうだったと考えられます。元の Chromium が 160.0.8156.0 のときは404で、160.0.8160.0 になったら返ってきたからです（ここは筆者の推測です。Edge 側で設定を有効にした時期と重なった可能性は、残っています）
+
+### このツールから見ると
+
+このツールが主に動かすのは Edge です。Edge でも、ブラウザ自身から「そのブラウザと同じビルドの Mapper」を取れる道が見えてきました。
+
+ただし、まだ Canary だけの話です。安定版の Edge に届く時期は分かりません。また、11月17日の記録の「変わっていないこと」はそのままです。Mapper が動く場所は今もタブで、`/bidi-mapper.js` を使えるのはデバッグ用の HTTP サーバーがあるとき（`--remote-debugging-port` など）だけです。
+
+（翌日、Chrome Canary のほうで `/bidi-mapper.js` が404に戻りました。[2026年11月21日の記録](#revert-20261121)を見てください）
+
+## 2026年11月21日：`/bidi-mapper.js` が取り消された {#revert-20261121}
+
+### Chrome Canary が404に戻った
+
+Chrome Canary と Edge Canary を、それぞれデバッグ用ポートで開いて、もう一度 `GET /bidi-mapper.js` を送りました。今度は、Chrome と Edge の結果が入れ替わりました。
+
+| ブラウザ | バージョン | 結果 |
+| --- | --- | --- |
+| Chrome Canary | 160.0.8173.0 | **404** |
+| Edge Canary | 160.0.4415.0 | **200**。685,153バイトの `text/javascript` |
+
+Edge Canary が返した大きさは、11月17日に Chrome Canary 160.0.8166.2 が返したものと同じでした。
+
+### 原因：`/bidi-mapper.js` の変更が取り消されていた
+
+Chromium のソースに、新しい条件が足されたわけではありませんでした。`/bidi-mapper.js` を追加した変更（8793639）そのものが、取り消し（Revert）されていました。
+
+| 日時（UTC） | 変更 | 中身 |
+| --- | --- | --- |
+| 2026-11-18 01:00 | 8830952「Revert "[DevTools] Add /bidi-mapper.js endpoint to serve bundled BiDi mapper"」 | 8793639 を取り消す |
+
+取り消しの理由には、次の一文が書かれています。
+
+> Bidi Mapper string IDR_CHROME_BIDI_MAPPER_JS is being moved from //content to //components/bidi_mapper, see http://crrev.com/c/8817570.
+
+「同梱の Mapper（`IDR_CHROME_BIDI_MAPPER_JS`）を、`//content` から `//components/bidi_mapper` へ移すところだから（8817570 を参照）」という意味です。不具合で外したのではなく、置き場所を移す工事の都合で、入口をいったん外した形です。
+
+Chrome Canary 160.0.8173.0 は、2026年11月20日に切られたビルドで、この取り消しが入っています。404 になったのは、そのためです。
+
+### 残っているもの
+
+* **Mapper の同梱（8786163）は残っています。** `content/content_resources.grd` の履歴を見る限り、同梱は取り消されていません。外れたのは、同梱物を返す HTTP の入口だけです
+* つまり今の Chrome Canary は、**Mapper を本体に持っているのに、外から取り出す口がない**状態です
+
+Edge Canary がまだ返すのは、元になった Chromium が、この取り消しより前の版だからだと考えられます（4414.0 の元は 160.0.8160.0 でした）。Edge Canary の元が新しくなれば、Edge も404に戻るはずです（ここは筆者の推測です）。
+
+### タブではない場所の変更も、取り込まれてすぐ取り消された
+
+11月17日の記録でレビュー中だった 8817570 も、動きがありました。
+
+| 日時（UTC） | 変更 | 中身 |
+| --- | --- | --- |
+| 2026-11-20 17:22 | 8817570「[bidi] Add BiDi mapper host for the chrome.driver extension API」 | 取り込まれた。同梱の Mapper を `//content` から `//components` へ移すことも含む |
+| 2026-11-20 20:53 | 8838688「Revert "[bidi] Add BiDi mapper host for the chrome.driver extension API"」 | 約3時間半後に取り消された |
+
+取り消しの理由は、Linux の UBSan（未定義の動作を見つけるための検査ビルド）のテストで、描画プロセス（renderer）が決まって落ちたことです。取り消しの説明には、入れ直すときのための原因のメモも書かれていました。
+
+* `BidiMapperHostImpl::LoadMapper` が、同梱の Mapper（ASCII 以外の文字を含む）を `Runtime.evaluate` で送っている
+* そのとき、JSON から CBOR に変える処理が、式を UTF-16 のバイト列として奇数のバイト位置に置く
+* 描画プロセスが、その位置から `char16_t` を読もうとして、位置がずれた読み出しになる
+
+このツールでも、VBA の中の UTF-16 と CDP の UTF-8 の変換には気を使ってきました。同じ種類の問題が、Chromium の中でも起きていたことになります。
+
+なお、取り込まれた版の説明には、「`goog:cdp`・`script.evaluate`・`script.callFunction` を拒否するメッセージのフィルターは、後の変更で、きちんとした ACL（使ってよい範囲の決まり）の実装に置き換える」とも書かれていました。11月17日の記録の「安全モードの BiDi」は、仮の形だったことになります。
+
+### 今の状態
+
+Chrome 側の工事を、11月17日の記録の3つに当てはめると、こうなります。
+
+* **Mapper を Chrome 本体に持たせる**：同梱は残っている。取り出す口（`/bidi-mapper.js`）は取り消された
+* **Mapper をタブ以外の場所で動かす**：一度取り込まれたが、取り消された
+* **BiDi の入口をルートごとに作る**：拡張機能の入口は、上の取り消しで足場ごと戻った。WebSocket は試作だけのまま
+
+どちらの取り消しも、計画をやめたものではなく、工事の手順を直すためのものです。置き場所を `//components/bidi_mapper` へ移す変更が入り直したあと、`/bidi-mapper.js` がまた戻るのか、別の形になるのかは、まだ分かりません。
+
 ## 参考資料
 
 ソースコードへのリンクは、確かめた時点の版に固定しています。
 
 * Chromium の変更: [8786163](https://chromium-review.googlesource.com/c/chromium/src/+/8786163)「[bidi] Bundle ChromeDriver BiDi mapper into content resources」（2026-11-11）
 * Chromium の変更: [8793639](https://chromium-review.googlesource.com/c/chromium/src/+/8793639)「[DevTools] Add /bidi-mapper.js endpoint to serve bundled BiDi mapper」（2026-11-12）
-* Chromium の変更（レビュー中）: [8817570](https://chromium-review.googlesource.com/c/chromium/src/+/8817570)「[bidi] Add BiDi mapper host for the chrome.driver extension API」（2026-11-13 作成）
+* Chromium の変更: [8817570](https://chromium-review.googlesource.com/c/chromium/src/+/8817570)「[bidi] Add BiDi mapper host for the chrome.driver extension API」（2026-11-13 作成。11-20 に取り込まれた後、取り消し）
 * Chromium の変更（実験用、取り込まない前提）: [8634745](https://chromium-review.googlesource.com/c/chromium/src/+/8634745)「[chromium-bidi] Bundle ChromeDriver BiDi mapper with Chrome」（2026-10-23 作成）
+* Chromium の変更（取り消し）: [8830952](https://chromium-review.googlesource.com/c/chromium/src/+/8830952)「Revert "[DevTools] Add /bidi-mapper.js endpoint to serve bundled BiDi mapper"」（2026-11-18）
+* Chromium の変更（取り消し）: [8838688](https://chromium-review.googlesource.com/c/chromium/src/+/8838688)「Revert "[bidi] Add BiDi mapper host for the chrome.driver extension API"」（2026-11-20）
 * Chromium の Issue: [584772915](https://issues.chromium.org/issues/584772915)「Bundle ChromeDriver BiDi mapper into content resources」（2026-11-12 作成、修正済み）
 * Chromium の Issue: [585298118](https://issues.chromium.org/issues/585298118)「Expose the bundled BiDi mapper to extensions via a chrome.driver API」（2026-11-13 作成、作業中）
 * Chromium（2026-11-17 時点の main）: [chrome/test/chromedriver/session\_commands.cc](https://chromium.googlesource.com/chromium/src/+/a73da91b4016bcc4d25ed67ecf86cdf09a42f1a2/chrome/test/chromedriver/session_commands.cc#441)（`kMapperScript` と `--bidi-mapper-path`）、[chrome/test/chromedriver/BUILD.gn](https://chromium.googlesource.com/chromium/src/+/a73da91b4016bcc4d25ed67ecf86cdf09a42f1a2/chrome/test/chromedriver/BUILD.gn#79)（`minify_bidimapper`・`embed_bidimapper_in_cpp`）
