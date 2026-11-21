@@ -73,7 +73,7 @@ promo/
       ├─ op1.wav, nt1.wav, …, en6.wav
       ├─ bgm.mp3
       └─ img/
-         └─ chrome.png, edge.png
+         └─ chrome.png, edge.png, edge2.png
 ```
 
 ## ルール
