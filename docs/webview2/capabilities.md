@@ -325,6 +325,7 @@ Debug.Print StrConv(bytes, vbUnicode)   ' hello
 - 確保したサイズは、あとから変えられません
 - 上限は 2,147,418,112 バイト（2GB − 64KB）です。これを 1 バイトでも超えると、`CreateSharedBuffer` は `Nothing` を返します
   - Microsoft の説明では「2GB 未満」です。ただし Chromium は、共有メモリのサイズを 64KB（Windows の割り当ての粒度）単位に切り上げてから、2^31 − 1 以下かを確かめています。そのため、2^31 − 1 を指定しても、切り上げると 2^31 になって失敗します（[platform_shared_memory_region_win.cc](https://chromium.googlesource.com/chromium/src/+/565c30fae47aba4a1e7d9bd986ae9fe2a5ac7445/base/memory/platform_shared_memory_region_win.cc#291)）
+  - Windows の割り当ての粒度が 64KB になった経緯は、Raymond Chen の [Why is address space allocation granularity 64KB?](https://devblogs.microsoft.com/oldnewthing/20031008-00/?p=42223)（The Old New Thing、2003年10月8日）で説明されています
 - `ReadBytes` は VBA の Byte 配列に丸ごとコピーします。数百 MB 以上を一度に読むとメモリを圧迫するので、`NumBytes` で区切って読んでください
 - このクラスは、JS 側の「書き込み終わり」の合図を持っていません。非同期で受け取るなら、`Runtime.addBinding` と `Runtime.bindingCalled` などで合図を送ってください。上の例のように、同期の `jsEval` で書き込みを済ませてから読む方法でも構いません
 - WebView2 Runtime が古く、`ICoreWebView2Environment12` が無い場合、`CreateSharedBuffer` は `Nothing` を返します

@@ -175,6 +175,7 @@ VBA → JS の向きも同じです。VBA が `WriteBytes` で書いてから `P
   - WebView2 でだけ使えます。それも、トップレベルのページ（UserForm に表示しているページ）だけです
   - 「書き込み終わり」の合図がありません。`Runtime.addBinding` で合図を送るか、同期の `jsEval` で書き込みを済ませてから読みます
   - 確保したサイズは、あとから変えられません。上限は 2,147,418,112 バイト（2GB − 64KB）です
+    - 64KB は、Windows の割り当ての粒度です。Chromium が共有メモリのサイズをこの単位に切り上げてから上限と比べるため、2GB ちょうどより 64KB 少なくなります。64KB になった経緯は、Raymond Chen の [Why is address space allocation granularity 64KB?](https://devblogs.microsoft.com/oldnewthing/20031008-00/?p=42223)（The Old New Thing、2003年10月8日）で説明されています
 
 大きなデータを VBA の中だけで受け渡したいときの本命です。
 
@@ -275,4 +276,6 @@ End Sub
 * [Browser.setDownloadBehavior](https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-setDownloadBehavior) / [Browser.downloadProgress](https://chromedevtools.github.io/devtools-protocol/tot/Browser/#event-downloadProgress)
 * [ICoreWebView2::AddHostObjectToScript](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2#addhostobjecttoscript)
 * [ICoreWebView2Environment12::CreateSharedBuffer](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2environment12#createsharedbuffer)
+* [platform_shared_memory_region_win.cc](https://chromium.googlesource.com/chromium/src/+/565c30fae47aba4a1e7d9bd986ae9fe2a5ac7445/base/memory/platform_shared_memory_region_win.cc#291)（Chromium。共有メモリのサイズを 64KB 単位に切り上げてから、2^31 − 1 以下かを確かめる）
+* [Why is address space allocation granularity 64KB?](https://devblogs.microsoft.com/oldnewthing/20031008-00/?p=42223)（The Old New Thing、2003年10月8日。Windows の割り当ての粒度が 64KB になった経緯）
 * [ネイティブ コードと Web コードの相互運用](https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/how-to/communicate-btwn-web-native)（`PostWebMessage` / `chrome.webview.postMessage` によるやり取り）
