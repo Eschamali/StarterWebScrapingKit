@@ -6,7 +6,7 @@ description: ブラウザ（ページの JavaScript）と VBA のあいだで、
 
 ## はじめに
 
-IE（`InternetExplorer.Application` や、UserForm に置く WebBrowser コントロール）を VBA で操作していたころは、VBA とページのあいだで、両方向にやり取りできました。参照設定に「Microsoft Internet Controls」と「Microsoft HTML Object Library」を足すだけで、次のようなことができました。
+IE（`InternetExplorer.Application` や、UserForm に置く WebBrowser コントロール）を VBA で操作していたころは、VBA とWebページのあいだで、両方向にやり取りできました。参照設定に「Microsoft Internet Controls」と「Microsoft HTML Object Library」を足すだけで、次のようなことができました。
 
 ### VBA からページへ
 
@@ -102,6 +102,8 @@ t.ExecuteCDP "Runtime.addBinding", params
   - 渡せるのは文字列 1 つだけです。バイナリは base64 にするので、大きなデータには向きません
 
 合図は `Runtime.addBinding`、返事は `jsEval`、と組み合わせて使うのが基本です。
+
+`Runtime.addBinding` が普通のブラウザで使えるようになった経緯は、[Web とローカルの双方向やり取り秘話](/stories/DevHistory/Two-wayInteractionStory)にまとめています。
 
 ### SharedBuffer
 
