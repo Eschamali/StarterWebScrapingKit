@@ -14,7 +14,7 @@ Attribute VB_Name = "Test_WebView2SharedBuffer"
 '   T07 同じバッファで往復      : VBA書き込み → JSが読んで続きに書く → VBAが続きを読む
 '   T08 大容量(100MB)          : JS書き込み → ReadBytes一括/分割 → get_Bufferポインターから直接WriteFile
 '   T09 確保と解放の繰り返し    : Class_Terminateでの解放が問題なく回るか
-'   T10 サイズ上限             : 2GB(2^31)は確保できない(Nothing)こと
+'   T10 サイズ上限             : 上限ちょうど(2GB-64KB=2147418112)は確保でき、+1バイトは確保できない(Nothing)こと
 '
 '   結果は %TEMP%\WV2SharedBufferTest\result.txt (UTF-8) とイミディエイトウィンドウへ出力します
 '***************************************************************************************************
@@ -360,14 +360,29 @@ Private Sub Test09_Lifecycle(wv2 As CDPCoreViaWebView2)
 End Sub
 
 '* T10: サイズ上限
+'  Chromiumは確保サイズを64KB(Windowsの割り当ての粒度)単位に切り上げてから、2^31-1以下かを確かめるため、
+'  上限は 2^31 - 2^16 = 2147418112 バイト(2GB-64KB)。1バイトでも超えると、切り上げで2^31になり確保できない
+'  (base/memory/platform_shared_memory_region_win.cc の kSectionSize)
 Private Sub Test10_SizeLimit(wv2 As CDPCoreViaWebView2)
+    Const SIZE_LIMIT As LongLong = 2147418112^  '2^31 - 2^16
     Dim sb As WebView2SharedBuffer
-    Set sb = wv2.CreateSharedBuffer(CLngLng(2 ^ 31))
+
+    '1. 上限ちょうどは確保できる
+    Set sb = wv2.CreateSharedBuffer(SIZE_LIMIT)
     'IIfは両方の式を評価するため、Nothingのときにget_Sizeを読まないようIfで分ける
     If sb Is Nothing Then
-        LogResult "T10 2GB(2^31)は確保不可", True, "Nothing"
+        LogResult "T10-1 上限ちょうど(2GB-64KB)は確保できる", False, "Nothing size=" & SIZE_LIMIT
     Else
-        LogResult "T10 2GB(2^31)は確保不可", False, "確保できてしまった Size=" & sb.get_Size
+        LogResult "T10-1 上限ちょうど(2GB-64KB)は確保できる", (sb.get_Size = SIZE_LIMIT), "Size=" & sb.get_Size
+    End If
+    Set sb = Nothing    '約2GBあるので、次の確保の前に手放す
+
+    '2. 上限+1バイトは確保できない(切り上げで2^31になる)
+    Set sb = wv2.CreateSharedBuffer(SIZE_LIMIT + 1)
+    If sb Is Nothing Then
+        LogResult "T10-2 上限+1バイトは確保できない", True, "Nothing"
+    Else
+        LogResult "T10-2 上限+1バイトは確保できない", False, "確保できてしまった Size=" & sb.get_Size
     End If
 End Sub
 
