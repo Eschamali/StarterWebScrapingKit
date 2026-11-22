@@ -1,0 +1,2073 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>令和のIE 技術秘話 ― Web とローカルの双方向やり取り、30年の輪廻</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400..900&family=Zen+Kaku+Gothic+New:wght@700;900&family=Share+Tech+Mono&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--jp:"Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:var(--jp);color:#fff}
+#c{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000}
+#ctl{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:14px;padding:10px 16px;background:linear-gradient(transparent,rgba(0,0,0,.85));font:14px var(--jp);z-index:10;transition:opacity .3s}
+#ctl button{background:#fff2;border:1px solid #fff4;color:#fff;border-radius:6px;padding:6px 14px;font:inherit;cursor:pointer}
+#ctl input{flex:1;accent-color:#ffd166}
+#ctl .hint{opacity:.6}
+body.idle #ctl{opacity:0}
+@media (pointer:coarse),(max-width:700px){#ctl .hint{display:none}}
+@media (max-width:700px){#ctl{gap:8px;padding:8px 10px}#ctl button{padding:6px 10px}}
+#start{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);cursor:pointer;font:900 40px var(--jp)}
+#start span{padding:18px 56px;border-radius:60px;background:rgba(6,6,18,.85);color:#ffd166;border:2px solid #ffd166;box-shadow:0 0 30px rgba(255,209,102,.45),inset 0 0 20px rgba(167,139,250,.25);font-family:'Zen Kaku Gothic New','Yu Gothic UI',sans-serif;font-weight:900;letter-spacing:.08em}
+#start.loading{cursor:progress}
+#start.loading span{background:#fff2;font-size:28px}
+@media (max-width:700px){#start{font-size:24px}#start span{padding:14px 30px}}
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="ctl">
+  <button id="bPlay">▶</button><button id="bRe">⟲</button><button id="bMute">🔊</button><button id="bFull">⛶</button>
+  <span id="tm">0:00 / 0:00</span>
+  <input id="seek" type="range" min="0" max="1" step="0.05" value="0">
+  <span class="hint">Space: 再生/停止　←→: 5秒　R: 最初から　M: ミュート　F: 全画面</span>
+</div>
+<div id="start" class="loading"><span id="startLbl">読み込み中…</span></div>
+
+<script>const TLD = {"duration": 730.879, "scenes": {"open": {"start": 0.0, "end": 62.948}, "title": {"start": 62.948, "end": 69.948}, "prelude": {"start": 69.948, "end": 117.761}, "act1": {"start": 117.761, "end": 202.036}, "act2": {"start": 202.036, "end": 322.503}, "act3": {"start": 322.503, "end": 364.079}, "act4": {"start": 364.079, "end": 466.963}, "act5": {"start": 466.963, "end": 565.051}, "act6": {"start": 565.051, "end": 632.8}, "finale": {"start": 632.8, "end": 712.479}, "credits": {"start": 712.479, "end": 730.879}}, "sceneOrder": ["open", "title", "prelude", "act1", "act2", "act3", "act4", "act5", "act6", "finale", "credits"], "order": ["in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8", "in9", "in10", "in11", "in12", "pl1", "pl2", "pl3", "pl4", "pl5", "pl6", "pl7", "pl8", "pl9", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "c1", "c2", "c3", "c4", "c5", "c6", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12", "d13", "d14", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "e10", "e11", "e12", "e13", "e14", "e15", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9", "g10", "g11", "g12", "g13", "g14"], "lines": {"in1": {"start": 1.6, "end": 7.616, "spk": "n", "text": "2026年11月21日。令和のIE、バージョン 4.2.2。", "say": "2026年11月21日。令和のアイイー、バージョン、よんてんにいてんに。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in2": {"start": 7.836, "end": 14.385, "spk": "n", "text": "WebView2 に、新しい機能が入ったんだ。拡張機能に対応した9月から、約2か月半ぶりだよ。", "say": "ウェブビューツーに、新しい機能が入ったんだ。拡張機能に対応した九月から、約、にかげつはんぶりだよ。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in3": {"start": 14.785, "end": 18.252, "spk": "z", "text": "もう新機能は足さないって、言ってなかったのだ？", "say": "もう新機能は、足さないって、言ってなかったのだ？", "scene": "open", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "in4": {"start": 18.652, "end": 20.7, "spk": "n", "text": "ふふっ。理由は、ただ1つ。", "say": "ふふっ。理由は、ただひとつ。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in5": {"start": 21.42, "end": 25.303, "spk": "n", "text": "ブラウザと VBA のやり取りを、いかに楽にできるか。", "say": "ブラウザと、ブイビーエーのやり取りを、いかに、楽にできるか。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in6": {"start": 25.923, "end": 33.613, "spk": "n", "text": "CDP の Runtime.addBinding でも、できることはできる。でも、このツールは WebView2 にも対応してる。", "say": "シーディーピーの、ランタイム、アドバインディングでも、できることはできる。でも、このツールは、ウェブビューツーにも、対応してる。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in7": {"start": 33.833, "end": 38.975, "spk": "n", "text": "だから、選択肢を増やしたの。AddHostObjectToScript と、SharedBuffer。", "say": "だから、選択肢を増やしたの。アドホストオブジェクトトゥースクリプトと、シェアードバッファー。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in8": {"start": 39.375, "end": 44.463, "spk": "z", "text": "ページから VBA を呼べて、大きなデータも渡せるのだ！ 新しいのだ！", "say": "ページから、ブイビーエーを呼べて、大きなデータも渡せるのだ！ 新しいのだ！", "scene": "open", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "in9": {"start": 45.463, "end": 47.255, "spk": "n", "text": "……新しい？ ううん。", "say": "あたらしい？ ううん。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in10": {"start": 47.475, "end": 50.515, "spk": "n", "text": "これはね、このツールに限った話じゃないんだ。", "say": "これはね、このツールに限った話じゃ、ないんだ。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in11": {"start": 53.135, "end": 59.215, "spk": "n", "text": "Web とローカルは、30年前から、くっついては離れて、名前を変えて、またくっついてきた。", "say": "ウェブとローカルは、さんじゅうねん前から、くっついては離れて、名前を変えて、また、くっついてきた。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "in12": {"start": 59.735, "end": 62.348, "spk": "n", "text": "同じことを、ずっと、繰り返してるの。", "say": "同じことを、ずっと、繰り返してるの。", "scene": "open", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "pl1": {"start": 72.348, "end": 74.449, "spk": "n", "text": "始まりは、ある要望だったんだ。", "say": "始まりは、ある要望だったんだ。", "scene": "prelude", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "pl2": {"start": 74.669, "end": 78.989, "spk": "n", "text": "スクレイピングは、こちらから命令を投げて、返事を待つのが基本。", "say": "スクレイピングは、こちらから命令を投げて、返事を待つのが、基本。", "scene": "prelude", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "pl3": {"start": 79.209, "end": 86.228, "spk": "n", "text": "今は CDP や WebDriver BiDi で、ブラウザの中の出来事が、イベントとして向こうから届く。", "say": "今は、シーディーピーや、ウェブドライバー、バイディで、ブラウザの中の出来事が、イベントとして、向こうから届く。", "scene": "prelude", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "pl4": {"start": 86.628, "end": 88.367, "spk": "z", "text": "それで十分なのだ。", "say": "それで、十分なのだ。", "scene": "prelude", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "pl5": {"start": 88.767, "end": 96.5, "spk": "n", "text": "でも届くのは、ブラウザが決めたイベントだけ。足すかどうかは、CDP なら Google、BiDi なら W3C 次第。", "say": "でも、届くのは、ブラウザが決めたイベントだけ。足すかどうかは、シーディーピーなら、グーグル、バイディなら、ダブリュースリーシー次第。", "scene": "prelude", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "pl6": {"start": 96.72, "end": 103.643, "spk": "n", "text": "そこに、こんな声。ページの中の出来事が、好きな条件に当てはまったら、それもイベントで送ってほしい。", "say": "そこに、こんな声。ページの中の出来事が、好きな条件に当てはまったら、それも、イベントで送ってほしい。", "scene": "prelude", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "pl7": {"start": 104.043, "end": 106.795, "spk": "z", "text": "イベントを、自分で作りたいってことなのだ。", "say": "イベントを、自分で作りたいってことなのだ。", "scene": "prelude", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "pl8": {"start": 107.195, "end": 109.477, "spk": "n", "text": "それを聞いて、ふと思ったんだ。", "say": "それを聞いて、ふと、思ったんだ。", "scene": "prelude", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "pl9": {"start": 109.697, "end": 116.961, "spk": "n", "text": "それって、IE をアプリに埋め込んで、双方向にやり取りしてた、昔のあの仕組みと同じじゃない？", "say": "それって、アイイーを、アプリに埋め込んで、双方向に、やり取りしてた、昔の、あの仕組みと、同じじゃない？", "scene": "prelude", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a1": {"start": 120.361, "end": 128.575, "spk": "n", "text": "1996年。Microsoft は、Web ページに Windows の技術を埋め込める ActiveX と、VBScript を出した。", "say": "1996年。マイクロソフトは、ウェブページに、ウィンドウズの技術を埋め込める、アクティブエックスと、ブイビースクリプトを出した。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a2": {"start": 128.795, "end": 134.8, "spk": "n", "text": "IE そのものも、WebBrowser コントロールとして、自分のアプリに部品のように埋め込めたの。", "say": "アイイーそのものも、ウェブブラウザーコントロールとして、自分のアプリに、部品のように、埋め込めたの。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a3": {"start": 135.02, "end": 142.999, "spk": "n", "text": "埋め込んだ IE とアプリは、両方向に話せた。ページからは window.external、アプリからは InvokeScript。", "say": "埋め込んだアイイーと、アプリは、両方向に話せた。ページからは、ウィンドウ、エクスターナル。アプリからは、インボークスクリプト。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a4": {"start": 143.219, "end": 147.656, "spk": "n", "text": "手順書の題も、そのものずばり。双方向の通信を実装する。", "say": "手順書の題も、そのものずばり。双方向の通信を、実装する。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a5": {"start": 148.056, "end": 150.243, "spk": "z", "text": "VBA は、どうだったのだ？", "say": "ブイビーエーは、どうだったのだ？", "scene": "act1", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "a6": {"start": 150.643, "end": 158.568, "spk": "n", "text": "VBA も、IE と同じ COM の世界にいた。WithEvents で持てば、ページのクリックまで、VBA で受け取れたんだよ。", "say": "ブイビーエーも、アイイーと同じ、コムの世界にいた。ウィズイベンツで持てば、ページのクリックまで、ブイビーエーで、受け取れたんだよ。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a7": {"start": 158.788, "end": 164.239, "spk": "n", "text": "Windows 98 では、アクティブデスクトップ。デスクトップそのものに、Web が入り込んだ。", "say": "ウィンドウズきゅうじゅうはちでは、アクティブデスクトップ。デスクトップそのものに、ウェブが入り込んだ。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a8": {"start": 164.759, "end": 169.484, "spk": "n", "text": "そして1999年。究極形が来るの。HTA。", "say": "そして、1999年。究極形が来るの。エイチティーエー。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a9": {"start": 169.704, "end": 176.499, "spk": "n", "text": "HTML と JavaScript だけで、ローカルのアプリが作れる。しかも、完全に信頼されたアプリとして。", "say": "エイチティーエムエルと、ジャバスクリプトだけで、ローカルのアプリが作れる。しかも、完全に信頼されたアプリとして。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a10": {"start": 176.719, "end": 184.964, "spk": "n", "text": "new ActiveXObject で、Excel.Application。HTA の JavaScript から、Excel を立ち上げて操れたんだ。", "say": "ニュー、アクティブエックスオブジェクトで、エクセル、アプリケーション。エイチティーエーの、ジャバスクリプトから、エクセルを立ち上げて、操れたんだ。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a11": {"start": 185.364, "end": 191.252, "spk": "z", "text": "普通のブラウザなら fakepath でごまかされるファイルの場所が、本物のまま取れてるのだ！", "say": "普通のブラウザなら、フェイクパスで、ごまかされるファイルの場所が、本物のまま、取れてるのだ！", "scene": "act1", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "a12": {"start": 191.652, "end": 199.503, "spk": "n", "text": "メモ帳で数行書いて、拡張子を .hta にするだけ。OS に入ってる IE を借りて、アプリのできあがり。", "say": "メモ帳で、数行書いて、拡張子を、エイチティーエーにするだけ。オーエスに入ってる、アイイーを借りて、アプリの、できあがり。", "scene": "act1", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "a13": {"start": 199.903, "end": 201.236, "spk": "z", "text": "自由な時代なのだ……", "say": "自由な時代なのだ。", "scene": "act1", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "b1": {"start": 204.636, "end": 208.519, "spk": "n", "text": "でも、壁がないってことは、悪意も素通りできるってこと。", "say": "でも、壁がないってことは、悪意も、素通りできるってこと。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b2": {"start": 208.739, "end": 214.008, "spk": "n", "text": "2000年5月、ILOVEYOU。VBScript のワームが、世界中に広がった。", "say": "2000年5月。アイラブユー。ブイビースクリプトの、ワームが、世界中に広がった。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b3": {"start": 214.228, "end": 221.684, "spk": "n", "text": "2012年7月には、Windows のガジェットを丸ごと無効にする修正が出た。深刻な脆弱性がある、って。", "say": "2012年7月には、ウィンドウズの、ガジェットを、丸ごと無効にする修正が出た。深刻な脆弱性がある、って。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b4": {"start": 221.904, "end": 229.339, "spk": "n", "text": "ブラウザも、別棟に移っていく。2008年の Chrome は、ページを描くプロセスを、サンドボックスに閉じ込めた。", "say": "ブラウザも、別棟に移っていく。2008年の、クロームは、ページを描くプロセスを、サンドボックスに、閉じ込めた。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b5": {"start": 229.559, "end": 235.543, "spk": "n", "text": "2015年。新しい Edge は、ActiveX と VBScript に、さよならを告げたの。", "say": "2015年。新しいエッジは、アクティブエックスと、ブイビースクリプトに、さよならを告げたの。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b6": {"start": 235.943, "end": 237.084, "spk": "z", "text": "壁ができたのだ……", "say": "壁ができたのだ。", "scene": "act2", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "b7": {"start": 237.484, "end": 245.548, "spk": "n", "text": "すると、抜け道が掘られた。独自の URL スキーム。localhost の Web サーバー。そして、ネイティブメッセージング。", "say": "すると、抜け道が掘られた。独自の、ユーアールエル、スキーム。ローカルホストの、ウェブサーバー。そして、ネイティブメッセージング。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b8": {"start": 245.768, "end": 249.629, "spk": "n", "text": "でも、抜け道は、悪意のあるページにとっても抜け道。", "say": "でも、抜け道は、悪意のあるページにとっても、抜け道。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b9": {"start": 249.849, "end": 257.924, "spk": "n", "text": "2019年、Mac 版 Zoom の localhost のサーバーは、ページから会議に参加させられると公表されて、取り除かれた。", "say": "2019年。マック版ズームの、ローカルホストのサーバーは、ページから、会議に参加させられると公表されて、取り除かれた。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b10": {"start": 258.144, "end": 267.339, "spk": "n", "text": "日本の電子入札補助アプリは、ポート9980。呼んでいい相手を、許可 URL リストで決めてる。", "say": "日本の、電子入札補助アプリは、ポート、キュウ、キュウ、ハチ、ゼロ。呼んでいい相手を、許可、ユーアールエル、リストで、決めてる。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b11": {"start": 267.739, "end": 269.371, "spk": "z", "text": "関所を作ったのだ。", "say": "関所を、作ったのだ。", "scene": "act2", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "b12": {"start": 270.071, "end": 273.335, "spk": "n", "text": "それでも、IE を組み込むアプリは止まらなかった。", "say": "それでも、アイイーを組み込むアプリは、止まらなかった。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b13": {"start": 273.555, "end": 285.277, "spk": "n", "text": "2022年6月、IE11 のアプリはサポート終了。でも中身の MSHTML と、WebBrowser コントロールと、MSHTA は、動き続ける。", "say": "2022年6月。アイイーじゅういちの、アプリは、サポート終了。でも、中身の、エムエスエイチティーエムエルと、ウェブブラウザーコントロールと、エムエスエイチティーエーは、動き続ける。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b14": {"start": 285.497, "end": 291.769, "spk": "n", "text": "たとえば Excel の Power Query。Web.Page 関数は、IE の上に作られてるんだ。", "say": "たとえば、エクセルの、パワークエリ。ウェブ、ページ関数は、アイイーの上に、作られてるんだ。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b15": {"start": 292.169, "end": 300.276, "spk": "z", "text": "Power Query エディターに、IE の開発者ツールが開いてるのだ!? 画面が、IE の HTML なのだ！", "say": "パワークエリエディターに、アイイーの、開発者ツールが、開いてるのだ！？ 画面が、アイイーの、エイチティーエムエルなのだ！", "scene": "act2", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "b16": {"start": 300.676, "end": 306.436, "spk": "n", "text": "画面からは、WebView2 を使う Web.BrowserContents への置き換えが、進んでるけどね。", "say": "画面からは、ウェブビューツーを使う、ウェブ、ブラウザーコンテンツへの置き換えが、進んでるけどね。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b17": {"start": 306.656, "end": 314.539, "spk": "n", "text": "IE のサポート終了の直後も、業務で IE を使ってるが12%、IE モードが35%。", "say": "アイイーの、サポート終了の直後も、業務で、アイイーを使ってるが、じゅうにパーセント。アイイーモードが、さんじゅうごパーセント。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "b18": {"start": 314.759, "end": 321.703, "spk": "n", "text": "e-Tax や、マイナンバーカードの読み取りは、拡張機能とローカルのソフトが、手を組む形になったんだ。", "say": "イータックスや、マイナンバーカードの読み取りは、拡張機能と、ローカルのソフトが、手を組む形に、なったんだ。", "scene": "act2", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "c1": {"start": 325.103, "end": 329.935, "spk": "n", "text": "壁越しにつなぐのが面倒なら、アプリそのものを、ブラウザにしてしまえばいい。", "say": "壁越しに、つなぐのが面倒なら、アプリそのものを、ブラウザにしてしまえばいい。", "scene": "act3", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "c2": {"start": 330.155, "end": 338.752, "spk": "n", "text": "2013年3月、Atom Shell の最初のコミット。Chromium と Node.js を抱えて、ローカルの権限まで持つアプリが作れる。", "say": "2013年3月。アトムシェルの、最初のコミット。クロミウムと、ノードジェイエスを抱えて、ローカルの権限まで持つアプリが、作れる。", "scene": "act3", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "c3": {"start": 338.972, "end": 345.009, "spk": "n", "text": "2015年に、名前を Electron に変えた。メールも、チャットも、Git のクライアントも。", "say": "2015年に、名前を、エレクトロンに変えた。メールも、チャットも、ギットのクライアントも。", "scene": "act3", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "c4": {"start": 345.409, "end": 351.127, "spk": "z", "text": "HTML と JavaScript で、ローカルを触るアプリ……どこかで聞いたのだ。", "say": "エイチティーエムエルと、ジャバスクリプトで、ローカルを触るアプリ。どこかで、聞いたのだ。", "scene": "act3", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "c5": {"start": 351.827, "end": 354.333, "spk": "n", "text": "そう。HTA の、生まれ変わり。", "say": "そう。エイチティーエーの、生まれ変わり。", "scene": "act3", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "c6": {"start": 354.553, "end": 363.279, "spk": "n", "text": "Microsoft も2012年、Office の拡張を Web の技術へ。Office アドインは、サンドボックスの中から Office とやり取りするの。", "say": "マイクロソフトも、2012年、オフィスの拡張を、ウェブの技術へ。オフィスアドインは、サンドボックスの中から、オフィスと、やり取りするの。", "scene": "act3", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d1": {"start": 366.679, "end": 370.572, "spk": "n", "text": "そのころ、組み込み IE は、いよいよ引退に向かってた。", "say": "そのころ、組み込みアイイーは、いよいよ、引退に向かってた。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d2": {"start": 370.792, "end": 380.733, "spk": "n", "text": "Access の旧ブラウザコントロールは、2027年5月に廃止の予定。Outlook の Outlook Today も、2027年8月に無効になる。", "say": "アクセスの、旧ブラウザコントロールは、2027年5月に、廃止の予定。アウトルックの、アウトルックトゥデイも、2027年8月に、無効になる。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d3": {"start": 380.953, "end": 389.103, "spk": "n", "text": "その正統な後継が、WebView2。2020年10月に一般提供。Windows 11 には、最初から入ってる。", "say": "その、正統な後継が、ウェブビューツー。2020年10月に、一般提供。ウィンドウズじゅういちには、最初から入ってる。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d4": {"start": 389.503, "end": 394.409, "spk": "z", "text": "OS に入ってるブラウザの部品を借りる……IE と、同じなのだ。", "say": "オーエスに入ってる、ブラウザの部品を借りる。アイイーと、同じなのだ。", "scene": "act4", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "d5": {"start": 394.809, "end": 402.767, "spk": "n", "text": "最初の版から、ページと話す仕組みもそろってた。AddHostObjectToScript は、window.external の生まれ変わり。", "say": "最初の版から、ページと話す仕組みも、そろってた。アドホストオブジェクトトゥースクリプトは、ウィンドウ、エクスターナルの、生まれ変わり。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d6": {"start": 402.987, "end": 409.675, "spk": "n", "text": "それに、PostWebMessageAsJson と chrome.webview.postMessage で、メッセージを両方向に。", "say": "それに、ポストウェブメッセージアズジェイソンと、クローム、ウェブビュー、ポストメッセージで、メッセージを両方向に。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d7": {"start": 409.895, "end": 417.287, "spk": "n", "text": "軽いデータなら、これで十分。でも今の Chromium は、ゲームが動くほど速い。大きなデータも、扱いたくなる。", "say": "軽いデータなら、これで十分。でも、今のクロミウムは、ゲームが動くほど速い。大きなデータも、扱いたくなる。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d8": {"start": 417.507, "end": 425.464, "spk": "n", "text": "要望には、こんな声。1ページ100MB のデータを、base64 の文字列にして送るしかなくて、遅い。", "say": "要望には、こんな声。いちページ、ひゃくメガバイトのデータを、ベースろくじゅうよんの文字列にして、送るしかなくて、遅い。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d9": {"start": 425.864, "end": 429.8, "spk": "z", "text": "丸ごと文字列にして、運んで、作り直す……あっ！", "say": "丸ごと文字列にして、運んで、作り直す。あっ！", "scene": "act4", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "d10": {"start": 430.02, "end": 438.02, "spk": "z", "text": "VBA で Excel を固まらせる、A = A & B と、同じなのだ！", "say": "ブイビーエーで、エクセルを固まらせる、エー、イコール、エー、アンド、ビーと、同じなのだ！", "scene": "act4", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "d11": {"start": 438.42, "end": 443.017, "spk": "n", "text": "ふふっ、構造はそっくりだね。つなぐたびに、丸ごと作り直す。", "say": "ふふっ、構造は、そっくりだね。つなぐたびに、丸ごと、作り直す。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d12": {"start": 443.237, "end": 450.107, "spk": "n", "text": "そこで入ったのが、SharedBuffer。OS の共有メモリを、ホストとページが一緒に読み書きする。", "say": "そこで入ったのが、シェアードバッファー。オーエスの、共有メモリを、ホストとページが、一緒に、読み書きする。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d13": {"start": 450.327, "end": 458.188, "spk": "n", "text": "VBA でいうなら、A = A & B をやめて、確保したバッファに Mid で書き込む発想だよ。", "say": "ブイビーエーで言うなら、エー、イコール、エー、アンド、ビーをやめて、確保したバッファーに、ミッドで書き込む、発想だよ。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "d14": {"start": 458.408, "end": 466.163, "spk": "n", "text": "11月21日に、このツールが足したのは、まさにこの2つ。AddHostObjectToScript と、SharedBuffer。", "say": "十一月二十一日に、このツールが足したのは、まさに、このふたつ。アドホストオブジェクトトゥースクリプトと、シェアードバッファー。", "scene": "act4", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e1": {"start": 469.563, "end": 475.355, "spk": "n", "text": "普通のブラウザは、サンドボックスが第一。だから安心して、ネットサーフィンできる。", "say": "普通のブラウザは、サンドボックスが、第一。だから、安心して、ネットサーフィンできる。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e2": {"start": 475.575, "end": 478.337, "spk": "n", "text": "でも、テストの自動化には、これが厄介。", "say": "でも、テストの自動化には、これが厄介。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e3": {"start": 478.557, "end": 486.728, "spk": "n", "text": "ところが、デバッグ用の口を開けば、普通のブラウザでも、ページとアプリがつながる。その通り道が、Runtime.addBinding。", "say": "ところが、デバッグ用の口を開けば、普通のブラウザでも、ページとアプリが、つながる。その通り道が、ランタイム、アドバインディング。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e4": {"start": 486.948, "end": 494.724, "spk": "n", "text": "でも、最初からあったわけじゃない。昔の Puppeteer は、console.debug に印を付けて、合図の代わりにしてたんだ。", "say": "でも、最初からあったわけじゃない。昔の、パペッティアは、コンソール、デバッグに、印を付けて、合図の代わりにしてたんだ。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e5": {"start": 495.124, "end": 497.705, "spk": "z", "text": "コンソールを、伝言板にしてたのだ!?", "say": "コンソールを、伝言板にしてたのだ！？", "scene": "act5", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "e6": {"start": 498.105, "end": 508.164, "spk": "n", "text": "2018年5月、V8 の DevTools 担当が、Runtime.addBinding を足した。console.debug は遅いし、そのための仕組みじゃないから。", "say": "2018年5月。ブイエイトの、デブツールズ担当が、ランタイム、アドバインディングを足した。コンソール、デバッグは遅いし、そのための仕組みじゃ、ないから。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e7": {"start": 508.384, "end": 514.368, "spk": "n", "text": "マイクロベンチマークで、約4.6倍速い。翌月には Puppeteer も切り替えた。", "say": "マイクロベンチマークで、約、よんてんろく倍速い。翌月には、パペッティアも、切り替えた。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e8": {"start": 514.588, "end": 519.303, "spk": "n", "text": "コミットの言葉は、New way is faster and cleaner.", "say": "コミットの言葉は、ニューウェイ、イズ、ファスター、アンド、クリーナー。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e9": {"start": 519.523, "end": 525.4, "spk": "n", "text": "このツールの BiDi も、Mapper からの返事を、Runtime.addBinding で受け取ってるんだよ。", "say": "このツールの、バイディも、マッパーからの返事を、ランタイム、アドバインディングで、受け取ってるんだよ。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e10": {"start": 525.8, "end": 529.085, "spk": "z", "text": "じゃあ、WebView2 の postMessage と……", "say": "じゃあ、ウェブビューツーの、ポストメッセージと。", "scene": "act5", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "e11": {"start": 529.485, "end": 537.752, "spk": "n", "text": "並べてみよっか。ページで呼べば、ホストに非同期で届く。WebView2 は COM のコールバック、Chromium は CDP のイベント。", "say": "並べてみよっか。ページで呼べば、ホストに、非同期で届く。ウェブビューツーは、コムのコールバック。クロミウムは、シーディーピーのイベント。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e12": {"start": 538.152, "end": 539.635, "spk": "z", "text": "一緒やん、なのだ！", "say": "いっしょやん、なのだ！", "scene": "act5", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "e13": {"start": 540.035, "end": 544.664, "spk": "n", "text": "まったく違うところで生まれたのに、同じ考え方に、たどり着いたんだね。", "say": "まったく違うところで、生まれたのに、同じ考え方に、たどり着いたんだね。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e14": {"start": 544.884, "end": 555.86, "spk": "n", "text": "ただし、大容量は苦手。CDP の通り道は、アプリからブラウザへ、100MB まで。VBA の String の、約20億文字より、ずっと小さい。", "say": "ただし、大容量は、苦手。シーディーピーの通り道は、アプリからブラウザへ、ひゃくメガバイトまで。ブイビーエーの、ストリングの、約、にじゅうおく文字より、ずっと小さい。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "e15": {"start": 556.08, "end": 564.251, "spk": "n", "text": "だからこのツールでは、合図は addBinding、返事は jsEval。大きなデータは、SharedBuffer か、ダウンロード。", "say": "だから、このツールでは、合図は、アドバインディング。返事は、ジェイエスエバル。大きなデータは、シェアードバッファーか、ダウンロード。", "scene": "act5", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f1": {"start": 567.651, "end": 574.275, "spk": "n", "text": "2025年。普段使いの Chrome のリモートデバッグを悪用して、Cookie を抜く攻撃が増えた。", "say": "2025年。普段使いの、クロームの、リモートデバッグを悪用して、クッキーを抜く攻撃が、増えた。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f2": {"start": 574.495, "end": 580.959, "spk": "n", "text": "Chrome 136 からは、既定のユーザーデータでは、デバッグ用の引数が無視されるようになった。", "say": "クローム、ひゃくさんじゅうろくからは、既定のユーザーデータでは、デバッグ用の引数が、無視されるようになった。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f3": {"start": 581.359, "end": 583.033, "spk": "z", "text": "壁が、また閉まるのだ……", "say": "壁が、また閉まるのだ。", "scene": "act6", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "f4": {"start": 583.433, "end": 589.481, "spk": "n", "text": "Office のマクロも、2022年から、インターネットのファイルは既定でブロック。同じ流れだね。", "say": "オフィスのマクロも、2022年から、インターネットのファイルは、既定でブロック。同じ流れだね。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f5": {"start": 589.701, "end": 595.653, "spk": "n", "text": "Chrome 142 では、ページが localhost につなぐときも、許可を求めるようになった。", "say": "クローム、ひゃくよんじゅうにでは、ページが、ローカルホストにつなぐときも、許可を求めるようになった。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f6": {"start": 595.873, "end": 600.844, "spk": "n", "text": "ところが同じ年の暮れ、AI にブラウザを操作させる時代が来る。", "say": "ところが、同じ年の暮れ、エーアイに、ブラウザを操作させる時代が、来る。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f7": {"start": 601.064, "end": 607.571, "spk": "n", "text": "Chrome 144 では、inspect の画面で許可すれば、普段使いのブラウザにも、つなげるようになった。", "say": "クローム、ひゃくよんじゅうよんでは、インスペクトの画面で許可すれば、普段使いのブラウザにも、つなげるようになった。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f8": {"start": 607.971, "end": 612.728, "spk": "z", "text": "人が許可を押したときだけ開く……コンテンツの有効化のバーなのだ！", "say": "人が、許可を押したときだけ開く。コンテンツの有効化の、バーなのだ！", "scene": "act6", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "f9": {"start": 613.128, "end": 620.531, "spk": "n", "text": "2026年4月には、winapp ui。動いている Windows のアプリを、コマンドラインから操作できる。", "say": "2026年4月には、ウィンアップ、ユーアイ。動いている、ウィンドウズのアプリを、コマンドラインから、操作できる。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f10": {"start": 620.751, "end": 627.791, "spk": "n", "text": "そして今年は、揺り戻しも。Windows のアプリを、100%ネイティブで作るチームの話が、報じられた。", "say": "そして今年は、揺り戻しも。ウィンドウズのアプリを、ひゃくパーセント、ネイティブで作るチームの話が、報じられた。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "f11": {"start": 628.011, "end": 632.0, "spk": "n", "text": "Web へ振れた振り子が、ネイティブへ、戻り始めたのかもしれないね。", "say": "ウェブへ振れた振り子が、ネイティブへ、戻り始めたのかもしれないね。", "scene": "act6", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g1": {"start": 635.4, "end": 636.36, "spk": "n", "text": "並べてみよう。", "say": "並べてみよう。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g2": {"start": 636.58, "end": 643.332, "spk": "n", "text": "アプリにブラウザの部品を埋め込む。1990年代は IE、今は WebView2。", "say": "アプリに、ブラウザの部品を、埋め込む。せんきゅうひゃくきゅうじゅうねんだいは、アイイー。今は、ウェブビューツー。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g3": {"start": 643.552, "end": 651.659, "spk": "n", "text": "HTML と JavaScript で、ローカルを触るアプリ。1990年代は HTA、今は Electron。", "say": "エイチティーエムエルと、ジャバスクリプトで、ローカルを触るアプリ。せんきゅうひゃくきゅうじゅうねんだいは、エイチティーエー。今は、エレクトロン。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g4": {"start": 652.659, "end": 655.613, "spk": "z", "text": "……やってること、1ミリも変わってないのだ！！", "say": "やってること、いちミリも、変わってないのだ！！", "scene": "finale", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "g5": {"start": 656.013, "end": 666.339, "spk": "n", "text": "しかも軽さは、HTA のほうが上。OS の IE を借りるから、数キロバイト。Electron は Chromium を丸ごと抱えるから、大きい。", "say": "しかも、軽さは、エイチティーエーのほうが、上。オーエスの、アイイーを借りるから、すうキロバイト。エレクトロンは、クロミウムを、丸ごと抱えるから、大きい。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g6": {"start": 666.559, "end": 672.201, "spk": "n", "text": "そこで Tauri。Windows なら最初から入ってる WebView2 を借りようぜ、って。", "say": "そこで、タウリ。ウィンドウズなら、最初から入ってる、ウェブビューツーを、借りようぜ、って。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g7": {"start": 672.601, "end": 675.823, "spk": "z", "text": "それ、HTA への先祖返りなのだ！", "say": "それ、エイチティーエーへの、先祖返りなのだ！", "scene": "finale", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "g8": {"start": 676.223, "end": 685.695, "spk": "n", "text": "便利すぎて、悪用される。いったん封印される。でも、欲しい気持ちは消えない。だから、名前と中身を新しくして、もう一度作る。", "say": "便利すぎて、悪用される。いったん、封印される。でも、欲しい気持ちは、消えない。だから、名前と中身を新しくして、もう一度、作る。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g9": {"start": 685.915, "end": 691.024, "spk": "n", "text": "技術は右肩上がりに見えて、実は、無限ループの中にいるのかもしれない。", "say": "技術は、右肩上がりに見えて、実は、無限ループの中に、いるのかもしれない。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g10": {"start": 691.644, "end": 697.073, "spk": "n", "text": "すべての最新技術は、昔の Microsoft が、すでに通った道の、リメイク版。", "say": "すべての、最新技術は、昔のマイクロソフトが、すでに通った道の、リメイク版。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g11": {"start": 698.073, "end": 701.103, "spk": "z", "text": "じゃあ、令和のIE の新機能も……", "say": "じゃあ、令和のアイイーの、新機能も。", "scene": "finale", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}, "g12": {"start": 701.503, "end": 704.617, "spk": "n", "text": "うん。window.external の、リメイク版。", "say": "うん。ウィンドウ、エクスターナルの、リメイク版。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g13": {"start": 704.837, "end": 708.091, "spk": "n", "text": "名前は変わっても、中身はきっと、同じ。", "say": "名前は変わっても、中身は、きっと、同じ。", "scene": "finale", "p": {"speaker": 54, "speed": 1.2, "pitch": 0.0, "intonation": 1.15}, "style": "ノーマル"}, "g14": {"start": 708.991, "end": 711.679, "spk": "z", "text": "次は、何に生まれ変わるのだ……？", "say": "次は、何に、生まれ変わるのだ？", "scene": "finale", "p": {"speaker": 3, "speed": 1.26, "pitch": 0.0, "intonation": 1.1}, "style": "ノーマル"}}};
+</script>
+<script>// 描画の土台: 舞台は「輪廻の回路」。暗い空間に、光る ∞（無限大）の道が浮かぶ
+// ∞ の道には、ページ→アプリ（青緑）とアプリ→ページ（橙）の光の粒が、逆向きに流れ続ける（双方向）。真ん中の交差点には、赤い「壁」
+// 幕ごとに、∞ の上の駅へ光が進み、年のカウンターが回る。名前だけが変わる瞬間は、文字が崩れて金色に組み替わる（生まれ変わり）
+// 「ReiwaIE_DebugRoute」と同じ系統: 暗い画面、光る線と流れる粒、グリッチ文字、章扉、上の HUD、丸いアイコンの字幕
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const W = 1920, H = 1080;
+let SC = 1;
+
+const JP = "'Noto Sans JP','Yu Gothic UI','Meiryo',sans-serif";
+const DISP = "'Zen Kaku Gothic New','Yu Gothic UI','Meiryo',sans-serif";
+const CODE = "'JetBrains Mono','Consolas',monospace";
+const MONO = "'Share Tech Mono','Consolas',monospace";
+const IMG_DIR = 'voice/ReiwaIE_TwoWay/img/';
+
+// 色: 深い藍の闇。つながる＝青緑、壁＝赤、生まれ変わり＝金。Web（ページ）＝青、ローカル（アプリ）＝橙
+const C = {
+  bg0: '#04030a', bg1: '#0c0a22', ink: '#e9ebf5', dim: '#7c80a0', dim2: '#4a4e6e',
+  link: '#2de2c4', wall: '#ff3b5c', gold: '#ffd166', web: '#7aa7ff', local: '#ff9f43', violet: '#a78bfa',
+  nana: '#ff8fb1', zunda: '#8bd450', glass: 'rgba(12,13,30,.82)', ok: '#4ade80',
+  code: '#0d0f1c', vb: '#c9a0ff', str: '#9ae6b4', kw: '#7aa7ff', cmt: '#6b7090', num: '#ffb86b',
+};
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const PT = (t, t0, d) => d <= 0 ? (t >= t0 ? 1 : 0) : clamp((t - t0) / d);
+const E = {
+  in: k => k * k * k,
+  out: k => 1 - Math.pow(1 - k, 3),
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  back: k => { const c = 1.9; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); },
+};
+const hr = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const L = id => { const l = TLD.lines[id]; if (!l) throw new Error('no line ' + id); return l; };
+const S = id => TLD.scenes[id];
+const F = (id, f) => { const l = L(id); return l.start + (l.end - l.start) * f; };
+const win = (t, a, b, fi = .3, fo = .3) => clamp(Math.min((t - a) / fi, (b - t) / fo));
+
+// ---------- 文字と図形 ----------
+function txt(s, x, y, o = {}) {
+  ctx.save();
+  ctx.font = o.font || `500 32px ${JP}`;
+  ctx.textAlign = o.align || 'left';
+  ctx.textBaseline = o.base || 'middle';
+  ctx.globalAlpha *= (o.alpha ?? 1);
+  if (o.ls) ctx.letterSpacing = o.ls + 'px';
+  if (o.maxW) { const w = ctx.measureText(s).width; if (w > o.maxW) { ctx.translate(x, y); ctx.scale(o.maxW / w, 1); x = 0; y = 0; } }
+  if (o.stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = o.sw || 6; ctx.strokeStyle = o.stroke; ctx.strokeText(s, x, y); }
+  if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = o.gb ?? 18; }
+  ctx.fillStyle = o.color || C.ink;
+  ctx.fillText(s, x, y);
+  ctx.restore();
+}
+function tw(s, font, ls = 0) { ctx.save(); ctx.font = font; if (ls) ctx.letterSpacing = ls + 'px'; const w = ctx.measureText(s).width; ctx.restore(); return w; }
+const WRAPS = {};
+function wrap(s, font, maxW) {
+  const key = font + '|' + maxW + '|' + s;
+  if (WRAPS[key]) return WRAPS[key];
+  ctx.save(); ctx.font = font;
+  const rows = [];
+  for (const para of s.split('\n')) {
+    let cur = '';
+    for (const ch of para) {
+      if (ctx.measureText(cur + ch).width > maxW && cur) {
+        if ('、。」）』！？…ー'.includes(ch)) { cur += ch; continue; }
+        const cut = cur.lastIndexOf(' ');
+        if (cut > cur.length * .5) { rows.push(cur.slice(0, cut)); cur = cur.slice(cut + 1) + ch; }
+        else { rows.push(cur); cur = ch; }
+      } else cur += ch;
+    }
+    rows.push(cur);
+  }
+  ctx.restore();
+  return (WRAPS[key] = rows);
+}
+function para(s, x, y, maxW, o = {}) {
+  const font = o.font || `500 30px ${JP}`, lh = o.lh || 44;
+  const rows = wrap(s, font, maxW);
+  rows.forEach((r, i) => txt(r, x, y + i * lh, { ...o, font, base: 'top' }));
+  return rows.length * lh;
+}
+function rr(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function line(x1, y1, x2, y2, col, w = 2, a = 1, dash) {
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round';
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+}
+function flash(color, a) {
+  if (a <= 0) return;
+  ctx.save(); ctx.setTransform(SC, 0, 0, SC, 0, 0); ctx.globalAlpha = clamp(a); ctx.fillStyle = color; ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+function typed(s, x, y, p, o = {}) {
+  const n = Math.floor(s.length * clamp(p) + 1e-6);
+  txt(s.slice(0, n), x, y, o);
+  if (o.cursor && p < 1.05) {
+    const w = tw(s.slice(0, n), o.font || `500 32px ${JP}`);
+    const blink = Math.floor((o.t || 0) * 3) % 2 === 0 || p < 1;
+    if (blink) { ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1); ctx.fillStyle = o.ccol || o.color || C.ink; const fs = parseInt((o.font || '32px').match(/(\d+)px/)[1]); ctx.fillRect(x + w + 4, y - fs * .45, fs * .5, fs * .9); ctx.restore(); }
+  }
+}
+function arrow(x1, y1, x2, y2, p, o = {}) {
+  if (p <= 0) return;
+  const k = clamp(p), x = lerp(x1, x2, k), y = lerp(y1, y2, k);
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1); ctx.strokeStyle = o.color || C.ink; ctx.fillStyle = o.color || C.ink;
+  if (o.glow) { ctx.shadowColor = o.color; ctx.shadowBlur = 12; }
+  ctx.lineWidth = o.w || 4; ctx.lineCap = 'round'; if (o.dash) ctx.setLineDash(o.dash);
+  const a = Math.atan2(y2 - y1, x2 - x1), hs = o.head || 16;
+  const head = k > .3, back = head ? hs * Math.cos(.45) * .85 : 0;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x - Math.cos(a) * back, y - Math.sin(a) * back); ctx.stroke(); ctx.setLineDash([]);
+  if (head) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(a - .45) * hs, y - Math.sin(a - .45) * hs); ctx.lineTo(x - Math.cos(a + .45) * hs, y - Math.sin(a + .45) * hs); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+}
+function cross(x, y, s, p, col = C.wall, w = 7) {
+  if (p <= 0) return;
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.shadowColor = col; ctx.shadowBlur = 10;
+  const k1 = clamp(p * 2), k2 = clamp(p * 2 - 1);
+  ctx.beginPath(); ctx.moveTo(x - s / 2, y - s / 2); ctx.lineTo(x - s / 2 + s * k1, y - s / 2 + s * k1);
+  if (k2 > 0) { ctx.moveTo(x + s / 2, y - s / 2); ctx.lineTo(x + s / 2 - s * k2, y - s / 2 + s * k2); }
+  ctx.stroke(); ctx.restore();
+}
+
+// ---------- 光る札・はんこ ----------
+function chip(s, x, y, o = {}) {
+  const font = o.font || `700 26px ${JP}`;
+  const w = tw(s, font) + (o.px ?? 30), h = o.h || 46;
+  const x0 = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x;
+  const col = o.col || C.link;
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  ctx.fillStyle = o.fill || hexA(col, .14); rr(x0, y - h / 2, w, h, o.r ?? h / 2); ctx.fill();
+  ctx.shadowColor = col; ctx.shadowBlur = 10; ctx.strokeStyle = hexA(col, .9); ctx.lineWidth = 2; rr(x0, y - h / 2, w, h, o.r ?? h / 2); ctx.stroke();
+  ctx.restore();
+  txt(s, x0 + w / 2, y + 1, { font, color: o.color || col, align: 'center', alpha: o.alpha ?? 1 });
+  return w;
+}
+function stamp(s, x, y, t, t0, o = {}) {
+  if (t < t0) return;
+  const p = PT(t, t0, .22), k = E.out(p), col = o.color || C.wall, size = o.size || 64;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot ?? -.08);
+  const sc = 1 + (1 - k) * 1.3; ctx.scale(sc, sc);
+  ctx.globalAlpha *= clamp(p * 2) * (o.alpha ?? 1);
+  ctx.font = `900 ${size}px ${DISP}`; ctx.letterSpacing = (o.ls ?? 4) + 'px';
+  const w = ctx.measureText(s).width + size * .8, h = size * 1.5;
+  ctx.fillStyle = 'rgba(6,6,16,.85)'; rr(-w / 2, -h / 2, w, h, size * .18); ctx.fill();
+  ctx.shadowColor = col; ctx.shadowBlur = 24; ctx.strokeStyle = col; ctx.lineWidth = size * .08; rr(-w / 2, -h / 2, w, h, size * .18); ctx.stroke();
+  ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s, 2, size * .06);
+  ctx.restore();
+}
+
+// ---------- グリッチと、生まれ変わり ----------
+// 色ずれ＋横スライスのずれ（amt 0..1）
+function glitchText(s, x, y, o = {}, t = 0, amt = 0) {
+  if (amt <= .01) { txt(s, x, y, o); return; }
+  const off = 6 * amt;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  txt(s, x - off, y, { ...o, color: '#ff2a6d', glow: null, alpha: (o.alpha ?? 1) * .8 });
+  txt(s, x + off, y, { ...o, color: '#05d9e8', glow: null, alpha: (o.alpha ?? 1) * .8 });
+  ctx.restore();
+  const fs = parseInt((o.font || '32px').match(/(\d+)px/)[1]);
+  for (let i = 0; i < 4; i++) {
+    const sy = y - fs * .6 + hr(Math.floor(t * 20) + i * 7) * fs * 1.2, sh = fs * .18;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, sy, W, sh); ctx.clip(); ctx.translate((hr(Math.floor(t * 24) + i) - .5) * 40 * amt, 0);
+    txt(s, x, y, o); ctx.restore();
+  }
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.globalAlpha *= 1 - amt * .4; txt(s, x, y, o); ctx.restore();
+}
+// 名前が崩れて組み替わる（p 0..1）。途中は記号が混ざる
+const GLYPH = '∞#%&*+=<>/\\|01アイエウオ回輪生転';
+function scrambleStr(from, to, p, seed = 0) {
+  const n = Math.max(from.length, to.length);
+  let out = '';
+  for (let i = 0; i < n; i++) {
+    const k = clamp(p * 1.6 - i / n * .6);
+    if (k <= .15) out += from[i] ?? '';
+    else if (k >= .85) out += to[i] ?? '';
+    else out += GLYPH[Math.floor(hr(i * 13 + seed + Math.floor(p * 30)) * GLYPH.length)];
+  }
+  return out;
+}
+function scramble(from, to, p, x, y, o = {}, t = 0) {
+  const s = p <= 0 ? from : p >= 1 ? to : scrambleStr(from, to, p, o.seed || 0);
+  const col = p >= 1 ? (o.to || C.gold) : p > 0 ? '#ffffff' : (o.from || C.ink);
+  glitchText(s, x, y, { ...o, color: col, glow: p >= 1 ? (o.to || C.gold) : o.glow }, t, p > 0 && p < 1 ? .8 : 0);
+}
+
+// ---------- ∞ の道 ----------
+// レムニスケート（θ を進めると右の輪→交差点→左の輪→交差点…と回る）
+function lem(th, a = 1) { const s = Math.sin(th), c = Math.cos(th), d = 1 + s * s; return [a * c / d, a * s * c / d]; }
+// 道を描く。o: cx, cy, a（大きさ）, alpha, head（光の頭の θ）, trail
+function drawLoop(t, o = {}) {
+  const cx = o.cx ?? W / 2, cy = o.cy ?? H / 2, a = o.a ?? 700, al = o.alpha ?? 1;
+  if (al <= 0) return;
+  const P = th => { const [x, y] = lem(th, a); return [cx + x, cy + y * (o.squash ?? 1)]; };
+  ctx.save(); ctx.globalAlpha *= al;
+  // 道（2車線: 外側＝ページ→アプリ、内側＝アプリ→ページ）
+  for (const [w, col, blur] of [[18, hexA(C.violet, .08), 0], [6, hexA('#ffffff', .18), 18], [2, hexA('#ffffff', .7), 8]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.shadowColor = '#b9a6ff'; ctx.shadowBlur = blur; ctx.beginPath();
+    for (let i = 0; i <= 240; i++) { const [x, y] = P(i / 240 * Math.PI * 2); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.closePath(); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  // 流れる粒（双方向）
+  const n = o.dots ?? 26;
+  for (let i = 0; i < n; i++) {
+    for (const [dir, col] of [[1, C.link], [-1, C.local]]) {
+      const th = ((i / n) * Math.PI * 2 + dir * t * .45 + (dir < 0 ? .12 : 0)) % (Math.PI * 2);
+      const [x, y] = P(th + Math.PI * 2);
+      const off = dir * 7;
+      ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(x, y + off, 3.2, 0, 7); ctx.fill();
+    }
+  }
+  ctx.shadowBlur = 0;
+  // 交差点の壁（赤い格子が明滅）
+  if (o.wall !== false) {
+    const pulse = .5 + .5 * Math.sin(t * 3);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI / 2);
+    ctx.strokeStyle = hexA(C.wall, .35 + pulse * .45); ctx.lineWidth = 3; ctx.shadowColor = C.wall; ctx.shadowBlur = 16;
+    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(k * 10, -a * .16); ctx.lineTo(k * 10, a * .16); ctx.stroke(); }
+    ctx.restore();
+  }
+  // 光の頭（いまの時代）
+  if (o.head != null) {
+    const trail = o.trail ?? 1.2;
+    for (let i = 0; i < 30; i++) {
+      const th = o.head - i / 30 * trail, [x, y] = P(th);
+      ctx.fillStyle = hexA(C.gold, (1 - i / 30) * .8); ctx.beginPath(); ctx.arc(x, y, 9 * (1 - i / 34), 0, 7); ctx.fill();
+    }
+    const [hx, hy] = P(o.head);
+    ctx.fillStyle = '#fff'; ctx.shadowColor = C.gold; ctx.shadowBlur = 30; ctx.beginPath(); ctx.arc(hx, hy, 11, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  return P;
+}
+
+// ---------- 背景 ----------
+const DUST = Array.from({ length: 140 }, (_, i) => [hr(i) * W, hr(i + 99) * H, .4 + hr(i + 7) * 1.6, hr(i + 3)]);
+function bg(t, o = {}) {
+  const g = ctx.createRadialGradient(W / 2, H * .45, 60, W / 2, H * .5, W * .8);
+  g.addColorStop(0, o.c1 || C.bg1); g.addColorStop(1, C.bg0);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // 輪廻の輪（ゆっくり回る同心円の破線）
+  ctx.save(); ctx.translate(W / 2, H / 2);
+  for (let i = 0; i < 5; i++) {
+    ctx.rotate(t * .02 * (i % 2 ? -1 : 1) + i);
+    ctx.strokeStyle = hexA(o.ring || C.violet, .05 + i * .012); ctx.lineWidth = 1.5; ctx.setLineDash([4 + i * 3, 14 + i * 5]);
+    ctx.beginPath(); ctx.arc(0, 0, 220 + i * 170, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore(); ctx.setLineDash([]);
+  // 遠近の床（DebugRoute と同じ系統）
+  ctx.save(); ctx.globalAlpha = .18;
+  ctx.strokeStyle = o.ring || C.violet; ctx.lineWidth = 1;
+  for (let i = -12; i <= 12; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + i * 40, H * .62); ctx.lineTo(W / 2 + i * 260, H); ctx.stroke(); }
+  for (let j = 0; j < 9; j++) { const y = H * .62 + Math.pow(((j + (t * .25) % 1) / 9), 2) * H * .38; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.restore();
+  // 漂う塵
+  for (const [x, y, r, k] of DUST) {
+    const yy = (y - t * (8 + k * 20)) % H; ctx.fillStyle = hexA('#c9c3ff', .15 + k * .25);
+    ctx.beginPath(); ctx.arc(x, yy < 0 ? yy + H : yy, r, 0, 7); ctx.fill();
+  }
+}
+function vignette(a = .6) {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, W * .72);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${a})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function scanlines(a = .05) { ctx.fillStyle = `rgba(0,0,0,${a})`; for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1); }
+
+// ---------- 板（ガラスとネオンの縁） ----------
+function glass(x, y, w, h, o = {}) {
+  const col = o.col || C.violet;
+  ctx.save();
+  ctx.fillStyle = o.fill || C.glass; rr(x, y, w, h, o.r ?? 14); ctx.fill();
+  ctx.strokeStyle = hexA(col, .55); ctx.lineWidth = 1.5; rr(x, y, w, h, o.r ?? 14); ctx.stroke();
+  // 角の括弧
+  ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.shadowColor = col; ctx.shadowBlur = 12;
+  const k = 26;
+  for (const [ax, ay, sx, sy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]]) {
+    ctx.beginPath(); ctx.moveTo(ax + sx * k, ay); ctx.lineTo(ax, ay); ctx.lineTo(ax, ay + sy * k); ctx.stroke();
+  }
+  ctx.restore();
+}
+// 出てくる動き（走査線で上から現れる）
+function panel(t, t0, t1, x, y, w, h, draw, o = {}) {
+  if (t < t0 || (t1 != null && t > t1 + .35)) return false;
+  const a = PT(t, t0, .35), b = t1 == null ? 0 : PT(t, t1, .3);
+  const al = E.out(a) * (1 - b);
+  if (al <= 0) return false;
+  ctx.save(); ctx.globalAlpha *= al;
+  ctx.translate(x + w / 2, y + h / 2); const sc = .96 + .04 * E.out(a); ctx.scale(sc, sc); ctx.translate(-w / 2, -h / 2);
+  ctx.beginPath(); ctx.rect(-20, -20, w + 40, (h + 40) * E.out(a) + 1); ctx.clip();
+  draw(w, h);
+  ctx.restore();
+  if (a < 1) { ctx.save(); ctx.globalAlpha = (1 - a) * .8; ctx.fillStyle = o.col || C.violet; ctx.shadowColor = o.col || C.violet; ctx.shadowBlur = 20; ctx.fillRect(x, y + h * E.out(a) - 2, w, 3); ctx.restore(); }
+  return true;
+}
+function glassPanel(t, t0, t1, x, y, w, h, title, inner, o = {}) {
+  return panel(t, t0, t1, x, y, w, h, (w2, h2) => {
+    glass(0, 0, w2, h2, o);
+    let top = 16;
+    if (title) {
+      txt(title, 30, 40, { font: `700 26px ${o.titleFont || MONO}`, color: o.col || C.violet, ls: 2, maxW: w2 - 60 });
+      line(30, 66, w2 - 30, 66, hexA(o.col || C.violet, .35), 1.5);
+      top = 76;
+    }
+    inner(w2, h2, top);
+  }, o);
+}
+// コード（簡単な色付け）。rows: [[文字, 色], ...] か 文字列
+function codeBox(t, t0, t1, x, y, w, h, title, rows, o = {}) {
+  return panel(t, t0, t1, x, y, w, h, (w2, h2) => {
+    glass(0, 0, w2, h2, { col: o.col || C.web, fill: 'rgba(8,10,22,.92)' });
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = ['#ff5f57', '#febc2e', '#28c840'][i]; ctx.beginPath(); ctx.arc(28 + i * 22, 28, 7, 0, 7); ctx.fill(); }
+    txt(title, 110, 29, { font: `500 21px ${CODE}`, color: C.dim, maxW: w2 - 140 });
+    const fs = o.fs || 26, lh = o.lh || fs * 1.55;
+    let left = o.typeFrom != null ? Math.floor((t - o.typeFrom) * (o.rate || 40)) : 1e9;
+    rows.forEach((r, i) => {
+      const segs = typeof r === 'string' ? [[r, C.ink]] : r;
+      let xx = 30;
+      for (const [s, col] of segs) {
+        const k = Math.max(0, Math.min(s.length, left)); left -= k;
+        if (k > 0) txt(s.slice(0, k), xx, 76 + i * lh, { font: `500 ${fs}px ${CODE}`, color: col || C.ink });
+        xx += tw(s, `500 ${fs}px ${CODE}`);
+      }
+    });
+    if (o.extra) o.extra(w2, h2);
+  }, { col: o.col || C.web });
+}
+// 画像（記事・リリースノートの画面）
+const IMG = {};
+for (const n of ['intro', 'powerquery', 'debug']) { const im = new Image(); im.onload = () => window.__redraw?.(); im.src = IMG_DIR + n + '.png'; IMG[n] = im; }
+window.IMG_READY = Promise.all(Object.values(IMG).map(im => im.complete ? 1 : new Promise(r => { im.addEventListener('load', r); im.addEventListener('error', r); })));
+function pic(n, dx, dy, dw, dh, crop) {
+  const im = IMG[n];
+  if (!im || !im.complete || !im.naturalWidth) { ctx.fillStyle = '#1a1b2a'; ctx.fillRect(dx, dy, dw, dh); return; }
+  if (crop) ctx.drawImage(im, crop[0], crop[1], crop[2], crop[3], dx, dy, dw, dh); else ctx.drawImage(im, dx, dy, dw, dh);
+}
+// 画面写真をネオンの額で。cam: 画像の中のどこを、どれだけ寄せて見せるか（画素の [cx, cy, 倍率]）
+function screen(t, t0, t1, x, y, w, h, n, o = {}) {
+  return panel(t, t0, t1, x, y, w, h, (w2, h2) => {
+    glass(0, 0, w2, h2, { col: o.col || C.web, fill: '#000' });
+    const im = IMG[n], iw = im?.naturalWidth || 1600, ih = im?.naturalHeight || 900;
+    const [cx, cy, z] = o.cam ? o.cam(t) : [iw / 2, ih / 2, 1];
+    const fit = Math.max((w2 - 20) / iw, (h2 - 20) / ih) * z, sw = (w2 - 20) / fit, sh = (h2 - 20) / fit;
+    const sx = clamp(cx - sw / 2, 0, Math.max(0, iw - sw)), sy = clamp(cy - sh / 2, 0, Math.max(0, ih - sh));
+    ctx.save(); ctx.beginPath(); rr(10, 10, w2 - 20, h2 - 20, 8); ctx.clip();
+    pic(n, 10, 10, w2 - 20, h2 - 20, [sx, sy, Math.min(sw, iw), Math.min(sh, ih)]);
+    if (o.over) o.over((px, py) => [10 + (px - sx) * fit, 10 + (py - sy) * fit], fit);
+    ctx.fillStyle = 'rgba(0,0,0,.08)'; for (let yy = 10; yy < h2 - 10; yy += 3) ctx.fillRect(10, yy, w2 - 20, 1);
+    ctx.restore();
+  }, { col: o.col || C.web });
+}
+// 光る下線・囲み
+function glowBox(x, y, w, h, p, col = C.gold) {
+  if (p <= 0) return;
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.shadowColor = col; ctx.shadowBlur = 18; ctx.globalAlpha *= clamp(p * 2);
+  const per = 2 * (w + h), len = per * clamp(p);
+  ctx.setLineDash([len, per]); rr(x, y, w, h, 8); ctx.stroke(); ctx.restore();
+}
+
+// ---------- ドット絵のアバター ----------
+const SPRITES = {
+  nana: {
+    pal: { H: '#ff9a76', h: '#d0644a', s: '#fff0e6', e: '#3b2a5a', w: '#ffffff', b: '#ff9fb5', m: '#e0607a', r: '#ff4f8b', d: '#6b5bd6' },
+    rows: [
+      '....HHHHHH....', '..HHHHHHHHHH..', '.HHHHHHHHHrrH.', 'HHHHHHHHHHrrHH', 'HHHsssssssssHH', 'HHssssssssssHH', 'HHseeessseeeHH',
+      'HHsewessseweHH', 'HHssssssssssHH', 'HHbsssmmsssbHH', 'HH.ssssssss.HH', 'HH..dddddd..HH', 'hH.dddddddd.Hh', '.h..dddddd..h.',
+    ],
+  },
+  zundamon: {
+    pal: { g: '#86e05a', G: '#3f8f2a', s: '#fff1e6', e: '#2b2b2b', w: '#ffffff', b: '#c6f58f', m: '#e0607a', r: '#ff9aa8' },
+    rows: [
+      '.bb........bb.', 'bGGb......bGGb', '.bGGbgggggbGb.', '...gggggggggg.', '..gggggggggggg', '.ggssssssssssg', '.ggseeesseeesg',
+      '.ggsewesseweg.', '.ggsssssssssg.', '.ggrsssmmssrg.', '..gsssssssssg.', '..gg.ssssss.gg', '..G...ssss..G.', '.......ss.....',
+    ],
+  },
+};
+function sprite(name, x, y, px, o = {}) {
+  const sp = SPRITES[name];
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  if (o.flip) { ctx.translate(x + 14 * px, y); ctx.scale(-1, 1); x = 0; y = 0; }
+  sp.rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '.') return; ctx.fillStyle = sp.pal[ch]; ctx.fillRect(Math.round(x + i * px), Math.round(y + j * px), Math.ceil(px), Math.ceil(px)); }));
+  ctx.restore();
+}
+const SPK = {
+  n: { name: 'nana', tag: 'NANA', role: '輪廻の案内人', col: C.nana },
+  z: { name: 'zundamon', tag: 'ZUNDAMON', role: '聞き役', col: C.zunda },
+};
+
+// シーンが書き足す表: OV（画面に重ねる絵）/ SEQ（効果音）/ HITS（揺れ）/ FLASHES / GLITCH（画面全体のずれ）
+const OV = {}, HITS = [], SEQ = [], FLASHES = [], GLITCH = [];
+const cue = (t, kind, o = {}) => SEQ.push([t, kind, o]);
+const hit = (t, k = 10) => HITS.push([t, k]);
+const flashAt = (t0, col = '#fff', d = .35, k = .6) => FLASHES.push([t0, col, d, k]);
+const glitchAt = (t0, d = .35, k = 1) => GLITCH.push([t0, d, k]);
+
+// 1フレームの合成: 背景 → 奥の ∞ → 画面の絵（OV）→ 幕の扉 → HUD → 字幕 → 光と画面のずれ
+
+// ---------- 幕 ----------
+// [番号, 名前, 時代, 駅の θ（∞ の上の位置）, 年]
+const CHAP = {
+  prelude: [0, 'はじめに', '2026年', 4.5 * Math.PI, 2026],
+  act1: [1, '壁がなかった時代', '1990年代後半〜2000年代前半', Math.PI, 1996],
+  act2: [2, '壁ができた時代', '2000年代〜2010年代', 1.8 * Math.PI, 2000],
+  act3: [3, 'もう全部ブラウザにしてしまえ', '2010年代', 2.72 * Math.PI, 2013],
+  act4: [4, '組み込み IE の正統進化、WebView2', '2020年〜', 3.1 * Math.PI, 2020],
+  act5: [5, '普通のブラウザでも…', '2018年〜', 3.8 * Math.PI, 2018],
+  act6: [6, '壁が閉まりかけて、また開く', '2025年〜', 4.22 * Math.PI, 2025],
+  finale: [7, '名前を変えただけの輪廻転生', '〆', 4.5 * Math.PI, 2026],
+};
+const HUDTAB = [['00', '序', 'prelude'], ['01', '壁なし', 'act1'], ['02', '壁', 'act2'], ['03', '全部ブラウザ', 'act3'], ['04', 'WebView2', 'act4'], ['05', '普通のブラウザ', 'act5'], ['06', '再び', 'act6'], ['∞', '〆', 'finale']];
+const DOOR = 2.5;
+function sceneAt(t) { let id = TLD.sceneOrder[0]; for (const s of TLD.sceneOrder) if (t >= TLD.scenes[s].start) id = s; return id; }
+
+// 光の頭（θ）と年の動き: [時刻, θ, 年, 動く秒数]
+const HEADK = [];
+const headKey = (t, th, yr, d = 1.6) => HEADK.push([t, th, yr, d]);
+function headAt(t) {
+  if (!HEADK.sorted) { HEADK.sort((a, b) => a[0] - b[0]); HEADK.sorted = true; }
+  let th = 4.5 * Math.PI, yr = 2026;
+  for (const [t0, th1, yr1, d] of HEADK) {
+    if (t < t0) break;
+    const k = E.io(PT(t, t0, d));
+    th = lerp(th, th1, k); yr = lerp(yr, yr1, k);
+  }
+  return [th, yr];
+}
+for (const sid in CHAP) if (sid !== 'prelude') headKey(S(sid).start + .3, CHAP[sid][3], CHAP[sid][4], DOOR - .6);
+
+function shakeAt(t) {
+  let x = 0, y = 0;
+  for (const [t0, k] of HITS) { const d = t - t0; if (d < 0 || d > .45) continue; const a = k * Math.pow(1 - d / .45, 2); x += Math.sin(d * 90 + t0) * a; y += Math.cos(d * 70 + t0 * 3) * a; }
+  return [x, y];
+}
+// 画面全体の横スライスずらし
+function sliceGlitch(k, t) {
+  if (k <= 0) return;
+  for (let i = 0; i < 7; i++) {
+    const sy = Math.floor(hr(Math.floor(t * 30) + i * 11) * H), sh = 10 + hr(i + Math.floor(t * 30)) * 50, dx = (hr(i * 3 + Math.floor(t * 40)) - .5) * 120 * k;
+    ctx.drawImage(cv, 0, sy * SC, W * SC, sh * SC, dx, sy, W, sh);
+  }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .12 * k; ctx.fillStyle = '#ff2a6d'; ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+
+// ---------- 幕の扉（ROUTE の扉と同じ系統: ∞ の上を光が進み、年が回る） ----------
+function door(t, sid, s) {
+  const c = CHAP[sid]; if (!c) return;
+  const t0 = s.start, a = PT(t, t0, .3) * (1 - PT(t, t0 + DOOR - .45, .45));
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(3,2,10,.86)'; ctx.fillRect(0, 0, W, H);
+  const [th] = headAt(t);
+  drawLoop(t, { cx: W / 2, cy: 370, a: 660, head: th, alpha: .95 });
+  const k = E.out(PT(t, t0 + .25, .6));
+  const no = c[0] === 7 ? '∞' : String(c[0]).padStart(2, '0');
+  glitchText(`ACT ${no}`, W / 2, 680, { font: `400 46px ${MONO}`, color: C.gold, align: 'center', ls: 18, glow: C.gold }, t, 1 - k);
+  glitchText(c[1], W / 2 + (1 - k) * 60, 765, { font: `900 72px ${DISP}`, color: '#fff', align: 'center', glow: C.violet, gb: 24 }, t, (1 - k) * .8);
+  txt(c[2], W / 2, 840, { font: `500 30px ${JP}`, color: C.dim, align: 'center', alpha: k });
+  ctx.restore();
+}
+
+// ---------- HUD ----------
+function drawHUD(t, sid) {
+  const a = PT(t, S('prelude').start, .8) * (1 - PT(t, S('credits').start, .8));
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  const g = ctx.createLinearGradient(0, 0, 0, 80); g.addColorStop(0, 'rgba(3,2,10,.9)'); g.addColorStop(1, 'rgba(3,2,10,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 80);
+  ctx.restore();
+  txt('令和のIE', 40, 36, { font: `900 26px ${DISP}`, color: '#fff', alpha: a });
+  txt('//  技術秘話 Two-way', 160, 37, { font: `400 21px ${MONO}`, color: C.dim, alpha: a });
+  let x = 560;
+  for (const [no, lab, id] of HUDTAB) {
+    const on = id === sid, done = TLD.sceneOrder.indexOf(id) < TLD.sceneOrder.indexOf(sid);
+    const w = chip(`${no} ${lab}`, x, 36, { font: `600 18px ${MONO}`, h: 30, px: 22, col: on ? C.gold : done ? C.violet : C.dim2, color: on ? C.gold : done ? '#b9a6ff' : C.dim2, alpha: a });
+    x += w + 8;
+  }
+  // 年のカウンター
+  const [, yr] = headAt(t);
+  const y0 = Math.floor(yr), f = yr - y0;
+  txt('YEAR', 1690, 37, { font: `400 20px ${MONO}`, color: C.dim, alpha: a });
+  ctx.save(); ctx.beginPath(); ctx.rect(1756, 18, 120, 38); ctx.clip();
+  txt(String(y0), 1760, 37 - f * 34, { font: `400 32px ${MONO}`, color: C.gold, alpha: a, glow: C.gold, gb: 10 });
+  if (f > .01) txt(String(y0 + 1), 1760, 37 + (1 - f) * 34, { font: `400 32px ${MONO}`, color: C.gold, alpha: a });
+  ctx.restore();
+}
+
+// ---------- 字幕（丸いアイコンと声のメーター） ----------
+const WRAP = {};
+function wrapLine(id, s, font, maxW) {
+  if (WRAP[id]) return WRAP[id];
+  ctx.save(); ctx.font = font;
+  let rows = [s];
+  if (ctx.measureText(s).width > maxW) {
+    let best = -1;
+    for (const marks of ['、。！？）」…', ' ']) {
+      let bestD = 1e9;
+      for (let i = 1; i < s.length - 1; i++) {
+        if (!marks.includes(s[i - 1])) continue;
+        const w1 = ctx.measureText(s.slice(0, i)).width, w2 = ctx.measureText(s.slice(i)).width;
+        if (w1 > maxW || w2 > maxW) continue;
+        const d = Math.abs(w1 - w2); if (d < bestD) { bestD = d; best = i; }
+      }
+      if (best >= 0) break;
+    }
+    if (best < 0) { let i = s.length; while (i > 1 && ctx.measureText(s.slice(0, i)).width > maxW) i--; best = i; }
+    rows = [s.slice(0, best).trimEnd(), s.slice(best).trimStart()];
+  }
+  ctx.restore();
+  return (WRAP[id] = rows);
+}
+function curLine(t) { let cur = null; for (const id of TLD.order) { if (TLD.lines[id].start - .12 <= t) cur = id; else break; } return cur; }
+function drawCaption(t) {
+  if (window.__cover) return;
+  const id = curLine(t); if (!id) return;
+  const l = L(id), idx = TLD.order.indexOf(id), next = TLD.order[idx + 1];
+  const until = Math.min(next ? L(next).start - .12 : TLD.scenes[l.scene].end, l.end + 2.2);
+  if (t > until) return;
+  const a = PT(t, l.start - .12, .15) * (1 - PT(t, until - .25, .25));
+  if (a <= 0) return;
+  const sp = SPK[l.spk], font = `700 42px ${JP}`;
+  const rows = wrapLine(id, l.text, font, 1440);
+  const tw0 = Math.max(...rows.map(r => tw(r, font)));
+  const w0 = Math.min(1780, tw0 + 260), h0 = rows.length > 1 ? 150 : 112, x0 = W / 2 - w0 / 2, y0 = 1040 - h0;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(6,6,18,.88)'; rr(x0, y0, w0, h0, h0 / 2); ctx.fill();
+  ctx.strokeStyle = hexA(sp.col, .6); ctx.lineWidth = 2; ctx.shadowColor = sp.col; ctx.shadowBlur = 14; rr(x0, y0, w0, h0, h0 / 2); ctx.stroke();
+  ctx.restore();
+  // アイコン（声に合わせて輪が脈打つ）
+  const cx = x0 + h0 / 2, cy = y0 + h0 / 2, R = h0 / 2 - 12, lv = t < l.end ? Math.abs(Math.sin(t * 13) * Math.sin(t * 7.3)) : 0;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = hexA(sp.col, .18 + lv * .2); ctx.beginPath(); ctx.arc(cx, cy, R + 4 + lv * 6, 0, 7); ctx.fill();
+  ctx.strokeStyle = sp.col; ctx.lineWidth = 3; ctx.shadowColor = sp.col; ctx.shadowBlur = 10 + lv * 20; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+  ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R - 3, 0, 7); ctx.clip();
+  ctx.fillStyle = '#1a1830'; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+  const px = (R * 2 - 8) / 14;
+  sprite(sp.name, cx - 7 * px, cy - 6.6 * px + (t < l.end && Math.floor(t * 9) % 2 ? -1.5 : 0), px, { alpha: a });
+  ctx.restore();
+  txt(sp.tag, x0 + h0 + 14, y0 + 24, { font: `400 18px ${MONO}`, color: sp.col, alpha: a, ls: 3 });
+  const total = rows.join('').length, p = PT(t, l.start, Math.max(.35, (l.end - l.start) * .5));
+  let left = Math.floor(total * p), cur = false;
+  rows.forEach((r, i) => {
+    const n = Math.min(r.length, left); left -= n;
+    const y = y0 + (rows.length === 1 ? h0 / 2 + 8 : 64 + i * 52);
+    const here = !cur && (n < r.length || i === rows.length - 1);
+    if (here) cur = true;
+    typed(r.slice(0, n), x0 + h0 + 14, y, 1, { font, color: '#f4f2ff', alpha: a, cursor: here && (n < r.length || t < l.end), ccol: sp.col, t });
+    if (n < r.length) left = 0;
+  });
+}
+
+// ---------- 1フレーム ----------
+function renderFrame(t) {
+  t = clamp(t, 0, TLD.duration);
+  ctx.setTransform(SC, 0, 0, SC, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+  const sid = sceneAt(t), s = S(sid);
+  const [sx, sy] = shakeAt(t);
+  bg(t, BGTINT[sid] || {});
+  // 奥の ∞（いまの駅で、光の頭が止まっている）
+  const [th] = headAt(t);
+  if (BACKLOOP(t, sid) > 0) drawLoop(t, { cx: W / 2, cy: H / 2 - 20, a: 1100, head: th, alpha: .16 * BACKLOOP(t, sid), dots: 30 });
+  ctx.save(); ctx.translate(sx, sy);
+  if (OV[sid]) OV[sid](t, s);
+  ctx.restore();
+  door(t, sid, s);
+  drawHUD(t, sid);
+  drawCaption(t);
+  for (const [t0, col, d, k] of FLASHES) if (t >= t0 && t < t0 + d) flash(col, (k ?? .6) * (1 - (t - t0) / d));
+  let gk = 0;
+  for (const [t0, d, k] of GLITCH) if (t >= t0 && t < t0 + d) gk = Math.max(gk, k * (1 - (t - t0) / d));
+  sliceGlitch(gk, t);
+  scanlines(.05); vignette(.55);
+  flash('#000', 1 - PT(t, 0, .8));
+  flash('#000', PT(t, TLD.duration - 1.2, 1.2));
+}
+// 幕ごとの背景の色味と、奥の ∞ の濃さ（シーンのファイルが書き換える）
+const BGTINT = {};
+let BACKLOOP = (t, sid) => 1;
+window.renderAt = async t => { await window.IMG_READY; renderFrame(t); return true; };
+
+// 共通の部品と、冒頭（v4.2.2 のリリースノート）・題名・はじめに
+
+// ---------- 共通の部品 ----------
+// 箱（ラベル付き。光る縁）
+function node(x, y, w, h, label, o = {}) {
+  const col = o.col || C.link;
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  ctx.fillStyle = 'rgba(10,12,28,.92)'; rr(x - w / 2, y - h / 2, w, h, 14); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.shadowColor = col; ctx.shadowBlur = 16; rr(x - w / 2, y - h / 2, w, h, 14); ctx.stroke();
+  ctx.restore();
+  const rows = label.split('\n');
+  rows.forEach((r, i) => txt(r, x, y + (i - (rows.length - 1) / 2) * (o.lh || 36), { font: o.font || `800 30px ${JP}`, color: o.tcol || '#fff', align: 'center', alpha: o.alpha ?? 1, maxW: w - 24 }));
+}
+// 光る線と、流れる粒（p まで描く。dir=-1 で逆向き）
+function beam(x1, y1, x2, y2, p, t, o = {}) {
+  if (p <= 0) return;
+  const col = o.col || C.link, x = lerp(x1, x2, clamp(p)), y = lerp(y1, y2, clamp(p));
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  ctx.strokeStyle = hexA(col, .9); ctx.lineWidth = o.w || 3; ctx.shadowColor = col; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x, y); ctx.stroke();
+  if (p >= 1) for (let i = 0; i < (o.n || 4); i++) {
+    const u = ((t * (o.speed || .7) + i / (o.n || 4)) % 1), k = o.dir < 0 ? 1 - u : u;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(lerp(x1, x2, k), lerp(y1, y2, k), 4.5, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  if (o.label && p > .5) txt(o.label, (x1 + x2) / 2 + (o.lx || 0), (y1 + y2) / 2 + (o.ly ?? -30), { font: o.lfont || `700 24px ${CODE}`, color: col, align: 'center', alpha: clamp((p - .5) * 2) * (o.alpha ?? 1), glow: col, gb: 8 });
+}
+// 事件の札（手口は描かず、日付・分類・規模・出典だけ。DebugRoute と同じ決まり）
+function incident(t, t0, t1, x, y, w, date, tag, title, big, src, o = {}) {
+  return panel(t, t0, t1, x, y, w, 300, (w2, h2) => {
+    glass(0, 0, w2, h2, { col: C.wall, fill: 'rgba(24,6,14,.9)' });
+    txt(date, 34, 52, { font: `400 46px ${MONO}`, color: '#fff', glow: C.wall, gb: 12 });
+    chip(tag, 34 + tw(date, `400 46px ${MONO}`) + 22, 52, { col: C.wall, font: `800 22px ${JP}`, h: 36 });
+    txt(title, 34, 118, { font: `800 34px ${JP}`, color: '#fff', maxW: w2 - 68 });
+    para(big, 34, 150, w2 - 68, { font: `700 28px ${JP}`, lh: 40, color: '#ffc2cc' });
+    txt('出典: ' + src, 34, h2 - 28, { font: `500 19px ${JP}`, color: C.dim, maxW: w2 - 68 });
+  }, { col: C.wall });
+}
+// 表（ガラスの板）。cols: 見出し、rows: [[セル...], 出る時刻]
+function tableCard(t, t0, t1, x, y, w, title, cols, rows, o = {}) {
+  const rh = o.rh || 74, h = (title ? 76 : 16) + 60 + rows.length * rh + 18;
+  const ws = o.ws || cols.map(() => (w - 60) / cols.length);
+  return glassPanel(t, t0, t1, x, y, w, h, title, (w2, h2, top) => {
+    let xx = 30;
+    cols.forEach((c, i) => { txt(c, xx + 10, top + 30, { font: `700 22px ${JP}`, color: o.hcol || C.dim, maxW: ws[i] - 20 }); xx += ws[i]; });
+    rows.forEach(([cells, ti], j) => {
+      const p = PT(t, ti ?? t0, .35); if (p <= 0) return;
+      const yy = top + 60 + j * rh;
+      ctx.save(); ctx.globalAlpha *= p;
+      line(30, yy, w2 - 30, yy, hexA(o.col || C.violet, .3), 1.5);
+      let x2 = 30;
+      cells.forEach((c, i) => {
+        const col = (o.ccol && o.ccol[i]) || '#fff';
+        String(c).split('\n').forEach((r, k, arr) => txt(r, x2 + 10, yy + rh / 2 + (k - (arr.length - 1) / 2) * 32, { font: `${i === 0 ? 800 : 600} ${o.fs || 26}px ${(o.code && o.code[i]) ? CODE : JP}`, color: col, maxW: ws[i] - 20 }));
+        x2 += ws[i];
+      });
+      ctx.restore();
+    });
+  }, o);
+}
+// 生まれ変わり: 古い名前（亡霊）→ 新しい名前（金）。中央に ∞
+function rebirth(t, t0, x, y, oldN, newN, o = {}) {
+  if (t < t0) return;
+  const a = PT(t, t0, .3) * (o.t1 != null ? 1 - PT(t, o.t1, .3) : 1);
+  if (a <= 0) return;
+  const p = PT(t, t0 + (o.delay ?? .8), o.d ?? 1.2), fs = o.fs || 64;
+  ctx.save(); ctx.globalAlpha *= a;
+  // 亡霊（古い名前が残像のように残る）
+  if (p > 0) txt(oldN, x, y - fs * .95, { font: `700 ${fs * .5}px ${o.font || CODE}`, color: hexA(C.dim, .9), align: 'center' });
+  scramble(oldN, newN, p, x, y, { font: `800 ${fs}px ${o.font || CODE}`, align: 'center', from: o.from || '#fff', to: C.gold }, t);
+  if (p >= 1 && o.label) txt(o.label, x, y + fs * .95, { font: `700 28px ${JP}`, color: C.gold, align: 'center', alpha: PT(t, t0 + (o.delay ?? .8) + (o.d ?? 1.2), .3) });
+  ctx.restore();
+}
+// 横の棒グラフ
+function bar(x, y, w, h, k, col, label, val, o = {}) {
+  ctx.save(); ctx.fillStyle = hexA(col, .14); rr(x, y, w, h, 8); ctx.fill();
+  if (k > 0) { ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 14; rr(x, y, Math.max(6, w * k), h, 8); ctx.fill(); }
+  ctx.restore();
+  txt(label, x, y - 22, { font: `700 24px ${JP}`, color: C.ink });
+  // 数字は、棒が伸びきる直前から出す（先に見えるとネタバレになる）
+  if (val && k > 0) txt(val, x + Math.max(6, w * k) + 16, y + h / 2, { font: `800 ${o.vfs || 30}px ${o.vfont || MONO}`, color: col, glow: col, gb: 8, alpha: clamp((o.full ? k / o.full : 1) * 1) });
+}
+// 昔の Windows 風の窓（IE の時代の絵）
+function retroWin(x, y, w, h, title, o = {}) {
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  ctx.fillStyle = '#c0c0c0'; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x, y); ctx.lineTo(x + w, y); ctx.stroke();
+  ctx.strokeStyle = '#404040'; ctx.beginPath(); ctx.moveTo(x + w, y); ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); ctx.stroke();
+  const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#000080'); g.addColorStop(1, '#1084d0');
+  ctx.fillStyle = g; ctx.fillRect(x + 4, y + 4, w - 8, 34);
+  txt(title, x + 14, y + 22, { font: `700 20px ${JP}`, color: '#fff', maxW: w - 100 });
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = '#c0c0c0'; ctx.fillRect(x + w - 30 - i * 26, y + 9, 22, 22); }
+  ctx.fillStyle = o.fill || '#ffffff'; ctx.fillRect(x + 8, y + 44, w - 16, h - 52);
+  ctx.restore();
+  if (o.inner) { ctx.save(); ctx.beginPath(); ctx.rect(x + 8, y + 44, w - 16, h - 52); ctx.clip(); o.inner(x + 8, y + 44, w - 16, h - 52); ctx.restore(); }
+}
+// 巻き戻し（VHS のような横線）
+function rewindFx(t, k) {
+  if (k <= 0) return;
+  ctx.save(); ctx.globalAlpha = k;
+  for (let i = 0; i < 18; i++) { const y = (hr(i) * H + t * 900 * (1 + hr(i + 3))) % H; ctx.fillStyle = hexA(i % 2 ? C.link : '#ffffff', .25); ctx.fillRect(0, y, W, 2 + hr(i + 5) * 6); }
+  txt('◀◀  REWIND', 80, 140, { font: `400 54px ${MONO}`, color: '#fff', glow: C.link, gb: 16, alpha: Math.floor(t * 4) % 2 ? 1 : .4 });
+  ctx.restore();
+}
+
+// このツールの3つのルート（PIPE・PORT・WebView2）。ReiwaIE_DebugRoute の冒頭と同じ絵
+// R0 から: 図が現れる → WebView2 が光る → WebView2 の道の底へ寄っていき、紫の光の中から ∞ が現れる
+function routes3(t, R0) {
+  const ra = PT(t, R0 + .5, .5) * (1 - PT(t, R0 + 3.9, .4));
+  if (ra <= 0) return;
+  const dp = E.out(PT(t, R0 + .6, 1.1)), hk = PT(t, R0 + 1.8, .4), zk = E.in(PT(t, R0 + 2.6, 1.4));
+  const zx = 960, zy = 665, z = 1 + zk * 8;
+  ctx.save(); ctx.globalAlpha = ra;
+  ctx.translate(W / 2, H / 2 - 40); ctx.scale(z, z); ctx.translate(-zx + (zx - W / 2) * (1 - zk), -zy + (zy - (H / 2 - 40)) * (1 - zk));
+  const paths = [
+    ['PIPE', C.link, [420, 440], [960, 110], [1500, 440], [960, 200]],
+    ['PORT', '#f59e0b', [420, 470], [960, 470], [1500, 470], [960, 428]],
+    ['WebView2', C.violet, [420, 500], [960, 830], [1500, 500], [960, 742]],
+  ];
+  const q = (a, c, b, u) => [(1 - u) * (1 - u) * a[0] + 2 * (1 - u) * u * c[0] + u * u * b[0], (1 - u) * (1 - u) * a[1] + 2 * (1 - u) * u * c[1] + u * u * b[1]];
+  paths.forEach(([name, col, a, c, b, lab], i) => {
+    const on = i === 2, al = on ? 1 : 1 - hk * .75;
+    ctx.save(); ctx.globalAlpha *= al;
+    for (const [w, blur, aa] of [[10, 0, .18], [5, 22 + (on ? hk * 30 : 0), .9]]) {
+      ctx.strokeStyle = hexA(col, aa); ctx.lineWidth = w + (on ? hk * 4 : 0); ctx.shadowColor = col; ctx.shadowBlur = blur; ctx.beginPath();
+      for (let k = 0; k <= 60 * dp; k++) { const [x, y] = q(a, c, b, k / 60); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    if (dp >= 1) for (let k = 0; k < 4; k++) { const u = (t * .35 + k / 4 + i * .13) % 1, [x, y] = q(a, c, b, u); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill(); }
+    txt(name, lab[0], lab[1], { font: `700 36px ${CODE}`, color: col, align: 'center', glow: col, gb: 16 + (on ? hk * 20 : 0), alpha: clamp(dp * 2 - .5) });
+    ctx.restore();
+  });
+  // VBA（Excel）と Edge のアイコン
+  const icon = (x, y, col, draw, label) => {
+    ctx.save(); ctx.fillStyle = 'rgba(8,14,20,.95)'; ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.shadowColor = col; ctx.shadowBlur = 20;
+    rr(x - 100, y - 100, 200, 200, 28); ctx.fill(); ctx.stroke(); ctx.restore();
+    draw(x, y); txt(label, x, y + 150, { font: `800 30px ${JP}`, color: hexA(col, .9), align: 'center' });
+  };
+  icon(300, 470, '#4ade80', (x, y) => {
+    ctx.strokeStyle = 'rgba(134,239,172,.6)'; ctx.lineWidth = 2;
+    for (let r = 0; r <= 3; r++) line(x - 60, y - 70 + r * 26, x + 60, y - 70 + r * 26, 'rgba(134,239,172,.55)', 2);
+    for (let c2 = 0; c2 <= 3; c2++) line(x - 60 + c2 * 40, y - 70, x - 60 + c2 * 40, y + 8, 'rgba(134,239,172,.55)', 2);
+    txt('VBA', x, y + 46, { font: `800 44px ${CODE}`, color: '#d1fae5', align: 'center' });
+  }, 'Excel');
+  icon(1620, 470, '#60a5fa', (x, y) => {
+    ctx.fillStyle = 'rgba(96,165,250,.15)'; ctx.fillRect(x - 86, y - 86, 172, 34);
+    ['#ff5f57', '#febc2e', '#28c840'].forEach((cc, k) => { ctx.fillStyle = cc; ctx.beginPath(); ctx.arc(x - 66 + k * 22, y - 69, 7, 0, 7); ctx.fill(); });
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = 18; const g = ctx.createLinearGradient(x - 50, y, x + 50, y); g.addColorStop(0, '#2dd4bf'); g.addColorStop(1, '#3b82f6');
+    ctx.strokeStyle = g; ctx.beginPath(); ctx.arc(x, y + 22, 46, -1.2, Math.PI * 1.55); ctx.stroke(); ctx.restore();
+  }, 'Edge');
+  ctx.restore();
+  // 寄りきる直前に、紫の光が画面を満たす
+  const glowK = PT(t, R0 + 3.3, .6) * (1 - PT(t, R0 + 3.9, .6));
+  if (glowK > 0) { ctx.save(); ctx.globalAlpha = glowK * .55; const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, W * .7); g.addColorStop(0, '#c4b5fd'); g.addColorStop(1, 'rgba(167,139,250,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+}
+
+// ---------- 冒頭: v4.2.2 のリリースノート ----------
+// intro.png（1689×1308）の中の位置（画素）
+const INTRO = {
+  head: [470, 100, 1.75], date: [380, 160, 2.3], nomore: [470, 640, 1.8], bold: [380, 700, 2.1],
+  host: [470, 880, 1.8], shared: [470, 1090, 1.8], all: [845, 654, 1],
+};
+cue(.2, 'drone');
+cue(L('in1').start, 'boot');
+cue(F('in1', .6), 'select');
+cue(L('in2').start + .3, 'tick');
+cue(F('in3', .3), 'select');
+cue(L('in5').start, 'impact'); hit(L('in5').start + .05, 12); flashAt(L('in5').start, '#fff', .25, .35);
+cue(F('in6', .5), 'select');
+cue(L('in7').start + .2, 'pop'); cue(F('in7', .6), 'pop', { i: 1 });
+cue(F('in8', .4), 'sparkle');
+cue(L('in9').start, 'freeze'); glitchAt(L('in9').start, .5, 1);
+cue(L('in10').start + .5, 'boot'); cue(L('in10').start + 1.8, 'select');
+cue(L('in10').start + 2.6, 'riser', { d: 1.4 }); cue(L('in10').start + 3.9, 'loop'); hit(L('in10').start + 3.95, 10); flashAt(L('in10').start + 3.9, '#c4b5fd', .5, .7);
+cue(F('in12', .3), 'riser', { d: 3 });
+headKey(L('in11').start, 4.5 * Math.PI, 2026, .1);
+BGTINT.open = { c1: '#0a0c24' };
+OV.open = (t, s) => {
+  // 冒頭の ∞ が描かれる
+  const p0 = PT(t, .2, 1.4);
+  if (t < L('in1').start + .4) {
+    ctx.save(); ctx.globalAlpha = 1 - PT(t, L('in1').start, .4);
+    const P = th => { const [x, y] = lem(th, 420); return [W / 2 + x, H / 2 + y]; };
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.shadowColor = C.violet; ctx.shadowBlur = 20; ctx.beginPath();
+    for (let i = 0; i <= 200 * p0; i++) { const [x, y] = P(i / 200 * Math.PI * 2); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke(); ctx.restore();
+  }
+  // リリースノートの画面（どこに寄るかは行ごと）
+  const s0 = L('in1').start, s1 = L('in10').start + .6;
+  const camKeys = [[s0, INTRO.date], [F('in1', .55), INTRO.head], [L('in2').start, INTRO.head], [L('in3').start, INTRO.nomore], [L('in5').start - .2, INTRO.bold],
+    [L('in6').start, [470, 945, 1.8]], [L('in7').start, INTRO.host], [F('in7', .55), INTRO.shared], [L('in8').start, INTRO.all]];
+  const camAt = tt => { let c = camKeys[0][1]; for (let i = 0; i < camKeys.length; i++) { if (tt < camKeys[i][0]) break; const prev = i ? camKeys[i - 1][1] : camKeys[0][1], k = E.io(PT(tt, camKeys[i][0], .8)); c = [lerp(c[0], camKeys[i][1][0], k), lerp(c[1], camKeys[i][1][1], k), lerp(c[2], camKeys[i][1][2], k)]; } return c; };
+  const frz = PT(t, L('in9').start, .3);
+  // 縮んで ∞ の交差点へ吸い込まれる
+  const sh = E.in(PT(t, L('in10').start, .9));
+  const sx = lerp(220, 940, sh), sy = lerp(110, 460, sh), sw = lerp(1480, 40, sh), shh = lerp(740, 20, sh);
+  screen(t, s0, s1, sx, sy, sw, shh, 'intro', {
+    col: C.violet, cam: camAt,
+    over: (map, fit) => {
+      const box = (x0, y0, x1, y1, tt, col = C.gold) => { const [ax, ay] = map(x0, y0), [bx, by] = map(x1, y1); glowBox(ax, ay, bx - ax, by - ay, PT(t, tt, .5), col); };
+      // 「2026年11月21日」で日付、「バージョン 4.2.2」で題の版を囲む
+      if (t < F('in1', .5)) box(284, 150, 442, 176, s0 + .4);
+      else if (t < L('in2').start) box(10, 28, 205, 84, F('in1', .62));
+      if (t > L('in3').start && t < L('in5').start) box(10, 618, 930, 652, F('in3', .3));
+      if (t > L('in5').start - .2 && t < L('in6').start) box(10, 682, 565, 716, L('in5').start);
+      if (t > L('in6').start && t < L('in7').start) box(55, 938, 880, 972, F('in6', .5));
+      if (t > L('in7').start && t < L('in8').start) { box(10, 802, 320, 838, L('in7').start + .2, C.link); box(10, 1004, 190, 1040, F('in7', .6), C.local); }
+      if (frz > 0) { ctx.fillStyle = `rgba(30,30,50,${.55 * frz})`; ctx.fillRect(0, 0, 4000, 4000); }
+    },
+  });
+  // 約2か月半ぶり（v3.1.0 → v4.2.2）
+  const a2 = win(t, L('in2').start + .3, L('in3').start);
+  if (a2 > 0) {
+    ctx.save(); ctx.globalAlpha = a2;
+    ctx.fillStyle = 'rgba(6,6,18,.88)'; rr(360, 760, 1200, 110, 18); ctx.fill();
+    chip('v3.1.0　WebView2 の拡張機能対応　2026.09.05', 400, 815, { col: C.violet, font: `700 24px ${JP}`, h: 48 });
+    arrow(1000, 815, 1120, 815, PT(t, L('in2').start + .6, .5), { color: C.gold, glow: true });
+    chip('v4.2.2　2026.11.21', 1140, 815, { col: C.gold, font: `700 24px ${JP}`, h: 48 });
+    txt('約2か月半', 1060, 772, { font: `800 24px ${JP}`, color: C.gold, align: 'center' });
+    ctx.restore();
+  }
+  if (t > L('in5').start && t < L('in6').start) {
+    const k = E.out(PT(t, L('in5').start, .4));
+    glitchText('ブラウザ ⇔ VBA', W / 2, 840, { font: `900 ${Math.round(60 + 20 * k)}px ${DISP}`, color: '#fff', align: 'center', glow: C.gold, gb: 30, alpha: k }, t, 1 - k);
+  }
+  if (t > F('in8', .3) && t < L('in9').start + .3) {
+    const k = PT(t, F('in8', .3), .3);
+    chip('ページ → VBA を呼ぶ', 640, 830, { align: 'center', col: C.link, font: `800 30px ${JP}`, h: 58, alpha: k });
+    chip('大きなデータを渡す', 1280, 830, { align: 'center', col: C.local, font: `800 30px ${JP}`, h: 58, alpha: k });
+  }
+  if (t > L('in9').start && t < L('in10').start + .4) glitchText('新しい？', W / 2, 520, { font: `900 120px ${DISP}`, color: '#fff', align: 'center', glow: C.wall, gb: 30, alpha: PT(t, L('in9').start, .2) * (1 - PT(t, L('in10').start, .4)) }, t, .9);
+  // このツールの3つのルート（ReiwaIE_DebugRoute と同じ絵）→ WebView2 のルートに寄る
+  routes3(t, L('in10').start);
+  // ∞ と、くっつく・離れる・名前を変える
+  const la = PT(t, L('in10').start + 3.9, .9);
+  if (la > 0) {
+    const fast = 1 + PT(t, L('in12').start, 2) * 4;
+    const P = drawLoop(t * fast, { cx: W / 2, cy: 470, a: 760, head: 4.5 * Math.PI + (t - L('in10').start) * .6 * fast, alpha: la });
+    const labs = [['くっつく', -470, -190, C.link, L('in11').start], ['離れる', 470, 190, C.wall, F('in11', .3)], ['名前を変えて', 0, -120, C.gold, F('in11', .55)], ['また、くっつく', -470, 190, C.link, F('in11', .8)]];
+    labs.forEach(([s2, dx, dy, col, tt]) => { const k = PT(t, tt, .4); if (k > 0) glitchText(s2, W / 2 + dx, 470 + dy, { font: `900 46px ${DISP}`, color: col, align: 'center', glow: col, gb: 20, alpha: k }, t, 1 - k); });
+  }
+};
+
+// ---------- 題名 ----------
+cue(S('title').start, 'title'); hit(S('title').start + .1, 14); flashAt(S('title').start, '#fff', .3, .5);
+OV.title = (t, s) => {
+  drawLoop(t * 3, { cx: W / 2, cy: 470, a: 760, head: 4.5 * Math.PI + (t - s.start) * 2.4, alpha: 1 });
+  const k = E.out(PT(t, s.start + .1, .8)), out = PT(t, s.end - .5, .5);
+  ctx.save(); ctx.globalAlpha = 1 - out;
+  txt('令和のIE 技術秘話', W / 2, 300, { font: `700 30px ${JP}`, color: C.dim, align: 'center', ls: 10, alpha: k });
+  glitchText('Web とローカルの双方向やり取り、', W / 2, 420, { font: `900 66px ${DISP}`, color: '#fff', align: 'center', glow: C.violet, gb: 26, alpha: k }, t, (1 - k) + (Math.sin(t * 7) > .97 ? .6 : 0));
+  glitchText('30年の輪廻', W / 2, 560, { font: `900 150px ${DISP}`, color: C.gold, align: 'center', glow: C.gold, gb: 40, alpha: k }, t, (1 - k) + (Math.sin(t * 5 + 1) > .96 ? .7 : 0));
+  txt('〜くっついて、離れて、またくっつく〜', W / 2, 690, { font: `700 34px ${JP}`, color: C.link, align: 'center', alpha: PT(t, s.start + 1.2, .6), glow: C.link, gb: 12 });
+  ctx.restore();
+};
+
+// ---------- はじめに ----------
+cue(L('pl2').start + .3, 'send'); cue(F('pl2', .7), 'recv');
+cue(L('pl3').start + .3, 'stream');
+cue(L('pl5').start + .3, 'pop'); cue(F('pl5', .6), 'pop', { i: 1 });
+cue(L('pl6').start + .2, 'msg');
+cue(F('pl7', .3), 'select');
+cue(F('pl9', .3), 'impact'); hit(F('pl9', .32), 10);
+cue(F('pl9', .75), 'rewind', { d: 2.6 });
+headKey(F('pl9', .75), Math.PI, 1996, 2.6);
+BGTINT.prelude = { c1: '#0b0d26' };
+OV.prelude = (t, s) => {
+  const a = win(t, L('pl2').start, L('pl6').start);
+  if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a;
+    node(420, 470, 360, 170, 'ツール\n（VBA）', { col: C.local });
+    node(1500, 470, 360, 170, 'ブラウザ', { col: C.web });
+    beam(600, 430, 1320, 430, PT(t, L('pl2').start + .3, .6), t, { col: C.local, label: '命令', lfont: `800 26px ${JP}` });
+    beam(1320, 510, 600, 510, PT(t, F('pl2', .7), .6), t, { col: C.web, label: '返事（待つ）', lfont: `800 26px ${JP}`, ly: 34 });
+    const ev = PT(t, L('pl3').start + .3, .5);
+    if (ev > 0) {
+      txt('CDP / WebDriver BiDi', 960, 640, { font: `700 28px ${MONO}`, color: C.link, align: 'center', alpha: ev, glow: C.link });
+      ['Network.*', 'Page.*', 'Runtime.*'].forEach((e, i) => { const u = (t * .4 + i / 3) % 1; chip(e, lerp(1300, 620, u), 720 + i * 0, { align: 'center', col: C.link, font: `700 24px ${CODE}`, h: 42, alpha: ev * Math.sin(u * Math.PI) }); });
+      txt('イベントが向こうから届く', 960, 800, { font: `800 30px ${JP}`, color: '#fff', align: 'center', alpha: ev });
+    }
+    ctx.restore();
+  }
+  // ブラウザが決めたイベントだけ
+  tableCard(t, L('pl5').start, L('pl6').start - .1, 460, 160, 1000, '届くのは、ブラウザが決めたイベントだけ', ['プロトコル', '新しいイベントを足すかどうか'], [
+    [['CDP', 'Google 次第'], L('pl5').start + .3], [['WebDriver BiDi', 'W3C 次第'], F('pl5', .6)],
+  ], { ws: [380, 560], code: [true, false], ccol: [C.link, '#fff'] });
+  // 要望
+  glassPanel(t, L('pl6').start + .2, L('pl8').start, 360, 220, 1200, 340, 'REQUEST', (w, h, top) => {
+    para('Web ページの中の出来事が、任意の条件に当てはまったら、それもイベントとして送ってほしい', 40, top + 30, w - 80, { font: `800 40px ${JP}`, lh: 58, color: '#fff' });
+    if (t > F('pl7', .3)) chip('＝ イベントを、自分で作りたい', w / 2, h - 50, { align: 'center', col: C.gold, font: `800 32px ${JP}`, h: 58, alpha: PT(t, F('pl7', .3), .3) });
+  }, { col: C.link });
+  // 昔のあの仕組み
+  const q = win(t, F('pl9', .2), S('prelude').end);
+  if (q > 0) {
+    glitchText('あれ、それって……', W / 2, 400, { font: `900 54px ${DISP}`, color: C.dim, align: 'center', alpha: q }, t, 0);
+    glitchText('IE を埋め込んで、双方向にやり取りしてた', W / 2, 500, { font: `900 62px ${DISP}`, color: '#fff', align: 'center', glow: C.web, gb: 24, alpha: q }, t, PT(t, F('pl9', .75), .3));
+    glitchText('昔のあの仕組みと、同じじゃね？', W / 2, 600, { font: `900 62px ${DISP}`, color: C.gold, align: 'center', glow: C.gold, gb: 24, alpha: q }, t, PT(t, F('pl9', .75), .3));
+  }
+  rewindFx(t, win(t, F('pl9', .75), S('prelude').end + .3, .2, .3));
+};
+
+// 第1幕（壁がなかった時代）・第2幕（壁ができた時代）
+// 注意: HTML に埋め込むので、文字列に script の閉じタグをそのまま書かない（'<' + '/script>' のように分ける）
+
+// ---------- 第1幕: 壁がなかった時代 ----------
+BGTINT.act1 = { c1: '#0a1430', ring: '#7aa7ff' };
+cue(L('a1').start + .2, 'boot98');
+cue(L('a2').start + .3, 'pop');
+cue(L('a3').start + .3, 'send'); cue(F('a3', .55), 'recv');
+cue(L('a4').start + .2, 'paper');
+cue(L('a6').start + .2, 'type', { n: 14 });
+cue(L('a7').start + .2, 'pop', { i: 2 });
+cue(F('a8', .55), 'impact'); hit(F('a8', .58), 14); flashAt(F('a8', .55), '#fff', .3, .5); glitchAt(F('a8', .55), .3, .8);
+cue(L('a10').start + .2, 'type', { n: 18 });
+cue(F('a10', .6), 'excel');
+cue(F('a11', .4), 'select');
+cue(L('a12').start + .2, 'type', { n: 10 });
+cue(F('a13', .3), 'stampS');
+OV.act1 = (t, s) => {
+  // 1996: ActiveX と VBScript
+  const a = win(t, L('a1').start, L('a4').start);
+  if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a;
+    glitchText('1996', 300, 230, { font: `400 110px ${MONO}`, color: C.gold, glow: C.gold, gb: 26 }, t, 1 - PT(t, L('a1').start, .5));
+    chip('ActiveX　Windows の技術（COM/OLE）を Web ページに', 160, 360, { col: C.web, font: `800 28px ${JP}`, h: 56, alpha: PT(t, F('a1', .45), .3) });
+    chip('VBScript　Web 向けのスクリプト言語', 160, 440, { col: C.violet, font: `800 28px ${JP}`, h: 56, alpha: PT(t, F('a1', .8), .3) });
+    // アプリに埋め込まれた IE
+    const k = PT(t, L('a2').start + .2, .5);
+    if (k > 0) {
+      ctx.globalAlpha = a * k;
+      retroWin(1000, 170, 780, 520, '自分のアプリ', { fill: '#d4d0c8', inner: (x, y, w, h) => {
+        retroWin(x + 40, y + 50, w - 80, h - 110, 'WebBrowser コントロール（IE）', { inner: (x2, y2, w2, h2) => {
+          txt('Web ページ', x2 + w2 / 2, y2 + h2 / 2 - 20, { font: `800 40px ${JP}`, color: '#000080', align: 'center' });
+          txt('<html> … </html>', x2 + w2 / 2, y2 + h2 / 2 + 30, { font: `500 24px ${CODE}`, color: '#555', align: 'center' });
+        } });
+      } });
+      // 両方向
+      beam(1120, 620, 1120, 760, PT(t, L('a3').start + .3, .4), t, { col: C.link, label: 'window.external', ly: 0, lx: -170 });
+      beam(1660, 760, 1660, 620, PT(t, F('a3', .55), .4), t, { col: C.local, label: 'InvokeScript', ly: 0, lx: 140 });
+      node(1120, 800, 300, 70, 'ページ → アプリ', { col: C.link, font: `800 24px ${JP}` });
+      node(1660, 800, 300, 70, 'アプリ → ページ', { col: C.local, font: `800 24px ${JP}` });
+    }
+    ctx.restore();
+  }
+  glassPanel(t, L('a4').start, L('a5').start + .3, 260, 200, 1400, 280, 'MICROSOFT の手順書の題', (w, h, top) => {
+    txt('How to: Implement Two-Way Communication Between', 40, top + 50, { font: `600 32px ${CODE}`, color: C.ink, maxW: w - 80 });
+    txt('DHTML Code and Client Application Code', 40, top + 96, { font: `600 32px ${CODE}`, color: C.ink, maxW: w - 80 });
+    txt('DHTML コードとクライアント アプリケーション コード間の、双方向の通信を実装する', 40, top + 150, { font: `800 30px ${JP}`, color: C.gold, maxW: w - 80, glow: C.gold, gb: 8 });
+  }, { col: C.web });
+  // VBA も同じ COM の世界
+  codeBox(t, L('a6').start, L('a7').start, 300, 160, 1320, 470, 'VBA（クラスモジュール）', [
+    [['Private WithEvents ', C.kw], ['ie ', C.ink], ['As ', C.kw], ['SHDocVw.InternetExplorer', C.vb]],
+    [['Private WithEvents ', C.kw], ['doc ', C.ink], ['As ', C.kw], ['MSHTML.HTMLDocument', C.vb]],
+    '',
+    [['Private Function ', C.kw], ['doc_onclick', C.gold], ['() ', C.ink], ['As Boolean', C.kw]],
+    [['    Debug.Print ', C.ink], ['"クリックされました"', C.str]],
+    [['    doc_onclick = ', C.ink], ['True', C.kw]],
+    [['End Function', C.kw]],
+  ], { fs: 28, typeFrom: L('a6').start + .2, rate: 60, extra: (w, h) => { if (t > F('a6', .6)) chip('ページのクリックを、VBA のイベントで受け取る', w / 2, h - 40, { align: 'center', col: C.gold, font: `800 26px ${JP}`, h: 50, alpha: PT(t, F('a6', .6), .3) }); } });
+  // アクティブデスクトップ
+  const ad = win(t, L('a7').start, L('a8').start);
+  if (ad > 0) {
+    ctx.save(); ctx.globalAlpha = ad;
+    retroWin(560, 170, 800, 560, 'デスクトップ（IE4 ＋ Windows 98）', { fill: '#008080', inner: (x, y, w, h) => {
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = '#fff'; ctx.fillRect(x + 30, y + 30 + i * 100, 64, 56); txt(['マイ コンピュータ', 'ごみ箱', 'イントラネット', 'Web'][i], x + 62, y + 104 + i * 100, { font: `600 16px ${JP}`, color: '#fff', align: 'center' }); }
+      retroWin(x + 200, y + 40, w - 240, h - 90, 'アクティブデスクトップの Web 部品', { inner: (x2, y2, w2, h2) => txt('Web ページが、デスクトップの上に', x2 + w2 / 2, y2 + h2 / 2, { font: `800 28px ${JP}`, color: '#000080', align: 'center' }) });
+    } });
+    ctx.restore();
+  }
+  // 1999: HTA
+  const ha = win(t, F('a8', .5), L('a10').start);
+  if (ha > 0) {
+    const k = E.out(PT(t, F('a8', .55), .5));
+    glitchText('1999', W / 2, 300, { font: `400 80px ${MONO}`, color: C.gold, align: 'center', glow: C.gold, alpha: ha }, t, 0);
+    glitchText('HTA', W / 2, 470, { font: `900 ${Math.round(150 + 60 * k)}px ${DISP}`, color: '#fff', align: 'center', glow: C.local, gb: 40, alpha: ha }, t, 1 - k);
+    txt('HTML アプリケーション（mshta.exe）', W / 2, 620, { font: `700 34px ${JP}`, color: C.local, align: 'center', alpha: ha * k });
+    if (t > L('a9').start + .3) chip('完全に信頼されたアプリ　ゾーンの設定に関係なく ActiveX が動く', W / 2, 720, { align: 'center', col: C.gold, font: `800 30px ${JP}`, h: 58, alpha: ha * PT(t, L('a9').start + .3, .3) });
+  }
+  // HTA の JavaScript から Excel（ForAI/材料/SampleHTA.hta より）
+  codeBox(t, L('a10').start, L('a12').start, 160, 130, 1600, 560, 'SampleHTA.hta（完全外部ランチャー実験機）', [
+    [['<hta:application ', C.kw], ['id=', C.ink], ['"app" ', C.str], ['applicationname=', C.ink], ['"PureExternalLauncher"', C.str], ['>', C.kw]],
+    [['// HTAなら「本物のローカルフルパス」がそのまま文字列で手に入ります！', C.cmt]],
+    [['var ', C.kw], ['filePath = picker.value;', C.ink]],
+    [['var ', C.kw], ['excel = ', C.ink], ['new ', C.kw], ['ActiveXObject', C.gold], ['(', C.ink], ['"Excel.Application"', C.str], [');', C.ink]],
+    [['excel.Visible = ', C.ink], ['true', C.kw], [';', C.ink]],
+    [['excel.Workbooks.Open(filePath);', C.ink]],
+  ], { fs: 27, typeFrom: L('a10').start + .2, rate: 70, extra: (w, h) => {
+    const k = PT(t, F('a11', .3), .4);
+    if (k <= 0) return;
+    ctx.save(); ctx.globalAlpha *= k;
+    txt('普通のブラウザ', 60, h - 120, { font: `800 26px ${JP}`, color: C.dim });
+    txt('C:\\fakepath\\book.xlsm', 300, h - 120, { font: `600 28px ${CODE}`, color: C.wall });
+    txt('HTA', 60, h - 64, { font: `800 26px ${JP}`, color: C.gold });
+    txt('C:\\work\\book.xlsm（本物のパス）', 300, h - 64, { font: `600 28px ${CODE}`, color: C.gold, glow: C.gold, gb: 8 });
+    ctx.restore();
+  } });
+  // メモ帳で数行
+  const np = win(t, L('a12').start, S('act1').end);
+  if (np > 0) {
+    ctx.save(); ctx.globalAlpha = np;
+    retroWin(560, 180, 800, 460, 'app.hta - メモ帳', { inner: (x, y, w, h) => {
+      ['<html>', '<hta:application>', '<script>', '  new ActiveXObject(...)', '<' + '/script>', '</html>'].forEach((r, i) => txt(r, x + 20, y + 30 + i * 40, { font: `500 26px ${CODE}`, color: '#000', alpha: PT(t, L('a12').start + i * .2, .2) }));
+    } });
+    chip('拡張子を .hta にするだけ　OS の IE を借りて動く', W / 2, 720, { align: 'center', col: C.local, font: `800 30px ${JP}`, h: 58 });
+    ctx.restore();
+    if (t > F('a13', .3)) stamp('壁なし', 1500, 300, t, F('a13', .3), { size: 64, color: C.link, rot: .08 });
+  }
+};
+
+// ---------- 第2幕: 壁ができた時代 ----------
+BGTINT.act2 = { c1: '#200716', ring: '#ff3b5c' };
+cue(L('b1').start + .4, 'wall'); hit(L('b1').start + .45, 12);
+cue(L('b2').start + .2, 'alarm');
+cue(L('b3').start + .2, 'alarm');
+cue(L('b4').start + .3, 'cage');
+cue(F('b5', .6), 'x');
+cue(F('b6', .3), 'stampB'); hit(F('b6', .32), 8);
+for (let i = 0; i < 3; i++) cue(F('b7', .25 + i * .25), 'drill');
+cue(L('b9').start + .2, 'alarm');
+cue(L('b10').start + .2, 'gate');
+cue(L('b13').start + .3, 'x'); cue(F('b13', .6), 'ok');
+cue(L('b14').start + .3, 'select');
+cue(F('b15', .2), 'impact'); hit(F('b15', .22), 8);
+cue(F('b16', .4), 'rename');
+cue(L('b17').start + .3, 'bars');
+cue(L('b18').start + .3, 'send');
+OV.act2 = (t, s) => {
+  // 壁が下りる
+  const wa = PT(t, L('b1').start + .4, .3);
+  if (wa > 0 && t < L('b2').start + .2) {
+    ctx.save(); ctx.globalAlpha = 1 - PT(t, L('b2').start - .2, .4);
+    node(420, 470, 360, 170, 'Web ページ', { col: C.web });
+    node(1500, 470, 360, 170, 'ローカル', { col: C.local });
+    const y = lerp(-600, 0, E.out(wa));
+    ctx.save(); ctx.translate(0, y);
+    for (let i = 0; i < 9; i++) line(W / 2 + (i - 4) * 5, 120, W / 2 + (i - 4) * 5, 860, C.wall, 3, .5 + .5 * Math.sin(t * 6 + i));
+    ctx.restore();
+    glitchText('壁', W / 2, 470, { font: `900 160px ${DISP}`, color: C.wall, align: 'center', glow: C.wall, gb: 40, alpha: wa }, t, 1 - wa);
+    ctx.restore();
+  }
+  incident(t, L('b2').start + .1, L('b3').start, 360, 200, 1200, '2000.05', 'ワーム', 'ILOVEYOU（LOVE-LETTER-FOR-YOU.TXT.vbs）', 'VBScript のワームが、世界中で流行', 'INTERNET Watch（2000年5月）');
+  incident(t, L('b3').start + .1, L('b4').start, 360, 200, 1200, '2012.07', '機能を無効に', 'Windows のサイドバーとガジェット', 'ガジェットを丸ごと無効にする Fix it を公開。深刻な脆弱性があるとして、のちに提供終了', 'Microsoft Security Advisory 2719662');
+  // ブラウザは別棟へ
+  const bw = win(t, L('b4').start, L('b7').start);
+  if (bw > 0) {
+    ctx.save(); ctx.globalAlpha = bw;
+    txt('2008  Google Chrome', 200, 200, { font: `400 46px ${MONO}`, color: C.gold, glow: C.gold });
+    node(560, 440, 440, 180, 'ブラウザの\nプロセス', { col: C.web });
+    node(1260, 440, 440, 180, 'レンダラー\n（Web ページ）', { col: C.violet });
+    // サンドボックスの檻
+    const k = PT(t, L('b4').start + .5, .6);
+    ctx.strokeStyle = hexA(C.wall, .8); ctx.lineWidth = 3; ctx.shadowColor = C.wall; ctx.shadowBlur = 10;
+    for (let i = 0; i < 10; i++) { const x = 1020 + i * 53; ctx.beginPath(); ctx.moveTo(x, 330); ctx.lineTo(x, 330 + 220 * k); ctx.stroke(); }
+    ctx.strokeRect(1020, 330, 480, 220 * k); ctx.shadowBlur = 0;
+    txt('サンドボックス', 1260, 590, { font: `800 30px ${JP}`, color: C.wall, align: 'center', alpha: k });
+    if (t > L('b5').start) {
+      const q = PT(t, L('b5').start, .4);
+      txt('2015  Microsoft Edge（EdgeHTML）', 200, 720, { font: `400 40px ${MONO}`, color: C.gold, alpha: q });
+      chip('ActiveX', 880, 720, { col: C.dim2, color: C.dim, font: `800 28px ${CODE}`, h: 54, alpha: q }); cross(960, 720, 50, PT(t, F('b5', .6), .3));
+      chip('VBScript', 1100, 720, { col: C.dim2, color: C.dim, font: `800 28px ${CODE}`, h: 54, alpha: q }); cross(1190, 720, 50, PT(t, F('b5', .7), .3));
+    }
+    ctx.restore();
+    if (t > F('b6', .3)) stamp('壁', 1640, 260, t, F('b6', .3), { size: 90, color: C.wall });
+  }
+  // 抜け道
+  const tu = win(t, L('b7').start, L('b9').start);
+  if (tu > 0) {
+    ctx.save(); ctx.globalAlpha = tu;
+    for (let i = 0; i < 9; i++) line(W / 2 + (i - 4) * 5, 140, W / 2 + (i - 4) * 5, 820, C.wall, 3, .5);
+    const ways = [['独自の URL スキーム', 'ページ → アプリの一方通行', 300], ['localhost の Web サーバー', 'http://127.0.0.1:ポート', 480], ['ネイティブメッセージング（2013）', '拡張機能 ⇔ 標準入出力の JSON', 660]];
+    ways.forEach(([n, d, y], i) => {
+      const k = PT(t, F('b7', .25 + i * .25), .5);
+      if (k <= 0) return;
+      ctx.save(); ctx.globalAlpha *= k;
+      ctx.strokeStyle = C.gold; ctx.lineWidth = 4; ctx.shadowColor = C.gold; ctx.shadowBlur = 14; ctx.setLineDash([12, 10]); ctx.lineDashOffset = -t * 40;
+      ctx.beginPath(); ctx.moveTo(500, y); ctx.bezierCurveTo(800, y + 60, 1120, y + 60, 1420, y); ctx.stroke(); ctx.setLineDash([]); ctx.shadowBlur = 0;
+      txt(n, 400, y - 10, { font: `800 30px ${JP}`, color: '#fff', align: 'right' });
+      txt(d, 400, y + 30, { font: `600 22px ${JP}`, color: C.dim, align: 'right' });
+      ctx.restore();
+    });
+    txt('抜け道', 1600, 480, { font: `900 70px ${DISP}`, color: C.gold, align: 'center', glow: C.gold, gb: 24, alpha: PT(t, L('b7').start + .3, .4) });
+    ctx.restore();
+  }
+  if (t > L('b8').start && t < L('b9').start + .2) glitchText('抜け道は、悪意にとっても抜け道', W / 2, 880 - 80, { font: `900 50px ${DISP}`, color: C.wall, align: 'center', glow: C.wall, alpha: PT(t, L('b8').start, .3) * (1 - PT(t, L('b9').start - .1, .3)) }, t, .2);
+  incident(t, L('b9').start + .1, L('b10').start, 360, 200, 1200, '2019.07', 'localhost', 'Mac 版 Zoom のクライアント', 'localhost の 19421 番で動く Web サーバーを使い、ページから会議に参加させられる。更新でサーバーを取り除いた', 'Tenable（CVE-2019-13450）');
+  glassPanel(t, L('b10').start + .1, L('b12').start, 460, 200, 1000, 330, '電子入札補助アプリ（JACIC・SCOPE）', (w, h, top) => {
+    txt('タスクトレイに常駐　ポート番号', 40, top + 50, { font: `700 30px ${JP}`, color: C.ink });
+    txt('9980', 560, top + 50, { font: `400 60px ${MONO}`, color: C.gold, glow: C.gold });
+    txt('呼んでいい相手（オリジン URL）を', 40, top + 130, { font: `700 30px ${JP}`, color: C.ink });
+    // 「を」の後ろに少し間をあけて置く（文字の幅を測る）
+    chip('許可 URL リスト', 40 + tw('呼んでいい相手（オリジン URL）を', `700 30px ${JP}`) + 16, top + 130, { col: C.link, font: `800 30px ${JP}`, h: 56 });
+    if (t > F('b11', .3)) stamp('関所', w - 140, h - 70, t, F('b11', .3), { size: 52, color: C.link, rot: .1 });
+  }, { col: C.link });
+  // IE11 は終わっても、組み込み IE は生き残る
+  glassPanel(t, L('b12').start + .2, L('b14').start, 360, 180, 1200, 420, 'INTERNET EXPLORER 11', (w, h, top) => {
+    txt('IE11 のデスクトップ アプリ', 40, top + 50, { font: `800 34px ${JP}`, color: '#fff' });
+    txt('2022.06.15 サポート終了', 640, top + 50, { font: `400 34px ${MONO}`, color: C.wall });
+    cross(560, top + 50, 40, PT(t, L('b13').start + .3, .3));
+    ['MSHTML（Trident）', 'WebBrowser コントロール（WebOC）', 'MSHTA'].forEach((n, i) => {
+      const k = PT(t, F('b13', .55 + i * .12), .3);
+      ctx.save(); ctx.globalAlpha *= k;
+      txt('✓', 60, top + 140 + i * 66, { font: `900 34px ${JP}`, color: C.ok, glow: C.ok });
+      txt(n, 110, top + 140 + i * 66, { font: `800 32px ${JP}`, color: '#fff' });
+      txt('引き続きサポート', 760, top + 140 + i * 66, { font: `700 26px ${JP}`, color: C.ok });
+      ctx.restore();
+    });
+  }, { col: C.web });
+  // Power Query の中の IE
+  screen(t, L('b14').start, L('b17').start - .1, 120, 130, 1680, 650, 'powerquery', {
+    col: C.web,
+    cam: tt => tt < F('b15', .1) ? [1258, 486, 1] : [lerp(1258, 1575, E.io(PT(tt, F('b15', .1), 1))), lerp(486, 470, E.io(PT(tt, F('b15', .1), 1))), lerp(1, 1.9, E.io(PT(tt, F('b15', .1), 1)))],
+    over: (map) => {
+      const [ax, ay] = map(920, 222), [bx, by] = map(2230, 268);
+      glowBox(ax, ay, bx - ax, by - ay, PT(t, F('b15', .3), .5));
+    },
+  });
+  if (t > L('b14').start + .4 && t < L('b17').start) {
+    const k = PT(t, L('b14').start + .4, .3);
+    chip('Web.Page ＝ IE ベース', 160, 820, { col: C.web, font: `800 28px ${CODE}`, h: 54, alpha: k });
+    if (t > F('b15', .3)) chip('QueriesEditorWindow.htm - F12 開発者ツール', 1100, 820, { col: C.gold, font: `700 24px ${CODE}`, h: 50, alpha: PT(t, F('b15', .3), .3) });
+  }
+  if (t > L('b16').start && t < L('b17').start + .2) {
+    ctx.save(); ctx.fillStyle = 'rgba(4,3,12,.75)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+    rebirth(t, L('b16').start, W / 2, 470, 'Web.Page', 'Web.BrowserContents', { fs: 74, delay: .5, label: 'WebView2 ベース（画面からは置き換え中）', t1: L('b17').start });
+  }
+  // IE を使い続ける業務
+  glassPanel(t, L('b17').start + .1, L('b18').start, 360, 220, 1200, 360, 'IE のサポート終了直後の国内の調査（2022年6〜7月）', (w, h, top) => {
+    bar(60, top + 90, 900, 46, .12 * E.out(PT(t, L('b17').start + .5, 1)), C.web, '業務で IE を使っている', '12%');
+    bar(60, top + 210, 900, 46, .35 * E.out(PT(t, L('b17').start + .9, 1)), C.violet, '業務で Edge の IE モードを使っている', '35%');
+  }, { col: C.web, titleFont: JP });
+  // 拡張機能とローカルのソフトが手を組む
+  const ex = win(t, L('b18').start + .1, S('act2').end);
+  if (ex > 0) {
+    ctx.save(); ctx.globalAlpha = ex;
+    node(360, 470, 320, 150, 'Web ページ', { col: C.web });
+    node(960, 470, 320, 150, '拡張機能', { col: C.violet });
+    node(1560, 470, 320, 150, 'ローカルの\nソフト', { col: C.local });
+    beam(520, 470, 800, 470, PT(t, L('b18').start + .3, .5), t, { col: C.web });
+    beam(1120, 470, 1400, 470, PT(t, L('b18').start + .7, .5), t, { col: C.local });
+    txt('e-Tax（e-Tax受付システムAP ＋ 事前準備セットアップ）', 960, 680, { font: `700 28px ${JP}`, color: C.ink, align: 'center' });
+    txt('公的個人認証（JPKI）の利用者クライアントソフト', 960, 740, { font: `700 28px ${JP}`, color: C.ink, align: 'center' });
+    ctx.restore();
+  }
+};
+
+// 第3幕（もう全部ブラウザにしてしまえ）・第4幕（組み込み IE の正統進化、WebView2）
+
+// ---------- 第3幕 ----------
+BGTINT.act3 = { c1: '#061c22', ring: '#2de2c4' };
+cue(L('c2').start + .3, 'boot');
+cue(F('c3', .1), 'rename');
+cue(F('c3', .6), 'pop'); cue(F('c3', .75), 'pop', { i: 1 }); cue(F('c3', .9), 'pop', { i: 2 });
+cue(L('c5').start + .2, 'rebirth'); hit(F('c5', .6), 10);
+cue(L('c6').start + .3, 'cage');
+OV.act3 = (t, s) => {
+  const a = win(t, L('c1').start, L('c4').start);
+  if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a;
+    // アプリそのものがブラウザ
+    const k = PT(t, L('c1').start + .3, .6);
+    node(W / 2, 450, lerp(300, 760, E.out(k)), lerp(160, 420, E.out(k)), '', { col: C.link });
+    txt('アプリ', W / 2, 280, { font: `800 30px ${JP}`, color: C.link, align: 'center', alpha: k });
+    if (t > L('c2').start) {
+      const q = PT(t, L('c2').start + .3, .4);
+      node(W / 2 - 170, 470, 280, 150, 'Chromium', { col: C.web, alpha: q, font: `800 30px ${CODE}` });
+      node(W / 2 + 170, 470, 280, 150, 'Node.js', { col: C.ok, alpha: q, font: `800 30px ${CODE}` });
+      txt('2013.03　最初のコミット', 260, 200, { font: `400 40px ${MONO}`, color: C.gold, glow: C.gold, alpha: q });
+      txt('ローカルの権限まで持つ', W / 2, 600, { font: `800 30px ${JP}`, color: '#fff', align: 'center', alpha: q });
+    }
+    const r = PT(t, F('c3', .1), 1.2);
+    if (t > L('c2').start) scramble('Atom Shell', 'Electron', r, W / 2, 760, { font: `900 72px ${CODE}`, align: 'center', from: C.link }, t);
+    if (r >= 1) {
+      ['メール', 'チャット', 'Git のクライアント'].forEach((n, i) => chip(n, 560 + i * 280, 870 - 30, { align: 'center', col: C.link, font: `800 26px ${JP}`, h: 50, alpha: PT(t, F('c3', .6 + i * .15), .3) }));
+    }
+    ctx.restore();
+  }
+  // HTA の生まれ変わり
+  const rb = win(t, L('c4').start + .3, L('c6').start);
+  if (rb > 0) {
+    ctx.save(); ctx.globalAlpha = rb;
+    drawLoop(t, { cx: W / 2, cy: 470, a: 640, alpha: .5, wall: false });
+    ctx.restore();
+    rebirth(t, L('c5').start, W / 2, 470, 'HTA', 'Electron', { fs: 120, font: DISP, delay: .5, label: 'HTA（1999）の生まれ変わり（2015）', t1: L('c6').start - .1 });
+    if (t < L('c5').start) txt('HTML と JavaScript で、ローカルを触るアプリ', W / 2, 700, { font: `800 38px ${JP}`, color: '#fff', align: 'center', alpha: rb });
+  }
+  // Office アドイン
+  glassPanel(t, L('c6').start + .2, S('act3').end - .2, 360, 180, 1200, 460, '2012.07　apps for Office → 今の Office アドイン', (w, h, top) => {
+    node(260, top + 170, 340, 160, 'HTML・CSS・\nJavaScript', { col: C.web, font: `800 28px ${JP}` });
+    ctx.strokeStyle = hexA(C.wall, .8); ctx.lineWidth = 3; ctx.setLineDash([10, 8]); rr(70, top + 60, 380, 220, 16); ctx.stroke(); ctx.setLineDash([]);
+    txt('サンドボックス', 260, top + 300, { font: `800 24px ${JP}`, color: C.wall, align: 'center' });
+    beam(470, top + 170, 760, top + 170, PT(t, L('c6').start + .8, .5), t, { col: C.link });
+    node(900, top + 170, 260, 160, 'Office', { col: C.local, font: `800 34px ${JP}` });
+    txt('Windows・Mac・iPad・ブラウザの Office で動く', w / 2, h - 40, { font: `700 26px ${JP}`, color: C.dim, align: 'center' });
+  }, { col: C.link, titleFont: JP });
+};
+
+// ---------- 第4幕: WebView2 ----------
+BGTINT.act4 = { c1: '#160a2c', ring: '#a78bfa' };
+cue(L('d1').start + .3, 'paper');
+cue(F('d2', .2), 'x'); cue(F('d2', .65), 'x');
+cue(L('d3').start + .3, 'boot');
+cue(F('d4', .2), 'rebirth');
+cue(F('d5', .55), 'rebirth'); hit(F('d5', .8), 8);
+cue(L('d6').start + .3, 'send'); cue(F('d6', .6), 'recv');
+cue(L('d8').start + .2, 'msg');
+cue(F('d10', .4), 'impact'); hit(F('d10', .42), 10);
+cue(L('d12').start + .3, 'share');
+cue(L('d13').start + .2, 'type', { n: 12 });
+cue(F('d14', .4), 'stampB');
+OV.act4 = (t, s) => {
+  tableCard(t, L('d1').start + .2, L('d3').start - .1, 160, 170, 1600, '組み込み IE の引退', ['製品', '内容', '時期'], [
+    [['Access', 'IE ベースの旧 Web ブラウザー コントロールを廃止', '2027年5月18日の予定'], F('d2', .1)],
+    [['Outlook', 'Outlook Today とフォルダー ホーム ページを非推奨 → 無効', '2026年8月 → 2027年8月'], F('d2', .55)],
+    [['Power Query', 'Web.Page を、画面からは Web.BrowserContents へ', '進行中'], F('d2', .85)],
+  ], { ws: [270, 860, 410], rh: 92, ccol: [C.wall, '#fff', C.gold] });
+  // WebView2 の登場
+  const a = win(t, L('d3').start, L('d5').start);
+  if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a;
+    glitchText('2020.10.19', 360, 230, { font: `400 64px ${MONO}`, color: C.gold, glow: C.gold }, t, 1 - PT(t, L('d3').start + .2, .4));
+    txt('WebView2　一般提供', 360, 320, { font: `900 50px ${DISP}`, color: '#fff' });
+    chip('Windows 11 には、ランタイムが最初から入っている', 360, 410, { col: C.violet, font: `800 28px ${JP}`, h: 56, alpha: PT(t, F('d3', .7), .3) });
+    ctx.restore();
+    if (t > L('d4').start) rebirth(t, L('d4').start, W / 2, 680, 'IE（WebBrowser コントロール）', 'WebView2', { fs: 70, font: DISP, delay: .4, d: 1, label: 'OS のブラウザの部品を借りる' });
+  }
+  if (t > L('d5').start - .1 && t < L('d6').start + .1) {
+    ctx.save(); ctx.fillStyle = 'rgba(4,3,12,.6)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+    rebirth(t, L('d5').start, W / 2, 480, 'window.external', 'AddHostObjectToScript', { fs: 76, delay: F('d5', .5) - L('d5').start, d: 1.1, label: 'ページから、ホストのオブジェクトを呼ぶ', t1: L('d6').start });
+  }
+  // メッセージを両方向に
+  const m = win(t, L('d6').start, L('d8').start);
+  if (m > 0) {
+    ctx.save(); ctx.globalAlpha = m;
+    node(400, 470, 380, 170, 'ホスト\n（アプリ）', { col: C.local });
+    node(1520, 470, 380, 170, 'Web ページ', { col: C.web });
+    beam(590, 420, 1330, 420, PT(t, L('d6').start + .3, .5), t, { col: C.local, label: 'PostWebMessageAsJson' });
+    beam(1330, 520, 590, 520, PT(t, F('d6', .6), .5), t, { col: C.link, label: 'chrome.webview.postMessage → WebMessageReceived', ly: 36 });
+    if (t > L('d7').start) txt('軽いデータなら、これで十分', W / 2, 720, { font: `800 36px ${JP}`, color: '#fff', align: 'center', alpha: PT(t, L('d7').start, .3) });
+    ctx.restore();
+  }
+  // 要望の声
+  glassPanel(t, L('d8').start, L('d9').start + .2, 260, 170, 1400, 470, 'WEBVIEW2FEEDBACK の要望', (w, h, top) => {
+    chip('#89　2019.12', 40, top + 40, { col: C.local, font: `700 24px ${MONO}`, h: 42 });
+    para('JSON と文字列でデータを運ぶのは、遅すぎる。印刷用に1ページ 100MB のデータを渡したいが、base64 の文字列にして送るしかなく、遅くて反応も悪い', 40, top + 76, w - 80, { font: `700 30px ${JP}`, lh: 44, color: '#fff' });
+    chip('#1005　2021.02', 40, top + 260, { col: C.local, font: `700 24px ${MONO}`, h: 42 });
+    para('JSON に変えて運び、解析し直す代わりに、データを直接渡せれば大きく速くなる', 40, top + 296, w - 80, { font: `700 30px ${JP}`, lh: 44, color: '#fff' });
+  }, { col: C.local });
+  // A = A & B
+  const ab = win(t, L('d9').start + .2, L('d12').start);
+  if (ab > 0) {
+    ctx.save(); ctx.globalAlpha = ab;
+    txt('文字列にする → 丸ごと運ぶ → 作り直す', W / 2, 200, { font: `800 38px ${JP}`, color: '#fff', align: 'center' });
+    const q = PT(t, F('d10', .3), .3);
+    glitchText('A = A & B', W / 2, 330, { font: `800 96px ${CODE}`, color: C.gold, align: 'center', glow: C.gold, gb: 30, alpha: q }, t, 1 - q);
+    // つなぐたびに、丸ごと作り直す（ブロックが伸びて、毎回コピーされる）
+    const n = Math.min(8, Math.floor((t - L('d9').start) * 2.2));
+    for (let i = 0; i < n; i++) {
+      const y = 460 + i * 46, w = 120 + i * 120;
+      ctx.fillStyle = hexA(i === n - 1 ? C.wall : C.violet, i === n - 1 ? .8 : .25); rr(W / 2 - w / 2, y, w, 34, 6); ctx.fill();
+      if (i < n - 1) txt('コピー', W / 2 + w / 2 + 50, y + 17, { font: `600 18px ${JP}`, color: C.dim, alpha: .7 });
+    }
+    ctx.restore();
+  }
+  // SharedBuffer
+  const sb = win(t, L('d12').start, L('d14').start);
+  if (sb > 0) {
+    ctx.save(); ctx.globalAlpha = sb;
+    txt('SharedBuffer（SDK 1.0.1661.34）', W / 2, 190, { font: `800 46px ${CODE}`, color: C.gold, align: 'center', glow: C.gold });
+    node(360, 480, 340, 160, 'ホスト\n（VBA）', { col: C.local });
+    node(1560, 480, 340, 160, 'Web ページ\n（JS）', { col: C.web });
+    // 共有メモリ
+    const k = PT(t, L('d12').start + .4, .6);
+    ctx.fillStyle = hexA(C.gold, .12); rr(700, 400, 520 * k, 160, 12); ctx.fill();
+    ctx.strokeStyle = C.gold; ctx.lineWidth = 3; ctx.shadowColor = C.gold; ctx.shadowBlur = 16; rr(700, 400, 520 * k, 160, 12); ctx.stroke(); ctx.shadowBlur = 0;
+    for (let i = 0; i < 12 * k; i++) { ctx.fillStyle = hexA(i % 2 ? C.local : C.web, .5 + .3 * Math.sin(t * 4 + i)); ctx.fillRect(716 + i * 41, 430, 34, 100); }
+    txt('OS の共有メモリ', 960, 600, { font: `800 30px ${JP}`, color: C.gold, align: 'center', alpha: k });
+    arrow(530, 480, 690, 480, k, { color: C.local, glow: true }); arrow(1390, 480, 1230, 480, k, { color: C.web, glow: true });
+    if (t > L('d13').start) {
+      const q = PT(t, L('d13').start, .3);
+      txt('A = A & B', 600, 740, { font: `700 44px ${CODE}`, color: C.dim, align: 'center', alpha: q });
+      cross(600, 740, 60, PT(t, L('d13').start + .3, .3));
+      arrow(780, 740, 900, 740, q, { color: C.gold, glow: true });
+      txt('Mid$(buf, pos, len) = B', 1260, 740, { font: `700 44px ${CODE}`, color: C.gold, align: 'center', glow: C.gold, alpha: q });
+    }
+    ctx.restore();
+  }
+  // このツールが足したもの（冒頭のリリースノートへ）
+  screen(t, L('d14').start, S('act4').end - .2, 360, 150, 1200, 620, 'intro', {
+    col: C.gold, cam: () => [650, 960, 1.3],
+    over: (map) => {
+      const b = (x0, y0, x1, y1, tt, col) => { const [ax, ay] = map(x0, y0), [bx, by] = map(x1, y1); glowBox(ax, ay, bx - ax, by - ay, PT(t, tt, .5), col); };
+      b(10, 802, 320, 838, F('d14', .45), C.link); b(10, 1004, 190, 1040, F('d14', .7), C.local);
+    },
+  });
+  if (t > F('d14', .4)) stamp('2026.11.21', 1520, 780, t, F('d14', .4), { size: 48, color: C.gold, rot: -.06 });
+};
+
+// 第5幕（普通のブラウザでも）・第6幕（壁が閉まりかけて、また開く）・〆・クレジット
+
+// ---------- 第5幕 ----------
+BGTINT.act5 = { c1: '#07142e', ring: '#7aa7ff' };
+cue(L('e1').start + .3, 'cage');
+cue(L('e3').start + .3, 'open');
+cue(L('e4').start + .3, 'type', { n: 14 });
+cue(F('e5', .3), 'stampS');
+cue(L('e6').start + .3, 'paper');
+cue(L('e7').start + .2, 'bars');
+cue(L('e8').start + .3, 'select');
+cue(L('e9').start + .3, 'pop');
+cue(L('e11').start + .3, 'paper');
+cue(F('e12', .2), 'impact'); hit(F('e12', .22), 14); flashAt(F('e12', .2), '#fff', .25, .4); glitchAt(F('e12', .2), .3, .7);
+cue(F('e12', .5), 'rename');
+cue(L('e14').start + .3, 'bars');
+cue(L('e15').start + .3, 'paper');
+OV.act5 = (t, s) => {
+  // サンドボックスと、デバッグ用の口
+  const a = win(t, L('e1').start, L('e4').start);
+  if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a;
+    node(560, 440, 420, 200, 'Web ページ', { col: C.web });
+    ctx.strokeStyle = hexA(C.wall, .8); ctx.lineWidth = 3; ctx.shadowColor = C.wall; ctx.shadowBlur = 10;
+    for (let i = 0; i < 10; i++) { ctx.beginPath(); ctx.moveTo(320 + i * 53, 300); ctx.lineTo(320 + i * 53, 580); ctx.stroke(); }
+    ctx.shadowBlur = 0;
+    txt('サンドボックスが第一 → 安心してネットサーフィン', 560, 640, { font: `800 28px ${JP}`, color: '#fff', align: 'center' });
+    if (t > L('e2').start) chip('テストの自動化には、厄介', 560, 720, { align: 'center', col: C.wall, font: `800 28px ${JP}`, h: 54, alpha: PT(t, L('e2').start, .3) });
+    if (t > L('e3').start) {
+      const k = PT(t, L('e3').start + .3, .5);
+      ['--remote-debugging-port', '--remote-debugging-pipe', 'edge://inspect/#remote-debugging'].forEach((c, i) => chip(c, 1060, 300 + i * 70, { col: C.link, font: `700 24px ${CODE}`, h: 48, alpha: PT(t, L('e3').start + .3 + i * .2, .3) }));
+      node(1500, 640, 360, 140, 'サードパーティ製\nアプリ', { col: C.local, alpha: k, font: `800 26px ${JP}` });
+      beam(790, 520, 1320, 640, PT(t, F('e3', .7), .5), t, { col: C.link, label: 'Runtime.addBinding', ly: -26 });
+    }
+    ctx.restore();
+  }
+  // console.debug の時代
+  codeBox(t, L('e4').start + .2, L('e6').start, 200, 170, 1520, 420, 'Puppeteer v1.0.0（lib/Page.js の方式）', [
+    [['// ページ側: 公開した関数が呼ばれたら', C.cmt]],
+    [['console.debug', C.gold], ['(', C.ink], ["'driver:page-binding'", C.str], [', ...);', C.ink]],
+    '',
+    [['// ツール側: コンソールの出力を受け取り、印が付いたものを関数の呼び出しとして扱う', C.cmt]],
+    [['Runtime.consoleAPICalled', C.kw]],
+  ], { fs: 28, typeFrom: L('e4').start + .3, rate: 60 });
+  if (t > F('e5', .3) && t < L('e6').start) stamp('伝言板', 1500, 660, t, F('e5', .3), { size: 60, color: C.gold, rot: .08 });
+  // Runtime.addBinding の登場
+  glassPanel(t, L('e6').start + .1, L('e9').start, 260, 130, 1400, 670, '2018.05.31　V8 に Runtime.addBinding / Runtime.bindingCalled（V8 6.9 = Chrome 69）', (w, h, top) => {
+    txt('Alexey Kozyatinskiy（V8 の DevTools 担当）', 40, top + 40, { font: `700 28px ${JP}`, color: C.dim });
+    para('多くのクライアントが console.debug を通信路にしている。console.debug は少し遅く、この使い方を想定していない', 40, top + 80, w - 80, { font: `800 32px ${JP}`, lh: 46, color: '#fff' });
+    const k = E.out(PT(t, L('e7').start + .2, 1.2));
+    const v = k > .85 ? 1 : 0;
+    bar(40, top + 260, 900, 40, .217 * k, C.dim, 'console.debug', v ? '1' : '');
+    bar(40, top + 360, 900, 40, 1 * k, C.link, 'Runtime.addBinding（マイクロベンチマーク）', v ? '約 4.6 倍' : '');
+    if (t > L('e8').start) {
+      const q = PT(t, L('e8').start + .2, .3);
+      // 日付と説明の行、その下にコミットの言葉（同じ行に並べると重なるので2行に分ける）
+      txt('2018.06.18　Puppeteer の page.exposeFunction も切り替え', 40, h - 112, { font: `700 26px ${JP}`, color: C.dim, alpha: q });
+      txt('"New way is faster and cleaner."', 40, h - 58, { font: `700 34px ${CODE}`, color: C.gold, glow: C.gold, alpha: q });
+    }
+  }, { col: C.link, titleFont: JP });
+  const bd = win(t, L('e9').start, L('e10').start + .3);
+  if (bd > 0) {
+    ctx.save(); ctx.globalAlpha = bd;
+    node(440, 470, 420, 170, 'Mapper のタブ\n（WebDriver BiDi）', { col: C.violet, font: `800 28px ${JP}` });
+    node(1480, 470, 420, 170, 'このツール\n（VBA）', { col: C.local });
+    beam(650, 470, 1270, 470, PT(t, L('e9').start + .3, .5), t, { col: C.link, label: 'sendBidiResponse（Runtime.addBinding）', ly: -40 });
+    ctx.restore();
+  }
+  // 一緒やん
+  tableCard(t, L('e11').start, L('e14').start, 220, 150, 1480, '並べてみる', ['', 'WebView2', 'デバッグ用に起動した Chromium'], [
+    [['ページ → アプリ', 'chrome.webview.postMessage\n→ WebMessageReceived', '登録した関数を呼ぶ\n→ Runtime.bindingCalled'], L('e11').start + .4],
+    [['アプリ → ページ', 'PostWebMessageAsJson', 'Runtime.evaluate'], F('e11', .45)],
+    [['届き方', 'COM のコールバック（非同期）', 'CDP のイベント（非同期）'], F('e11', .75)],
+  ], { ws: [300, 560, 560], rh: 100, code: [false, true, true], fs: 24, ccol: [C.dim, C.web, C.link] });
+  if (t > F('e12', .2) && t < L('e14').start) {
+    stamp('完全一致', 1500, 780, t, F('e12', .2), { size: 70, color: C.gold, rot: -.06 });
+  }
+  // 大容量は苦手
+  tableCard(t, L('e14').start + .1, L('e15').start, 260, 150, 1400, 'CDP の通り道の上限（Chromium のソース）', ['通り道', 'ブラウザ → アプリ', 'アプリ → ブラウザ'], [
+    [['WebSocket（port）', '256MB（送りきれていない分）', '100MB'], L('e14').start + .4],
+    [['パイプ（pipe）', '上限なし（64KB ずつ）', '100MB'], F('e14', .25)],
+  ], { ws: [380, 560, 400], code: [false, false, false], ccol: ['#fff', C.ink, C.wall], extra: null });
+  if (t > F('e14', .5) && t < L('e15').start) {
+    const k = E.out(PT(t, F('e14', .5), 1.2));
+    ctx.save(); ctx.globalAlpha = PT(t, F('e14', .5), .3);
+    bar(300, 620, 1000, 40, .05 * k, C.wall, 'CDP（アプリ → ブラウザ）', '100MB');
+    bar(300, 740, 1000, 40, 1 * k, C.gold, 'VBA の String', '約 20 億（2^31）文字');
+    ctx.restore();
+  }
+  // このツールの選択肢（ガイドより）
+  tableCard(t, L('e15').start + .1, S('act5').end - .2, 120, 130, 1680, 'このツールでの選択肢（ガイド「ブラウザと VBA の双方向やり取り」）', ['方式', '向き', '大容量', '通常の Edge'], [
+    [['Runtime.evaluate / callFunctionOn（jsEval）', 'VBA → JS（返事）', '△', '可'], L('e15').start + .3],
+    [['Runtime.addBinding', 'JS → VBA（合図）', '△', '可'], F('e15', .15)],
+    [['SharedBuffer', '双方向', '◎ 本命', 'WebView2 だけ'], F('e15', .55)],
+    [['Browser.downloadProgress（blob URL）', 'JS → ディスク', '○', '可'], F('e15', .75)],
+    [['AddHostObjectToScript', 'JS → VBA（戻り値あり）', '×', 'WebView2 だけ'], F('e15', .9)],
+  ], { ws: [700, 400, 260, 300], rh: 72, fs: 25, code: [true, false, false, false], ccol: [C.gold, '#fff', C.ink, C.ink], titleFont: JP });
+};
+
+// ---------- 第6幕 ----------
+BGTINT.act6 = { c1: '#1c0716', ring: '#ff3b5c' };
+cue(L('f1').start + .2, 'alarm');
+cue(L('f2').start + .3, 'wall'); hit(L('f2').start + .4, 8);
+cue(L('f4').start + .3, 'paper');
+cue(L('f5').start + .3, 'prompt');
+cue(L('f6').start + .3, 'riser', { d: 2.5 });
+cue(L('f7').start + .3, 'prompt'); cue(F('f7', .7), 'open');
+cue(F('f8', .4), 'rename'); hit(F('f8', .45), 8);
+cue(L('f9').start + .3, 'boot');
+cue(L('f10').start + .3, 'swing');
+OV.act6 = (t, s) => {
+  incident(t, L('f1').start + .1, L('f4').start, 360, 180, 1200, '2025', 'Chrome 136', '既定の User Data では --remote-debugging-port / pipe が無視される', '普段使いの Chrome のリモートデバッグを悪用して Cookie を抜き取る攻撃が増えたため。使うには --user-data-dir で別のフォルダを指定', 'Chrome のブログ「セキュリティを強化するためのリモート デバッグ スイッチの変更」');
+  if (t > F('f3', .2) && t < L('f4').start) stamp('壁が閉まる', 1500, 640, t, F('f3', .2), { size: 54, color: C.wall });
+  tableCard(t, L('f4').start + .1, L('f6').start, 260, 180, 1400, '同じ流れ', ['時期', '出来事'], [
+    [['2022年4月〜', 'Office: インターネットから入手したファイルのマクロを、既定でブロック'], L('f4').start + .3],
+    [['2025年（Chrome 142）', 'サイトが localhost やローカル ネットワークにつなぐとき、許可を求める'], L('f5').start + .3],
+  ], { ws: [380, 960], rh: 96, fs: 26, ccol: [C.gold, '#fff'] });
+  // また開く（人が許可したときだけ）
+  const op = win(t, L('f6').start, L('f9').start);
+  if (op > 0) {
+    ctx.save(); ctx.globalAlpha = op;
+    txt('2025.12　Chrome 144', 200, 200, { font: `400 48px ${MONO}`, color: C.gold, glow: C.gold });
+    // 画面写真が Edge のダイアログなので、Edge も同じだと添える（日本語は等幅の書体にないので、書体を分けて続ける）
+    txt('（Edge も同じ）', 200 + tw('2025.12　Chrome 144', `400 48px ${MONO}`) + 8, 202, { font: `800 38px ${JP}`, color: C.gold, glow: C.gold, gb: 10 });
+    txt('AI のコーディング エージェントに、ブラウザを操作させる時代', 200, 270, { font: `800 32px ${JP}`, color: '#fff' });
+    const k = PT(t, L('f7').start + .2, .4);
+    // 実際の画面（ForAI/材料/デバック確認.png）。後ろのページ（タブの題名やイラスト）は映さず、ダイアログだけを切り抜く
+    const crop = [56, 39, 440, 216], dw = 900, dh = Math.round(dw * crop[3] / crop[2]), dx = W / 2 - dw / 2, dy = 310;
+    ctx.save(); ctx.globalAlpha *= k;
+    glass(dx - 14, dy - 14, dw + 28, dh + 28, { col: C.link, fill: '#000' });
+    ctx.save(); rr(dx, dy, dw, dh, 30); ctx.clip(); pic('debug', dx, dy, dw, dh, crop); ctx.restore();
+    // 「許可」を押す
+    const sc = dw / crop[2], bx = dx + (353 - crop[0]) * sc, by = dy + (210 - crop[1]) * sc, bw = 50 * sc, bh = 32 * sc;
+    glowBox(bx - 6, by - 6, bw + 12, bh + 12, PT(t, F('f7', .6), .5), C.link);
+    txt('実際の画面（Edge）', dx + dw, dy + dh + 44, { font: `700 22px ${JP}`, color: C.dim, align: 'right' });
+    ctx.restore();
+    ctx.restore();
+    if (t > L('f8').start - .1) {
+      ctx.save(); ctx.fillStyle = `rgba(4,3,12,${.7 * PT(t, L('f8').start - .1, .3)})`; ctx.fillRect(0, 0, W, H); ctx.restore();
+      rebirth(t, L('f8').start, W / 2, 500, '「コンテンツの有効化」', '「リモート デバッグを許可」', { fs: 66, font: DISP, delay: F('f8', .35) - L('f8').start, d: 1, label: '人が許可を押したときだけ開く関所', t1: L('f9').start - .1 });
+    }
+  }
+  glassPanel(t, L('f9').start + .1, L('f10').start, 360, 200, 1200, 380, '2026.04　winapp CLI v0.3：winapp ui', (w, h, top) => {
+    txt('UI Automation で、動いている Windows のアプリを', 40, top + 50, { font: `800 32px ${JP}`, color: '#fff' });
+    txt('調べる・クリックする・スクリーンショットを撮る', 40, top + 100, { font: `800 32px ${JP}`, color: C.gold });
+    ['WPF', 'WinForms', 'Win32', 'Electron', 'WinUI 3'].forEach((n, i) => chip(n, 40 + i * 210, top + 190, { col: C.link, font: `700 26px ${CODE}`, h: 50, alpha: PT(t, L('f9').start + .5 + i * .15, .3) }));
+  }, { col: C.link, titleFont: JP });
+  // 振り子
+  const pd = win(t, L('f10').start, S('act6').end);
+  if (pd > 0) {
+    ctx.save(); ctx.globalAlpha = pd;
+    const ang = Math.sin((t - L('f10').start) * 1.6) * .7 * (1 - PT(t, L('f11').start, 4) * .5) - PT(t, L('f11').start, 2) * .3;
+    const px = W / 2 + Math.sin(ang) * 420, py = 200 + Math.cos(ang) * 420;
+    line(W / 2, 200, px, py, '#fff', 3);
+    ctx.fillStyle = C.gold; ctx.shadowColor = C.gold; ctx.shadowBlur = 30; ctx.beginPath(); ctx.arc(px, py, 40, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    txt('ネイティブ', 560, 700, { font: `900 54px ${DISP}`, color: C.local, align: 'center', glow: C.local });
+    txt('Web', 1360, 700, { font: `900 54px ${DISP}`, color: C.web, align: 'center', glow: C.web });
+    chip('Windows 11 のアプリを「100% ネイティブ」で（報道）', W / 2, 820, { align: 'center', col: C.local, font: `800 28px ${JP}`, h: 54 });
+    ctx.restore();
+  }
+};
+
+// ---------- 〆 ----------
+BGTINT.finale = { c1: '#0c0a22', ring: '#ffd166' };
+cue(L('g2').start + .2, 'rename'); cue(L('g3').start + .2, 'rename');
+cue(F('g4', .1), 'impact'); hit(F('g4', .12), 18); flashAt(F('g4', .1), '#fff', .3, .5); glitchAt(F('g4', .1), .4, 1);
+cue(L('g5').start + .3, 'bars');
+cue(L('g6').start + .3, 'rename');
+cue(F('g7', .3), 'rebirth');
+for (let i = 0; i < 4; i++) cue(F('g8', .05 + i * .24), 'pop', { i });
+cue(L('g9').start + .3, 'loop');
+cue(L('g10').start + .2, 'type', { n: 20 });
+cue(L('g12').start + .2, 'rename');
+cue(F('g14', .4), 'rewind', { d: 3 });
+headKey(F('g14', .4), 5.5 * Math.PI, 2026, 4);
+OV.finale = (t, s) => {
+  // 1990年代と、2020年代
+  const a = win(t, L('g1').start, L('g5').start);
+  if (a > 0) {
+    ctx.save(); ctx.globalAlpha = a;
+    txt('1990年代後半（Microsoft の発明）', 640, 220, { font: `800 30px ${JP}`, color: C.dim, align: 'center' });
+    txt('2020年代（今の技術）', 1340, 220, { font: `800 30px ${JP}`, color: C.dim, align: 'center' });
+    const rows = [['アプリにブラウザの部品を埋め込む', 'IE', 'WebView2', L('g2').start + .2], ['HTML と JS で、ローカルを触るアプリ', 'HTA', 'Electron', L('g3').start + .2]];
+    rows.forEach(([cap, o1, n1, tt], i) => {
+      const y = 380 + i * 240;
+      if (t < tt - .3) return;
+      txt(cap, 960, y - 70, { font: `800 30px ${JP}`, color: '#fff', align: 'center', alpha: PT(t, tt - .3, .3) });
+      txt(o1, 640, y, { font: `900 80px ${DISP}`, color: C.web, align: 'center', glow: C.web });
+      arrow(820, y, 1080, y, PT(t, tt, .5), { color: C.gold, glow: true, w: 5 });
+      scramble(o1, n1, PT(t, tt + .4, 1), 1340, y, { font: `900 80px ${DISP}`, align: 'center', from: C.web }, t);
+    });
+    ctx.restore();
+  }
+  if (t > F('g4', .1) && t < L('g5').start + .3) {
+    ctx.save(); ctx.fillStyle = 'rgba(4,3,12,.88)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+    const k = E.out(PT(t, F('g4', .1), .4));
+    glitchText('……やってること、', W / 2, 400, { font: `900 70px ${DISP}`, color: '#fff', align: 'center', alpha: k }, t, 1 - k);
+    glitchText('1ミリも変わってない！！', W / 2, 540, { font: `900 110px ${DISP}`, color: C.gold, align: 'center', glow: C.gold, gb: 40, alpha: k }, t, (1 - k) + .15);
+  }
+  // 軽さは HTA が上
+  glassPanel(t, L('g5').start + .1, L('g6').start, 260, 190, 1400, 420, '軽さ', (w, h, top) => {
+    const k = E.out(PT(t, L('g5').start + .4, 1.2));
+    bar(40, top + 90, 1000, 46, .02 * k + .004, C.local, 'HTA（OS の IE のエンジンを借りる）', '数 KB');
+    bar(40, top + 220, 1000, 46, 1 * k, C.web, 'Electron（Chromium と Node.js を丸ごと抱える）', 'Hello World でも大きい', { vfs: 24, vfont: JP });
+  }, { col: C.local, titleFont: JP });
+  // Tauri（先祖返り）
+  const ta = win(t, L('g6').start, L('g8').start);
+  if (ta > 0) {
+    ctx.save(); ctx.globalAlpha = ta;
+    drawLoop(t, { cx: W / 2, cy: 470, a: 640, alpha: .45, wall: false });
+    ctx.restore();
+    rebirth(t, L('g6').start, W / 2, 440, 'Electron', 'Tauri', { fs: 110, font: DISP, delay: .3, d: .9, label: 'Windows では WebView2 を借りて描画する', t1: L('g8').start - .1 });
+    if (t > F('g7', .3)) {
+      const k = PT(t, F('g7', .3), .4);
+      txt('← それ、HTA への先祖返り', W / 2, 700, { font: `900 54px ${DISP}`, color: C.local, align: 'center', glow: C.local, alpha: k * ta });
+    }
+  }
+  // 輪廻の4段（∞ の上を回る）
+  const lp = win(t, L('g8').start, L('g10').start);
+  if (lp > 0) {
+    ctx.save(); ctx.globalAlpha = lp;
+    const th = 4.5 * Math.PI + (t - L('g8').start) * 1.4;
+    drawLoop(t * 2, { cx: W / 2, cy: 470, a: 780, head: th, alpha: 1 });
+    const steps = [['1  便利すぎて、悪用される', 1440, 260, C.wall], ['2  いったん封印される', 1440, 700, C.wall], ['3  でも、欲しい気持ちは消えない', 480, 700, C.link], ['4  名前と中身を新しくして、もう一度', 480, 260, C.gold]];
+    steps.forEach(([s2, x, y, col], i) => { const k = PT(t, F('g8', .05 + i * .24), .4); if (k > 0) glitchText(s2, x, y, { font: `900 38px ${DISP}`, color: col, align: 'center', glow: col, gb: 16, alpha: k }, t, 1 - k); });
+    if (t > L('g9').start) glitchText('∞', W / 2, 470, { font: `900 120px ${DISP}`, color: '#fff', align: 'center', glow: C.gold, gb: 40, alpha: PT(t, L('g9').start, .4) }, t, .1);
+    ctx.restore();
+  }
+  // すべての最新技術は……
+  const rm = win(t, L('g10').start, L('g11').start + .2);
+  if (rm > 0) {
+    ctx.save(); ctx.globalAlpha = rm;
+    const p = PT(t, L('g10').start + .2, (L('g10').end - L('g10').start) * .8);
+    typed('すべての最新技術は、', W / 2 - tw('すべての最新技術は、', `900 60px ${DISP}`) / 2, 400, clamp(p * 2), { font: `900 60px ${DISP}`, color: '#fff' });
+    const s2 = '昔の Microsoft がすでに通った道の「リメイク版」だった。';
+    typed(s2, W / 2 - tw(s2, `900 56px ${DISP}`) / 2, 520, clamp(p * 2 - 1), { font: `900 56px ${DISP}`, color: C.gold, cursor: true, t });
+    ctx.restore();
+  }
+  // 令和のIE の新機能も
+  if (t > L('g11').start && t < L('g14').start + .2) {
+    screen(t, L('g11').start, L('g14').start, 360, 150, 1200, 520, 'intro', { col: C.gold, cam: () => [470, 830, 1.8] });
+    if (t > L('g12').start) {
+      ctx.save(); ctx.fillStyle = `rgba(4,3,12,${.8 * PT(t, L('g12').start, .3)})`; ctx.fillRect(0, 0, W, H); ctx.restore();
+      rebirth(t, L('g12').start, W / 2, 470, 'AddHostObjectToScript', 'window.external', { fs: 76, delay: .3, d: 1, label: 'リメイク版（中身は同じ）' });
+      if (t > L('g13').start) txt('名前は変わっても、中身はきっと同じ', W / 2, 700, { font: `900 44px ${DISP}`, color: '#fff', align: 'center', glow: C.violet, alpha: PT(t, L('g13').start, .4) });
+    }
+  }
+  // 次は何に生まれ変わる？（巻き戻して、輪がつながる）
+  const nx = PT(t, L('g14').start, .4);
+  if (nx > 0) {
+    drawLoop(t * 4, { cx: W / 2, cy: 470, a: 780, head: headAt(t)[0], alpha: nx });
+    glitchText('NEXT LOOP ?', W / 2, 820, { font: `400 64px ${MONO}`, color: C.gold, align: 'center', glow: C.gold, ls: 10, alpha: nx }, t, .3);
+    rewindFx(t, win(t, F('g14', .4), S('finale').end + .4, .2, .4) * .8);
+  }
+};
+
+// ---------- クレジット ----------
+OV.credits = (t, s) => {
+  drawLoop(t, { cx: W / 2, cy: 500, a: 860, head: headAt(t)[0] + (t - s.start) * .5, alpha: .55 });
+  const items = [
+    ['h', '令和のIE 技術秘話'], ['t', 'Web とローカルの双方向やり取り、30年の輪廻'], ['g'],
+    ['k', '声'], ['v', 'VOICEVOX:春歌ナナ'], ['v', 'VOICEVOX:ずんだもん'], ['g'],
+    ['k', '元の記事'], ['s', 'Web とローカルの双方向やり取り、30年の輪廻'], ['s', 'ブラウザと VBA の双方向やり取り（ガイド）'], ['g'],
+    ['k', '画面'], ['s', '令和のIE v4.2.2 のリリースノート（2026年11月21日）'], ['s', 'Power Query エディターと F12 開発者ツール'], ['s', 'SampleHTA.hta（完全外部ランチャー実験機）'], ['g'],
+    ['k', '参考資料'], ['s', 'Microsoft Learn・各社のブログ・報道（詳しくは記事の参考資料）'], ['g'],
+    ['k', '絵と音'], ['s', 'Canvas と Web Audio API で作成'], ['g'], ['g'],
+    ['t', '∞'],
+  ];
+  // 映画のクレジットのように、最後の行まで上へ流しきる（全体の高さから速さを決める）
+  const sp = 64;
+  let total = 0;
+  for (const [k] of items) total += k === 'g' ? sp * .6 : k === 't' ? sp * 1.4 : sp * .8;
+  const roll = Math.max(1, s.end - s.start - 5.2);   // 流しきったあと、約5秒の余韻を残す
+  const speed = (1080 + total + 120) / roll;
+  const y0 = 1080 + 60 - (t - s.start) * speed;
+  ctx.save(); ctx.fillStyle = 'rgba(3,2,10,.5)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+  // 右下: ライセンスの表記（リポジトリの LICENSE と同じ）。上まで流しきったあと、ふわっと浮かび上がる
+  const ca = E.io(PT(t, s.start + roll + .2, 1.8)), rise = (1 - ca) * 14;
+  txt('© 2025 - 2026 エスカマリ', W - 60, H - 78 + rise, { font: `700 24px ${JP}`, color: C.ink, align: 'right', alpha: ca * .9, glow: C.violet, gb: 18 * ca });
+  txt('Released under the MIT License', W - 60, H - 44 + rise, { font: `400 20px ${MONO}`, color: C.dim, align: 'right', alpha: ca * .9 });
+  let y = y0;
+  for (const [k, v] of items) {
+    if (k === 'g') { y += sp * .6; continue; }
+    const font = k === 'h' ? `700 28px ${JP}` : k === 't' ? `900 ${v === '∞' ? 120 : 50}px ${DISP}` : k === 'k' ? `400 24px ${MONO}` : k === 'v' ? `800 36px ${JP}` : `600 28px ${JP}`;
+    txt(v, W / 2, y, { font, color: k === 'k' ? C.gold : k === 't' ? '#fff' : C.ink, align: 'center', glow: k === 't' ? C.violet : null, maxW: 1500 });
+    y += k === 't' ? sp * 1.4 : sp * .8;
+  }
+};
+// 〆の終わりからクレジットにかけて、奥の ∞ は消しておく（手前の ∞ と重ならないように）
+BACKLOOP = (t, sid) => (sid === 'open' || sid === 'title' || sid === 'credits') ? 0 : 1;
+
+// BGM と効果音。曲は「輪廻のミニマル」: 7/8 拍子（2＋2＋3）で同じ動機を回し続ける。D マイナー（ときどき E♭ がにじむフリジア）、100BPM（8分音符）
+//   主題は「輪廻の動機」D–F–A–E♭–D–A–F の7音。くり返すたびに始まりの音が1つずつずれて、同じ輪をぐるぐる回る
+//   ∞ が回る場面では、シェパード・トーン（どこまでも上がり続けて聞こえる音）が鳴る。題名で初めて全部の楽器がそろう
+//   第1幕（壁がなかった時代）はオルゴールの長調、第2幕（壁）は低いうなりと重い足取り、第5幕は細かい時計の刻み、
+//   〆は全員で動機を鳴らし、最後は巻き戻して最初へつながる
+// bgm.mp3 には曲だけを書き出し、効果音は HTML の中で鳴らす（liveSE）
+const SR = 48000;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const BPM8 = 200, EI = 60 / BPM8, BAR = EI * 7;   // 8分音符 0.3 秒、1小節（7/8）2.1 秒
+const MOTIF = [62, 65, 69, 63, 74, 69, 65];
+const GROUP = [0, 2, 4];   // 2＋2＋3 の頭
+
+function sections() {
+  const sc = id => TLD.scenes[id], Ls = id => L(id).start, Le = id => L(id).end;
+  return [
+    [.2, Ls('in5'), 'void'],
+    [Ls('in5'), Ls('in9'), 'tale'],
+    [Ls('in9'), Ls('in11'), 'hush'],
+    [Ls('in11'), sc('title').start, 'spiral'],
+    [sc('title').start, sc('prelude').start + .2, 'title'],
+    [sc('prelude').start + .2, Ls('pl9'), 'tale'],
+    [Ls('pl9'), sc('prelude').end, 'hush'],
+    [sc('act1').start, Ls('a8'), 'old'],
+    [Ls('a8'), Ls('a13'), 'old2'],
+    [Ls('a13'), sc('act1').end, 'old'],
+    [sc('act2').start, Ls('b7'), 'wall'],
+    [Ls('b7'), Ls('b12'), 'pulse'],
+    [Ls('b12'), sc('act2').end, 'tale'],
+    [sc('act3').start, Ls('c4'), 'pulse'],
+    [Ls('c4'), sc('act3').end, 'spiral'],
+    [sc('act4').start, Ls('d3'), 'wall'],
+    [Ls('d3'), Ls('d7'), 'rise'],
+    [Ls('d7'), Ls('d12'), 'tale'],
+    [Ls('d12'), sc('act4').end, 'rise'],
+    [sc('act5').start, Ls('e11'), 'pulse'],
+    [Ls('e11'), Ls('e14'), 'rise'],
+    [Ls('e14'), sc('act5').end, 'tale'],
+    [sc('act6').start, Ls('f6'), 'wall'],
+    [Ls('f6'), Ls('f10'), 'rise'],
+    [Ls('f10'), sc('act6').end, 'tale'],
+    [sc('finale').start, Ls('g4'), 'tale'],
+    [Ls('g4'), Ls('g8'), 'title'],
+    [Ls('g8'), Ls('g10'), 'spiral'],
+    [Ls('g10'), Ls('g14'), 'hush2'],
+    [Ls('g14'), sc('credits').end, 'credits'],
+  ];
+}
+const CH = { Dm: [38, [62, 65, 69]], Bb: [34, [62, 65, 70]], Eb: [39, [63, 67, 70]], C: [36, [60, 64, 67]], Gm: [43, [62, 67, 70]], A: [33, [61, 64, 69]],
+  D: [38, [62, 66, 69]], G: [43, [62, 67, 71]], Bm: [35, [62, 66, 71]], Em: [40, [64, 67, 71]] };
+const PROG = { minor: ['Dm', 'Dm', 'Bb', 'Eb'], dark: ['Dm', 'Eb', 'Dm', 'A'], bright: ['Dm', 'Bb', 'C', 'A'], major: ['D', 'G', 'Bm', 'A'] };
+
+function buildScore(ac, dest, mode = 'all', off = 0) {
+  let seed = 97531;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const noiseBuf = ac.createBuffer(1, SR * 2, SR);
+  { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rnd() * 2 - 1; }
+  const ir = ac.createBuffer(2, SR * 3, SR);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (rnd() * 2 - 1) * Math.pow(1 - i / d.length, 3); }
+  const master = ac.createDynamicsCompressor();
+  master.threshold.value = -16; master.ratio.value = 3.5; master.attack.value = .006; master.release.value = .2; master.connect(dest);
+  const verb = ac.createConvolver(); verb.buffer = ir;
+  const verbOut = ac.createGain(); verbOut.gain.value = .32; verb.connect(verbOut); verbOut.connect(master);
+  const dly = ac.createDelay(1.5); dly.delayTime.value = EI * 3;
+  const fb = ac.createGain(); fb.gain.value = .38; dly.connect(fb); fb.connect(dly);
+  const dlyOut = ac.createGain(); dlyOut.gain.value = .22; dly.connect(dlyOut); dlyOut.connect(master);
+  const music = ac.createGain(); music.gain.value = .55; music.connect(master);
+  const sfx = ac.createGain(); sfx.gain.value = .75; sfx.connect(master);
+  const EV = []; const at = (t, fn) => EV.push([t, fn]);
+  const T = t => t + off;
+
+  const g = (dst, v = 1) => { const x = ac.createGain(); x.gain.value = v; x.connect(dst); return x; };
+  const pan = (dst, p) => { const x = ac.createStereoPanner(); x.pan.value = p; x.connect(dst); return x; };
+  const env = (gn, t, a, peak, d, hold = 0) => { gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(peak, t + a); gn.gain.setValueAtTime(peak, t + a + hold); gn.gain.exponentialRampToValueAtTime(.0001, t + a + hold + d); };
+  const osc = (type, f, t, d, dst) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.connect(dst); o.start(t); o.stop(t + d + .05); return o; };
+  const noise = (t, d, dst, rate = 1) => { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = rate; s.loop = true; s.connect(dst); s.start(t, rnd()); s.stop(t + d + .05); return s; };
+  const filt = (type, f, q, dst) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.connect(dst); return b; };
+  const send = (src, amt, to) => { const x = ac.createGain(); x.gain.value = amt; src.connect(x); x.connect(to); };
+
+  // 楽器
+  const kick = (t, v = .8) => { const gn = g(music, 0); env(gn, T(t), .002, v, .35); const o = osc('sine', 120, T(t), .4, gn); o.frequency.setValueAtTime(140, T(t)); o.frequency.exponentialRampToValueAtTime(40, T(t) + .14); };
+  const rim = (t, v = .1) => { const gn = g(music, 0); env(gn, T(t), .001, v, .06); noise(T(t), .07, filt('bandpass', 1900, 3, gn)); osc('triangle', 820, T(t), .05, g(gn, .4)); send(gn, .4, verb); };
+  const tick = (t, v = .04, p = 0) => { const gn = g(pan(music, p), 0); env(gn, T(t), .001, v, .025); noise(T(t), .03, filt('highpass', 7000, .8, gn)); };
+  // 鐘（FM。ガラスのような響き）
+  const bell = (t, m, d = 1.6, v = .05, p = 0, out = music) => {
+    const gn = g(pan(out, p), 0); env(gn, T(t), .003, v, d);
+    const car = osc('sine', mtof(m), T(t), d + .1, gn);
+    const mg = ac.createGain(); mg.gain.setValueAtTime(mtof(m) * 2.2, T(t)); mg.gain.exponentialRampToValueAtTime(mtof(m) * .2, T(t) + d * .6);
+    const mod = osc('sine', mtof(m) * 3.5, T(t), d + .1, mg); mg.connect(car.frequency);
+    send(gn, .45, verb); send(gn, .2, dly);
+  };
+  // オルゴール（第1幕）
+  const box = (t, m, v = .05, p = 0) => {
+    const gn = g(pan(music, p), 0); env(gn, T(t), .002, v, 1.4);
+    osc('sine', mtof(m), T(t), 1.5, gn); osc('sine', mtof(m) * 4.02, T(t), .5, g(gn, .25)); osc('triangle', mtof(m) * 2, T(t), .8, g(gn, .2));
+    send(gn, .5, verb);
+  };
+  const bass = (t, m, d, v = .16, cut = 520) => {
+    const gn = g(music, 0); env(gn, T(t), .004, v, Math.max(.1, d * .9));
+    const f = filt('lowpass', cut, 6, gn); f.frequency.setValueAtTime(cut * 2.5, T(t)); f.frequency.exponentialRampToValueAtTime(cut * .6, T(t) + .15);
+    osc('sawtooth', mtof(m), T(t), d, f); osc('sine', mtof(m - 12), T(t), d, g(gn, .6));
+  };
+  const pad = (t, d, notes, v = .022, cut = 900) => {
+    const gn = g(music, 0); gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(v, T(t) + Math.min(1.2, d * .4));
+    gn.gain.setValueAtTime(v, T(t) + d - Math.min(1, d * .3)); gn.gain.linearRampToValueAtTime(0, T(t) + d + .5);
+    const f = filt('lowpass', cut, .7, gn);
+    for (const m of notes) for (const det of [-9, 9]) { const o = osc('sawtooth', mtof(m), T(t), d + .6, f); o.detune.value = det; }
+    send(gn, .6, verb);
+  };
+  const drone = (t, d, m = 26, v = .05) => {
+    const gn = g(music, 0); gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(v, T(t) + 2); gn.gain.setValueAtTime(v, T(t) + d - 1.5); gn.gain.linearRampToValueAtTime(0, T(t) + d);
+    const f = filt('lowpass', 300, 1, gn);
+    for (const [r, det] of [[1, 0], [1.5, 4], [2, -5]]) { const o = osc('sawtooth', mtof(m) * r, T(t), d + .1, f); o.detune.value = det; }
+    const lfo = osc('sine', .13, T(t), d, g(f.frequency, 120));
+  };
+  // シェパード・トーン（上がり続けて聞こえる）
+  const shepard = (t0, d, v = .03, up = true) => {
+    const n = 6, base = 55, rate = .12;
+    for (let i = 0; i < n; i++) {
+      const gn = g(music, 0), o = ac.createOscillator(); o.type = 'sine'; o.connect(gn);
+      const steps = Math.ceil(d / .1);
+      for (let s = 0; s <= steps; s++) {
+        const tt = s * .1, ph = ((i / n) + (up ? 1 : -1) * tt * rate + 10) % 1;
+        const f = base * Math.pow(2, ph * n), amp = Math.sin(ph * Math.PI) ** 2 * v * clamp(tt / 1.5) * clamp((d - tt) / 1.5);
+        o.frequency.setValueAtTime(f, T(t0 + tt)); gn.gain.setValueAtTime(amp, T(t0 + tt));
+      }
+      o.start(T(t0)); o.stop(T(t0 + d + .1)); send(gn, .5, verb);
+    }
+  };
+  const riser = (t, d, v = .07) => { const gn = g(music, 0); gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(v, T(t) + d); gn.gain.linearRampToValueAtTime(0, T(t) + d + .05); const f = filt('bandpass', 300, 3, gn); f.frequency.setValueAtTime(300, T(t)); f.frequency.exponentialRampToValueAtTime(7000, T(t) + d); noise(T(t), d, f); send(gn, .5, verb); };
+  const crash = (t, v = .1, out = music) => { const gn = g(out, 0); env(gn, T(t), .002, v, 2.2); noise(T(t), 2.4, filt('highpass', 5000, .6, gn)); send(gn, .5, verb); };
+  const boom = (t, v = .6, out = music) => { const gn = g(out, 0); env(gn, T(t), .003, v, 1.4); const o = osc('sine', 80, T(t), 1.5, gn); o.frequency.setValueAtTime(90, T(t)); o.frequency.exponentialRampToValueAtTime(30, T(t) + 1.2); const n = g(out, 0); env(n, T(t), .002, v * .3, .5); noise(T(t), .6, filt('lowpass', 1400, .7, n)); send(n, .6, verb); };
+
+  // 輪廻の動機（bar ごとに始まりの音が1つずれる）
+  function motif(bt, rest, rot, v = .04, inst = bell, tr = 0, oct = 0) {
+    for (let i = 0; i < 7; i++) { const tt = bt + i * EI; if (tt >= bt + rest - .01) break; inst(tt, MOTIF[(i + rot) % 7] + tr + oct, 1.4, v * (GROUP.includes(i) ? 1.15 : .85), (i % 2 ? .45 : -.45)); }
+  }
+  function beat(bt, rest, o = {}) {
+    for (let i = 0; i < 7; i++) {
+      const tt = bt + i * EI; if (tt >= bt + rest - .01) break;
+      if (o.kick && (i === 0 || (o.busy && i === 4))) kick(tt, i === 0 ? o.kick : o.kick * .7);
+      if (o.rim && (i === 2 || i === 5)) rim(tt, o.rim);
+      if (o.tick) { tick(tt, o.tick * (GROUP.includes(i) ? 1.3 : .8), i % 2 ? .4 : -.4); if (o.fine) tick(tt + EI / 2, o.tick * .5); }
+    }
+  }
+  const chordOf = (prog, b) => CH[PROG[prog][b % 4]];
+
+  const LEVEL = { tale: 1.64, old: 2.75, old2: 1.48, pulse: 1.16, rise: 1.2, wall: .64, title: .85, void: 1.36, credits: 1.2, hush: 1.3, hush2: 1.3 };
+  if (mode !== 'se') {
+    for (const [t0, , kind] of sections()) music.gain.setTargetAtTime(.55 * (LEVEL[kind] ?? 1), T(Math.max(0, t0 - .05)), .03);
+    for (const [t0, t1, kind] of sections()) {
+      if (t1 <= t0) continue;
+      const nb = Math.ceil((t1 - t0) / BAR - .01);
+      for (let b = 0; b < nb; b++) { const bt = t0 + b * BAR; if (bt >= t1 - .05) break; const rest = Math.min(BAR, t1 - bt); at(bt - .1, () => bar(kind, b, bt, rest, t0, t1)); }
+    }
+  }
+  function bar(kind, b, bt, rest, t0, t1) {
+    const room = t1 - bt;
+    switch (kind) {
+      case 'void': {
+        if (b === 0) { drone(bt, t1 - bt + .5, 26, .045); }
+        beat(bt, rest, { tick: .03 });
+        if (b % 2 === 1) bell(bt + EI * 3, MOTIF[b % 7] + 12, 2.4, .03, b % 4 === 1 ? .6 : -.6);
+        break;
+      }
+      case 'tale': {
+        const [r, n] = chordOf('minor', Math.floor(b / 2));
+        motif(bt, rest, b, .026, bell);
+        bass(bt, r, EI * 1.8, .11, 420); if (EI * 4 < rest) bass(bt + EI * 4, r, EI * 1.6, .08, 420);
+        beat(bt, rest, { tick: .022, kick: .35 });
+        if (b % 4 === 0) pad(bt, Math.min(BAR * 4, t1 - bt), n.map(x => x - 12), .012, 700);
+        break;
+      }
+      case 'hush': case 'hush2': {
+        if (b === 0) pad(bt, t1 - bt, [50, 57, 62, 65], .016, 600);
+        if (kind === 'hush2' && b % 2 === 0) bell(bt, 74 + (b % 3) * 3, 3, .025, 0);
+        break;
+      }
+      case 'spiral': {
+        if (b === 0) shepard(bt, t1 - bt + .5, .028, true);
+        motif(bt, rest, b, .032, bell);
+        beat(bt, rest, { tick: .03, kick: .55, rim: .07, fine: true });
+        bass(bt, 38, EI * 1.5, .13, 480); if (EI * 2 < rest) bass(bt + EI * 2, 38, EI * 1.5, .1, 480); if (EI * 4 < rest) bass(bt + EI * 4, 39, EI * 2.5, .11, 480);
+        break;
+      }
+      case 'title': case 'credits': {
+        const fade = kind === 'credits' ? Math.max(.2, 1 - (bt - t0) / (t1 - t0) * .8) : 1;
+        const [r, n] = chordOf('dark', b);
+        if (b === 0 && kind === 'title') { boom(bt, .5); crash(bt, .12); shepard(bt, t1 - bt + .5, .022, true); }
+        if (b === 0 && kind === 'credits') shepard(bt, t1 - bt + .5, .02, true);
+        motif(bt, rest, b, .04 * fade, bell); motif(bt + EI * .5, rest - EI * .5, b + 3, .018 * fade, bell, 0, 12);
+        beat(bt, rest, { tick: .035 * fade, kick: .75 * fade, rim: .1 * fade, busy: true, fine: true });
+        bass(bt, r, EI * 1.6, .16 * fade, 600); if (EI * 2 < rest) bass(bt + EI * 2, r, EI * 1.6, .12 * fade, 600); if (EI * 4 < rest) bass(bt + EI * 4, r + 1, EI * 2.6, .13 * fade, 600);
+        if (b % 2 === 0) pad(bt, Math.min(BAR * 2, t1 - bt), n, .018 * fade, 1100);
+        break;
+      }
+      case 'old': case 'old2': {
+        // 壁がなかった時代: オルゴールの長調で、同じ動機（D メジャー）
+        const [r, n] = chordOf('major', b);
+        const maj = [62, 66, 69, 64, 74, 69, 66];
+        for (let i = 0; i < 7; i++) { const tt = bt + i * EI; if (tt < bt + rest - .01) box(tt, maj[(i + b) % 7] + 12, kind === 'old2' ? .05 : .04, i % 2 ? .4 : -.4); }
+        bass(bt, r, EI * 2, .08, 380);
+        if (kind === 'old2') { beat(bt, rest, { tick: .025, kick: .4, rim: .06 }); if (b === 0) crash(bt, .08); }
+        else beat(bt, rest, { tick: .015 });
+        break;
+      }
+      case 'wall': {
+        const [r, n] = chordOf('dark', b);
+        if (b % 2 === 0) { pad(bt, Math.min(BAR * 2, t1 - bt), [n[0] - 12, n[0] - 11], .02, 500); drone(bt, Math.min(BAR * 2, t1 - bt) + .5, r - 12, .03); }
+        kick(bt, .75); if (EI * 4 < rest) kick(bt + EI * 4, .5);
+        if (EI * 2 < rest) rim(bt + EI * 2, .05);
+        bell(bt, 63 + 12, 2, .018, .5);
+        break;
+      }
+      case 'pulse': {
+        const [r, n] = chordOf('bright', Math.floor(b / 2));
+        for (let i = 0; i < 14; i++) { const tt = bt + i * EI / 2; if (tt < bt + rest - .01) bass(tt, r + (i % 7 === 4 ? 7 : i % 7 === 6 ? 3 : 0), EI * .4, .07, 700); }
+        motif(bt, rest, b, .022, bell, 0, 12);
+        beat(bt, rest, { tick: .03, kick: .55, rim: .06, fine: true });
+        break;
+      }
+      case 'rise': {
+        const [r, n] = chordOf('bright', b);
+        motif(bt, rest, b, .034, bell);
+        for (let i = 0; i < 7; i++) { const tt = bt + i * EI; if (tt < bt + rest - .01 && i % 2 === 0) bell(tt + EI / 2, n[(i / 2) % 3] + 24, .8, .014, 0); }
+        bass(bt, r, EI * 3, .12, 520); if (EI * 4 < rest) bass(bt + EI * 4, r + 7, EI * 2.5, .09, 520);
+        beat(bt, rest, { tick: .028, kick: .5, rim: .07 });
+        if (b % 2 === 0) pad(bt, Math.min(BAR * 2, t1 - bt), n, .016, 1000);
+        break;
+      }
+    }
+  }
+
+  // ---------- 効果音 ----------
+  if (mode !== 'music') for (const [t, kind, o] of SEQ) at(t - .05, () => fx(t, kind, o || {}));
+  function beep(t, f, d, v, type = 'sine', out = sfx) { const gn = g(out, 0); env(gn, T(t), .002, v, d); osc(type, f, T(t), d, gn); return gn; }
+  function zap(t, f0, f1, d, v, type = 'sawtooth') { const gn = g(sfx, 0); env(gn, T(t), .003, v, d); const o = osc(type, f0, T(t), d, filt('lowpass', 5000, 1, gn)); o.frequency.setValueAtTime(f0, T(t)); o.frequency.exponentialRampToValueAtTime(f1, T(t) + d); }
+  function hiss(t, d, v, f0, f1, type = 'bandpass', q = 2) { const gn = g(sfx, 0); gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(v, T(t) + d * .3); gn.gain.linearRampToValueAtTime(0, T(t) + d); const f = filt(type, f0, q, gn); f.frequency.setValueAtTime(f0, T(t)); f.frequency.exponentialRampToValueAtTime(f1, T(t) + d); noise(T(t), d, f); }
+  function knock(t, f = 900, v = .2, d = .05) { const gn = g(sfx, 0); env(gn, T(t), .001, v, d); noise(T(t), d + .02, filt('bandpass', f, 2, gn)); }
+  function glitchS(t, d = .3) { for (let i = 0; i < 8; i++) { const gn = g(sfx, 0); env(gn, T(t + i * d / 8), .001, .05, .02); osc('square', 200 + ((i * 397) % 9) * 180, T(t + i * d / 8), .03, filt('bandpass', 2000, 2, gn)); } }
+  function fx(t, kind, o) {
+    switch (kind) {
+      case 'drone': boom(t, .25, sfx); break;
+      case 'boot': hiss(t, .4, .05, 300, 3000); beep(t + .3, mtof(81), .3, .04, 'triangle'); beep(t + .4, mtof(88), .4, .04, 'triangle'); break;
+      case 'boot98': [72, 79, 84, 88].forEach((m, i) => beep(t + i * .12, mtof(m), .6, .04, 'triangle')); break;
+      case 'select': zap(t, 2000, 3000, .08, .04, 'triangle'); hiss(t, .25, .04, 2000, 5000, 'bandpass', 4); break;
+      case 'tick': for (let i = 0; i < 6; i++) knock(t + i * .08, 4000, .05, .015); break;
+      case 'impact': boom(t, .6, sfx); glitchS(t, .25); crash(t, .06, sfx); break;
+      case 'pop': beep(t, 700 + ((o.i || 0) % 4) * 80, .05, .06); beep(t + .04, 1050 + ((o.i || 0) % 4) * 80, .07, .05); break;
+      case 'sparkle': [88, 93, 96, 100].forEach((m, i) => beep(t + i * .06, mtof(m), .4, .03)); break;
+      case 'freeze': zap(t, 900, 60, .6, .06, 'sawtooth'); glitchS(t, .4); break;
+      case 'loop': { const gn = g(sfx, 0); env(gn, T(t), .4, .05, 2); const o2 = osc('sine', 220, T(t), 2.5, gn); o2.frequency.exponentialRampToValueAtTime(880, T(t) + 2.4); break; }
+      case 'riser': riser(t, o.d || 2, .07); break;
+      case 'title': boom(t, .7, sfx); glitchS(t, .4); crash(t, .12, sfx); break;
+      case 'send': zap(t, 400, 1600, .25, .04, 'triangle'); break;
+      case 'recv': zap(t, 1600, 400, .25, .04, 'triangle'); break;
+      case 'stream': for (let i = 0; i < 5; i++) beep(t + i * .14, mtof(76 + i * 2), .12, .03, 'triangle'); break;
+      case 'msg': beep(t, mtof(84), .1, .05); beep(t + .09, mtof(91), .2, .04); break;
+      case 'rewind': { const d = o.d || 2; const gn = g(sfx, 0); gn.gain.setValueAtTime(0, T(t)); gn.gain.linearRampToValueAtTime(.06, T(t) + .2); gn.gain.setValueAtTime(.06, T(t) + d - .3); gn.gain.linearRampToValueAtTime(0, T(t) + d); const o2 = osc('sawtooth', 900, T(t), d, filt('bandpass', 1500, 2, gn)); o2.frequency.exponentialRampToValueAtTime(120, T(t) + d); hiss(t, d, .04, 3000, 600); break; }
+      case 'paper': hiss(t, .25, .07, 1500, 5000, 'bandpass', 1.2); break;
+      case 'type': { const n = o.n || 8; for (let i = 0; i < n; i++) knock(t + i / 16 + (rnd() - .5) * .02, 2600 + (i % 3) * 300, .07, .02); break; }
+      case 'excel': [72, 76, 79].forEach((m, i) => beep(t + i * .08, mtof(m), .4, .04, 'square')); break;
+      case 'stampS': knock(t, 800, .18, .06); beep(t, 110, .1, .08); break;
+      case 'stampB': boom(t, .45, sfx); knock(t, 500, .3, .1); break;
+      case 'wall': boom(t, .6, sfx); zap(t, 200, 50, .8, .08, 'square'); for (let i = 0; i < 4; i++) knock(t + i * .05, 300, .12, .05); break;
+      case 'alarm': for (let i = 0; i < 3; i++) { beep(t + i * .3, 880, .15, .05, 'square'); beep(t + i * .3 + .15, 660, .15, .05, 'square'); } break;
+      case 'cage': for (let i = 0; i < 6; i++) knock(t + i * .06, 1200 - i * 80, .1, .04); break;
+      case 'x': beep(t, 150, .1, .08, 'square'); beep(t + .09, 120, .14, .08, 'square'); break;
+      case 'drill': hiss(t, .6, .05, 800, 2500, 'bandpass', 3); zap(t, 120, 90, .6, .03, 'sawtooth'); break;
+      case 'gate': zap(t, 300, 150, .3, .04); knock(t + .3, 900, .15, .05); break;
+      case 'ok': beep(t, mtof(84), .12, .06, 'triangle'); beep(t + .09, mtof(91), .25, .06, 'triangle'); break;
+      case 'rename': glitchS(t, .5); [74, 77, 81, 86].forEach((m, i) => bell(t + .4 + i * .08, m, 1.2, .03, -.5 + i * .33, sfx)); break;
+      case 'rebirth': glitchS(t, .4); boom(t + .5, .35, sfx); [62, 69, 74, 81].forEach((m, i) => bell(t + .5 + i * .1, m, 1.6, .035, 0, sfx)); break;
+      case 'bars': zap(t, 200, 800, .7, .03, 'triangle'); break;
+      case 'share': for (let i = 0; i < 8; i++) beep(t + i * .05, mtof(72 + (i % 4) * 5), .2, .025); break;
+      case 'open': hiss(t, .5, .05, 300, 2000, 'lowpass', 1); beep(t + .35, mtof(86), .4, .04, 'triangle'); break;
+      case 'prompt': beep(t, mtof(79), .15, .04, 'triangle'); beep(t + .12, mtof(83), .25, .04, 'triangle'); break;
+      case 'swing': hiss(t, 1.2, .04, 200, 1200, 'lowpass', 1); break;
+    }
+  }
+  const run = (limit, skip = -Infinity) => { for (const e of EV) if (!e.done && e[0] < limit) { e.done = true; if (e[0] >= skip) e[1](); } };
+  return { run, EV };
+}
+
+window.renderAudio = async function (mode = 'music') {
+  const dur = TLD.duration + 1;
+  const ac = new OfflineAudioContext(2, Math.ceil(dur * SR), SR);
+  const { run } = buildScore(ac, ac.destination, mode);
+  const WIN = 4;
+  run(WIN + .5);
+  for (let w = WIN; w < dur; w += WIN) ac.suspend(w).then(() => { run(w + WIN + .5); ac.resume(); });
+  const buf = await ac.startRendering();
+  const L0 = buf.getChannelData(0), R0 = buf.getChannelData(1);
+  const pcm = new Int16Array(L0.length * 2);
+  for (let i = 0; i < L0.length; i++) { pcm[i * 2] = Math.max(-1, Math.min(1, L0[i])) * 32767; pcm[i * 2 + 1] = Math.max(-1, Math.min(1, R0[i])) * 32767; }
+  window.__PCM = new Uint8Array(pcm.buffer);
+  return { sampleRate: SR, bytes: window.__PCM.length };
+};
+window.liveSE = function (ac, dest) {
+  let timer = 0, out = null;
+  return {
+    start(from, base) { this.stop(); out = ac.createGain(); out.connect(dest); const sc = buildScore(ac, out, 'se', base); const step = () => sc.run(ac.currentTime - base + 1.5, from - .05); step(); timer = setInterval(step, 100); },
+    stop() { clearInterval(timer); if (!out) return; const o = out, now = ac.currentTime; o.gain.setValueAtTime(o.gain.value, now); o.gain.linearRampToValueAtTime(0, now + .05); setTimeout(() => o.disconnect(), 300); out = null; },
+  };
+};
+window.audioChunk = function (i, size) {
+  const sub = window.__PCM.subarray(i * size, (i + 1) * size);
+  let s = ''; for (let k = 0; k < sub.length; k += 0x8000) s += String.fromCharCode.apply(null, sub.subarray(k, k + 0x8000));
+  return btoa(s);
+};
+</script>
+<script>
+// HTML 版の再生: 声（セリフごとの wav）と BGM（bgm.mp3）を鳴らし、その再生位置で Canvas を描く
+const VOICE_DIR = 'voice/ReiwaIE_TwoWay/';
+const CHARS = "–…←→⇔∞△◀○◎♭✓、。〆「」』〜あいうえおかがきぎくぐけげこごさざしじすずせぜそただちっつてでとどなにねのはばひびふぶへべほまみむめもゃやゅゆょよらりるれろわをんァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチッツテデトドナニネノハバパビピフブプベペホボポマミムメモャュユョラリルレロワン・ー一上下世両並中丸主九了予事二亡交人今介仕付代令件任会伝伸位低体何余作使供便係保信修個倍倒借値側備像億元先光入全公共典内円再冒写出分切列初別利刷刻前力加助効動務化十半単印厄参双反取受口古可台右号各合同名向吸告味呼命和品員器回囲図固国土埋基報場塵増壁声変外多大央奥奨好始子字安完定実容寄対封小少届崩左差巻帳常幅幕年広床序底度廃廻式引弧弱張強当形役待後心応思性悪想意成戻所扉手打扱技投抜択抱押担拍拡括持指振掘接推描提換揺撃撮操攻数文料新方既日旧明昔映春時普景暗暮曲更書替最月有望期本札材条来板析果査格案棒棟業極楽構標模権横橙機檻次欲歌止正残段毎気求決注流浮消深混添渡測満準滅漂濃点無版物独率現理生用由画界番発登的直相真着瞬破確社祖秒秘移究空窓立章符第等箱節簡粒系約素紫細終組統絵継続緑緒線縁縮繰置翌考者聞肢肩背能脆脈自致舞般色苦葉藍行術表装補製要見規視角解触言計記設許証話詳認語説読調議資赤走起越足路身車転軽輪込近返退送逆途通速造進遅運道違遠選部重量金録鐘長閉開間関闇限除際離電霊青非面音韻響順頭頼題額類風駅駐験高鳴！（）＋：＝？";
+const DUR = TLD.duration;
+const BG = .85, DUCK = .45;
+const $ = s => document.querySelector(s);
+const fmt = s => { s = Math.max(0, s); return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
+
+let ac = null, bus = null, bgGain = null, voGain = null, bgm = null, se = null;
+const VO = {};
+let srcs = [], playing = false, T = 0, base = 0, seeking = false, ready = false, dirty = true, cover = null;
+
+// セリフが続く区間をまとめて、BGM を下げる区間にする
+const DUCKS = [];
+for (const id of TLD.order) {
+  const l = TLD.lines[id], a = l.start - .1, b = l.end + .15, last = DUCKS[DUCKS.length - 1];
+  if (last && a - last[1] < .7) last[1] = b; else DUCKS.push([a, b]);
+}
+
+function fit() {
+  // innerWidth はスマートフォンで縮小表示されると変わってしまうので、画面の実際の幅（clientWidth）で測る
+  const vw = document.documentElement.clientWidth || innerWidth, vh = document.documentElement.clientHeight || innerHeight;
+  const s = Math.min(vw / 1920, vh / 1080);
+  cv.style.width = 1920 * s + 'px'; cv.style.height = 1080 * s + 'px';
+  // Canvas の画素数: ふだんは 1920×1080。全画面のときだけ画面の画素数に合わせる（16:9 のまま、1080p 未満にはしない、上限は横 3840）
+  const full = document.fullscreenElement || document.webkitFullscreenElement;
+  const pw = full ? Math.min(3840, Math.max(1920, Math.round(1920 * s * (devicePixelRatio || 1)))) : 1920;
+  if (cv.width !== pw) { cv.width = pw; cv.height = Math.round(pw * 9 / 16); SC = pw / 1920; dirty = true; }
+}
+// 全画面の出入りと、resize が届かない変わり方（埋め込み先の枠の変化など）も見張る
+addEventListener('resize', fit); addEventListener('fullscreenchange', fit); addEventListener('webkitfullscreenchange', fit);
+new ResizeObserver(() => fit()).observe(document.documentElement); fit();
+
+async function loadAll() {
+  const total = TLD.order.length + 2;
+  let n = 0;
+  const step = () => { $('#startLbl').textContent = `読み込み中… ${Math.round(++n / total * 100)}%`; };
+  const weights = [500, 600, 700, 800, 900];
+  await Promise.all([
+    ...weights.map(w => document.fonts.load(`${w} 40px "Noto Sans JP"`, CHARS).catch(() => {})),
+    ...['700 40px "Zen Kaku Gothic New"', '900 40px "Zen Kaku Gothic New"', '400 40px "Share Tech Mono"', '500 40px "JetBrains Mono"', '600 40px "JetBrains Mono"', '700 40px "JetBrains Mono"', '800 40px "JetBrains Mono"']
+      .map(f => document.fonts.load(f, CHARS).catch(() => {})),
+  ]);
+  step();
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  bus = ac.createGain(); bus.connect(ac.destination);
+  bgGain = ac.createGain(); bgGain.gain.value = BG; bgGain.connect(bus);
+  voGain = ac.createGain(); voGain.connect(bus);
+  // 効果音は bgm.mp3 に入れず、絵と同じ時刻表からブラウザの中で鳴らす（BGM と同じく、声の間は下げる）
+  se = window.liveSE(ac, bgGain);
+  const get = async url => { const r = await fetch(url); if (!r.ok) throw new Error(url); return await ac.decodeAudioData(await r.arrayBuffer()); };
+  try { bgm = await get(VOICE_DIR + 'bgm.mp3'); } catch (e) { console.warn('BGM なしで再生します', e); }
+  step();
+  // 声が読み込めなくても、字幕と BGM だけで再生できるようにする
+  await Promise.all(TLD.order.map(async id => { try { VO[id] = await get(VOICE_DIR + id + '.wav'); } catch (e) { console.warn(e); } step(); }));
+}
+
+function stopAudio() { for (const s of srcs) { try { s.stop(); } catch (e) {} } srcs = []; se?.stop(); }
+function startAudio(from) {
+  stopAudio();
+  const now = ac.currentTime + .06;
+  base = now - from;
+  if (bgm && from < bgm.duration) {
+    const s = ac.createBufferSource(); s.buffer = bgm; s.connect(bgGain); s.start(now, from); srcs.push(s);
+  }
+  const g = bgGain.gain;
+  g.cancelScheduledValues(0); g.setValueAtTime(BG, now);
+  for (const [a, b] of DUCKS) {
+    if (b < from) continue;
+    const ta = base + a, tb = base + b;
+    if (ta > now) { g.setValueAtTime(BG, ta); g.linearRampToValueAtTime(BG * DUCK, ta + .15); }
+    else g.setValueAtTime(BG * DUCK, now);
+    g.setValueAtTime(BG * DUCK, Math.max(now, tb)); g.linearRampToValueAtTime(BG, Math.max(now, tb) + .35);
+  }
+  for (const id of TLD.order) {
+    const l = TLD.lines[id], buf = VO[id];
+    if (!buf) continue;
+    const off = Math.max(0, from - l.start);
+    if (off >= buf.duration) continue;
+    const s = ac.createBufferSource(); s.buffer = buf; s.connect(voGain);
+    s.start(base + l.start + off, off); srcs.push(s);
+  }
+  se.start(from, base);
+}
+
+const cur = () => playing ? Math.min(DUR, ac.currentTime - base) : T;
+async function play(fromStart) {
+  if (!ready) return;
+  cover = null;
+  await ac.resume();
+  if (fromStart || T >= DUR - .05) T = 0;
+  startAudio(T);
+  playing = true; $('#bPlay').textContent = '❚❚'; idle();
+}
+function pause() { T = cur(); stopAudio(); playing = false; $('#bPlay').textContent = '▶'; dirty = true; showCtl(); }
+const toggle = () => playing ? pause() : play();
+function seekTo(t) { cover = null; T = Math.max(0, Math.min(DUR, t)); if (playing) startAudio(T); dirty = true; }
+
+window.__redraw = () => { dirty = true; };
+function loop() {
+  const t = cur();
+  if (playing || dirty) {
+    window.__cover = cover != null; window.__playing = playing && cover == null; renderFrame(cover ?? t);
+    $('#tm').textContent = `${fmt(t)} / ${fmt(DUR)}`;
+    if (!seeking) $('#seek').value = t;
+    dirty = false;
+  }
+  if (playing && t >= DUR) { pause(); T = DUR; }
+  requestAnimationFrame(loop);
+}
+
+// 操作バーは、再生中に動きがなければ隠す
+let hideTimer = 0;
+function showCtl() { document.body.classList.remove('idle'); clearTimeout(hideTimer); }
+function idle() { showCtl(); hideTimer = setTimeout(() => { if (playing) document.body.classList.add('idle'); }, 2500); }
+addEventListener('pointermove', idle);
+
+$('#bPlay').onclick = () => { $('#start')?.remove(); toggle(); };
+$('#bRe').onclick = () => { $('#start')?.remove(); play(true); };
+$('#bMute').onclick = () => { if (!bus) return; const m = bus.gain.value > 0; bus.gain.value = m ? 0 : 1; $('#bMute').textContent = m ? '🔇' : '🔊'; };
+$('#bFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); };
+$('#seek').max = DUR;
+$('#seek').oninput = e => { seeking = true; seekTo(+e.target.value); };
+$('#seek').onchange = () => { seeking = false; };
+addEventListener('keydown', e => {
+  if (!ready) return;
+  if (e.code === 'Space') { e.preventDefault(); $('#start')?.remove(); toggle(); }
+  else if (e.key === 'r' || e.key === 'R') { $('#start')?.remove(); play(true); }
+  else if (e.key === 'm' || e.key === 'M') $('#bMute').click();
+  else if (e.key === 'f' || e.key === 'F') $('#bFull').click();
+  else if (e.key === 'ArrowRight') seekTo(cur() + 5);
+  else if (e.key === 'ArrowLeft') seekTo(cur() - 5);
+});
+
+loadAll().then(() => {
+  ready = true;
+  // 再生前は、タイトルの場面を表紙として見せる
+  T = 0; cover = S('title').start + 3.2; window.__cover = true; window.__playing = false; renderFrame(cover); dirty = false;
+  const st = $('#start');
+  st.classList.remove('loading');
+  $('#startLbl').textContent = `▶ 再生（${Math.floor(DUR / 60)}分${Math.round(DUR % 60)}秒）`;
+  st.onclick = () => { st.remove(); play(true); };
+  $('#tm').textContent = `0:00 / ${fmt(DUR)}`;
+  requestAnimationFrame(loop);
+});
+</script>
+
+</body>
+</html>

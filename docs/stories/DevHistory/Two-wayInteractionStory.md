@@ -4,6 +4,8 @@ description: Web ページ（ブラウザ）とローカルのアプリが、く
 
 # Web とローカルの双方向やり取り、30年の輪廻
 
+<PromoMovie src="/promo/ReiwaIE_TwoWay.html" title="令和のIE 技術秘話 ― Web とローカルの双方向やり取り、30年の輪廻" />
+
 ::: tip 秘話
 〜くっついて、離れて、またくっつく〜
 :::
