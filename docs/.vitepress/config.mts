@@ -173,7 +173,8 @@ export default withMermaid(
             { text: 'BiDi 登場秘話', link: '/stories/DevHistory/bidi-story' },
             { text: 'BiDi 登場秘話・その後', link: '/stories/DevHistory/bidi-story2' },
             { text: 'WebView2 登場秘話', link: '/stories/DevHistory/webview2-story' },
-            { text: 'GetTcpTable 秘話', link: '/stories/DevHistory/gettcptable-story' }
+            { text: 'GetTcpTable 秘話', link: '/stories/DevHistory/gettcptable-story' },
+            { text: 'Web とローカルの双方向やり取り秘話', link: '/stories/DevHistory/Two-wayInteractionStory' }
           ]
         },
         {
