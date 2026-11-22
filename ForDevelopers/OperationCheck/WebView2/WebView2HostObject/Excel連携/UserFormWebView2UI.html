@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 20px; margin: 0; }
+  .card { background: #313244; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  h2 { margin-top: 0; font-size: 16px; color: #89b4fa; }
+  button { background: #89b4fa; color: #11111b; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+  button:hover { background: #b4befe; }
+  .result { margin-top: 10px; padding: 10px; background: #181825; border-radius: 6px; font-family: Consolas, monospace; font-size: 13px; color: #a6e3a1; word-break: break-all; }
+  input[type="range"] { width: 100%; accent-color: #f38ba8; }
+  .flex { display: flex; align-items: center; gap: 12px; }
+</style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>① VBAオブジェクトへ直通RPC (Ping)</h2>
+    <button onclick="testPing()">VBAの関数を直接叩く</button>
+    <div id="pingRes" class="result">待機中...</div>
+  </div>
+
+  <div class="card">
+    <h2>② Webのタブー突破：OSダイアログでフルパス取得</h2>
+    <button onclick="pickFolder()">フォルダを選択する（Windows純正）</button>
+    <div id="folderRes" class="result">選択されたフルパスがここに返ります</div>
+  </div>
+
+  <div class="card">
+    <h2>③ Excel シート（A1セル）とリアルタイム連動</h2>
+    <div class="flex">
+      <label>数値: <span id="valLabel">50</span></label>
+      <input type="range" id="slider" min="0" max="100" value="50" oninput="syncExcel()">
+      <input type="color" id="picker" value="#f38ba8" oninput="syncExcel()">
+    </div>
+    <div id="excelRes" class="result">A1:A10 の合計値：未計算</div>
+  </div>
+
+  <div class="card">
+    <h2>④ OSネイティブ召喚：パソコンに喋らせる</h2>
+    <div class="flex">
+      <input type="text" id="sayText" value="WebView2とVBAの直接連携、成功です" style="flex:1; padding:6px; border-radius:4px; border:none;">
+      <button onclick="sayHello()">喋らせる</button>
+    </div>
+  </div>
+
+<script>
+  // ★ これが AddHostObjectToScript("vba", bridge) で注入された VBA の分身！
+  const vba = window.chrome.webview.hostObjects.vba;
+
+  async function testPing() {
+    // まるで自分の関数みたいに await で呼んで、その場で戻り値をもらう！
+    const res = await vba.Ping("JSからの挨拶");
+    document.getElementById("pingRes").innerText = res;
+  }
+
+  async function pickFolder() {
+    const path = await vba.PickLocalFolder();
+    document.getElementById("folderRes").innerText = "取得したフルパス: " + path;
+  }
+
+  let isBusy = false; // ドラッグ連打の渋滞を防ぐガード
+  async function syncExcel() {
+    const val = parseInt(document.getElementById("slider").value, 10);
+    const col = document.getElementById("picker").value;
+    document.getElementById("valLabel").innerText = val;
+
+    if (isBusy) return;
+    isBusy = true;
+    try {
+      // Excelに値を書き込んで色を変え、その瞬間の SUM(A1:A10) を戻り値でもらう！
+      const sum = await vba.UpdateSheetAndCalc("A1", val, col);
+      document.getElementById("excelRes").innerText = `A1を ${val} (${col}) に更新完了！ / A1:A10の合計 = ${sum}`;
+    } finally {
+      isBusy = false;
+    }
+  }
+
+  async function sayHello() {
+    const txt = document.getElementById("sayText").value;
+    await vba.Speak(txt);
+  }
+</script>
+</body>
+</html>
