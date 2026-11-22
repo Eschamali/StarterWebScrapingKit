@@ -69,11 +69,25 @@ Microsoft の解説によると、HTA は「完全に信頼されたアプリ」
 
 一方、ブラウザの側は「ページにローカルを触らせない」方向へ進みます。
 
-2008年に登場した Google Chrome は、ページを描くプロセスをサンドボックスに閉じ込めました。OS のセキュリティの仕組みを使い、ページのコードがコンピューターに永続的な変更を加えたり、機密の情報にアクセスしたりできないようにするものです。
+2008年に登場した Google Chrome は、画面を受け持つブラウザのプロセスと、Web ページを描くレンダラーのプロセスを分けました。さらにレンダラーをサンドボックスに閉じ込めます。OS のセキュリティの仕組みを使い、ページのコードがコンピューターに永続的な変更を加えたり、機密の情報にアクセスしたりできないようにするものです。
 
 Microsoft も 2015年、新しいブラウザ Microsoft Edge（当時は EdgeHTML）で、ActiveX と VBScript に別れを告げます。
 
-壁の向こうへ話しかけたい開発者は、抜け道を掘りました。ローカルのアプリが `localhost` に小さな Web サーバーを立ててページから呼ばせる方法や、独自の URL スキームでアプリを起動させる方法です。Chrome の拡張機能には、ローカルのアプリとやり取りするための公式の通り道として、ネイティブ メッセージングも用意されました。Chrome がローカルのアプリを別のプロセスで起動し、標準入出力で JSON のメッセージを送り合う仕組みです。
+壁の向こうへ話しかけたい開発者は、抜け道を掘りました。
+
+- **独自の URL スキーム**: アプリを URL のプロトコルのハンドラーとしてレジストリに登録しておくと、`独自の名前://...` のリンクからアプリを起動できます。起動したアプリは、コマンドラインの引数で URL を受け取ります。この仕組みは IE の時代からありますが、ページからアプリへの一方通行です
+- **`localhost` の Web サーバー**: ローカルのアプリが `http://127.0.0.1:ポート番号` で小さな Web サーバーを立て、ページから `fetch` などで呼ばせます
+- **ネイティブ メッセージング**: Chrome の拡張機能が、ローカルのアプリとやり取りするための公式の通り道です（2013年に登場）。Chrome がローカルのアプリを別のプロセスで起動し、標準入出力で JSON のメッセージを送り合います
+
+ただ、抜け道は悪意のあるページにとっても抜け道です。2019年7月、Mac 版の Zoom のクライアントが、`localhost` の 19421 番で Web サーバーを動かしていると公表されました。悪意のあるページは、この Web サーバーを使って、ページを見た人を会議に参加させられます（設定によってはカメラもオンのまま）。公表した Jonathan Leitschuh の最小の例は、次の 1 行です。
+
+```html
+<img src="http://localhost:19421/launch?action=join&confno=492468757"/>
+```
+
+Zoom は、この Web サーバーを取り除く更新を出しました。
+
+日本にも身近な例があります。電子入札で使う「電子入札補助アプリ」（JACIC・SCOPE）は、タスクトレイに常駐し、ポート番号 9980 を使います。各発注機関の電子入札システムを使う前には、そのシステムの URL（オリジン URL）を「許可 URL リスト」に登録しておく必要があります。呼んでよい相手をあらかじめ決めておくわけです。
 
 ### それでも IE を組み込むアプリは止まらない
 
@@ -89,7 +103,25 @@ IE に頼る業務システムも、特に日本ではしぶとく残りまし�
 
 ---
 
-## 第3幕: 組み込み IE の正統進化、WebView2（2020年〜）🌉
+## 第3幕: もう全部ブラウザにしてしまえ（2010年代）🌍
+
+### Electron
+
+壁越しにつなぐのが面倒なら、アプリそのものをブラウザにしてしまえばいい。そんな力技も現れます。
+
+2013年3月、GitHub の自社エディター Atom を動かす仕組みとして、Atom Shell の最初のコミットが入りました。Chromium と Node.js をバイナリに埋め込み、HTML・CSS・JavaScript で、ローカルの権限まで持つデスクトップアプリを作れる仕組みです。2015年に Electron と名前を変え、メールやチャット（Slack）、Git のクライアントまで、さまざまなアプリがこれで作られるようになりました。
+
+そうです、HTA の生まれ変わりです😳
+
+### Office アドイン
+
+Microsoft も、Office の拡張を Web の技術へ移し始めます。2012年7月に発表した apps for Office（今の Office アドイン）は、HTML・CSS・JavaScript で作り、設計の段階から隔離された、安全な実行用のサンドボックスで動かすものでした。
+
+今の Office アドインは、Windows だけでなく、Mac や iPad、ブラウザの Office でも動きます。Windows でしか動かない COM や VSTO のアドインと違い、コードはブラウザや Web ビューの中のサンドボックスで動き、そこから Office とやり取りします。
+
+---
+
+## 第4幕: 組み込み IE の正統進化、WebView2（2020年〜）🌉
 
 ### 組み込み IE の引退
 
@@ -107,7 +139,7 @@ Outlook の告知は、この非推奨を「Windows が MSHTML（Trident）エ�
 
 ### WebView2 の登場
 
-組み込み用の IE の正統な後継が WebView2 です。2020年10月19日、Win32 C/C++ 向けに一般提供が始まりました。
+組み込み用の IE の正統な後継が WebView2 です。2020年10月19日、Win32 C/C++ 向けに一般提供が始まりました。Windows 11 では、WebView2 のランタイムが OS に含まれています。IE と同じく、OS に最初から入っているブラウザの部品を借りられるわけです。
 
 WebView2 には、最初のインターフェイス `ICoreWebView2`（SDK 0.9.430 で登場）の時点で、ページとホストが話す仕組みがそろっていました。
 
@@ -137,7 +169,7 @@ VBA でいうなら、`A = A & B` をやめて、確保済みのバッファに 
 
 ---
 
-## 第4幕: 普通のブラウザでも…🌍
+## 第5幕: 普通のブラウザでも…🧪
 
 普通のブラウザ（Chrome や Edge）は、基本的に Web ページの中で完結します。IE の反省から、サンドボックスを第一に作られているからです。だからこそ、安心してネットサーフィンができます。
 
@@ -211,16 +243,26 @@ VBA でいうなら、`A = A & B` をやめて、確保済みのバッファに 
 
 ---
 
-## 第5幕: 壁が閉まりかけて、また開く（2025年〜）🤖
+## 第6幕: 壁が閉まりかけて、また開く（2025年〜）🤖
 
-2025年、普段使いの Chrome のリモート デバッグを悪用して、Cookie を抜き取る攻撃が増えました。そこで Chrome 136 からは、既定の `User Data` に対しては `--remote-debugging-port` / `--remote-debugging-pipe` が無視されるようになります。使うには、`--user-data-dir` で別のフォルダを指定します。壁が、また閉まりかけたわけです。
+2025年、普段使いの Chrome のリモート デバッグを悪用して、Cookie を抜き取る攻撃が増えました。そこで Chrome 136 からは、既定の `User Data` に対しては `--remote-debugging-port` / `--remote-debugging-pipe` が無視されるようになります。使うには、`--user-data-dir` で別のフォルダを指定します。壁が、また閉まりかけたわけです。VBA の世界でいえば、2022年から、インターネットから入手した Office ファイルのマクロが既定でブロックされるようになった（Mark of the Web）のと同じ流れです。
+
+`localhost` の抜け道にも関所ができます。Chrome 142 からは、サイトがローカル ネットワークや、ユーザーのマシンで動くソフトに接続しようとすると、許可を求めるプロンプトが出るようになりました（ローカル ネットワーク アクセス）。
 
 ところが同じ年の暮れ、AI のコーディング エージェントにブラウザを操作させる時代がやってきます。Chrome 144 では、`chrome://inspect/#remote-debugging` で有効にすれば、ユーザーが許可したうえで、普段使いのブラウザにも接続できるようになりました。人が「許可」を押したときだけ開く関所です。VBA でいう「コンテンツの有効化」バーの再来ですね🙃
 
+AI に操作させたい相手は、ブラウザだけではありません。2026年4月、Microsoft の Windows アプリ開発用の CLI（winapp）に `winapp ui` が入りました。UI Automation を使って、動いている WPF・WinForms・Win32・Electron・WinUI 3 のアプリを、コマンドラインから調べたり、クリックしたり、スクリーンショットを撮ったりできます。Microsoft は、エージェントやスクリプトが、動いているアプリを見て操作できるようになったと説明しています。
+
+そして 2026年には、揺り戻しも始まりました。Microsoft の Rudy Huyn が、Windows 11 のアプリや体験を「100% ネイティブ」で作るチームを立ち上げると明かしたと報じられました。Build 2026 でも Microsoft は、Web のラッパーではなく、WinUI 3 などで作るネイティブのアプリへ開発者を促したと報じられています。Web へ大きく振れた振り子が、ネイティブへ戻り始めたのかもしれません。
+
 | 時期 | 出来事 | 出典 |
 | --- | --- | --- |
+| 2022年4月〜 | インターネットから入手した Office ファイルのマクロを、既定でブロックするようになる | [Microsoft Learn](https://learn.microsoft.com/ja-jp/microsoft-365-apps/security/internet-macros-blocked) |
 | 2025年（Chrome 136） | 既定の `User Data` に対しては、`--remote-debugging-port` / `--remote-debugging-pipe` が無視されるようになる。使うには `--user-data-dir` で別のフォルダを指定する | [Chrome のブログ](https://developer.chrome.com/blog/remote-debugging-port?hl=ja) |
+| 2025年（Chrome 142） | サイトがローカル ネットワークや、ユーザーのマシンで動くソフトに接続するとき、許可を求めるようになる | [Chrome のブログ](https://developer.chrome.com/blog/local-network-access?hl=ja) |
 | 2025年12月（Chrome 144） | `chrome://inspect/#remote-debugging` で有効にすると、普段使いのブラウザにも、ユーザーが許可したうえで接続できるようになる | [Chrome のブログ](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja) |
+| 2026年4月 | winapp CLI v0.3 に `winapp ui` が入り、動いている Windows アプリを、コマンドラインから操作できるようになる | [Windows Developer のブログ](https://devblogs.microsoft.com/ifdef-windows/windows-app-development-cli-v0-3-new-run-and-ui-commands-plus-dotnet-run-support-for-packaged-apps/) |
+| 2026年 | Windows 11 のアプリを「100% ネイティブ」で作るチームの立ち上げや、Build 2026 でのネイティブ アプリの推進が報じられる | [Windows Central](https://www.windowscentral.com/microsoft/windows-11/microsoft-is-building-a-windows-11-team-focused-on-creating-100-percent-native-windows-apps-and-experiences) |
 
 ---
 
@@ -282,7 +324,14 @@ Web ページとローカルのアプリの連携は、誰でも触れられる 
 * [Gadgets have been discontinued](https://web.archive.org/web/2015/http://windows.microsoft.com/en-us/windows/gadgets)（Microsoft のガジェットの配布ページ、Wayback Machine の写し）
 * [A new approach to browser security: the Google Chrome Sandbox](https://blog.chromium.org/2008/10/new-approach-to-browser-security-google.html)（Chromium Blog、2008年10月）
 * [Sandbox](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/design/sandbox.md)（Chromium の設計文書）
+* [Multi-process Architecture](https://www.chromium.org/developers/design-documents/multi-process-architecture/)（Chromium の設計文書。ブラウザのプロセスとレンダラーのプロセス）
+* [Registering an Application to a URI Scheme](https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767914(v=vs.85))（IE 時代の資料。アプリを URL のプロトコルのハンドラーとして登録する）
+* [Connecting Chrome apps and extensions with native applications](https://blog.chromium.org/2013/10/connecting-chrome-apps-and-extensions.html)（Chromium Blog、2013年10月）
 * [ネイティブ メッセージング](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging?hl=ja)（Chrome for Developers。拡張機能とローカルのアプリが標準入出力でやり取りする）
+* [Unauthorized Call and Webcam Access Vulnerability in Zoom Mac Client (CVE-2019-13450)](https://www.tenable.com/blog/unauthorized-call-and-webcam-access-vulnerability-in-zoom-mac-client-cve-2019-13450)（Tenable、2019年7月。19421 番の Web サーバーと、それを取り除く更新）
+* [Simplest example of the Zoom exploit](https://gist.github.com/JLLeitschuh/77bf6f977664a4dfd43cdca19fbf0f1f)（Jonathan Leitschuh の gist。`<img>` 1 行の例）
+* [電子入札補助アプリ 操作マニュアル](https://www.pref.hiroshima.lg.jp/uploaded/attachment/559012.pdf)（JACIC・SCOPE、2023年11月 第1.4版。ポート番号 9980 と許可 URL リスト）
+* [電子入札補助アプリ 初期設定マニュアル](https://www.ipa.go.jp/choutatsu/qv6pgp000000bfky-att/setupmanual2_20251014.pdf)（IPA。起動するとタスクトレイに常駐する）
 
 ### IE の引退と組み込み IE
 
@@ -300,6 +349,7 @@ Web ページとローカルのアプリの連携は、誰でも触れられる 
 ### WebView2
 
 * [Announcing Microsoft Edge WebView2 General Availability](https://blogs.windows.com/msedgedev/2020/10/19/edge-webview2-general-availability/)（Microsoft Edge Blog、2020年10月19日）
+* [Distribute your app and the WebView2 Runtime](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)（Windows 11 には WebView2 のランタイムが含まれる）
 * [interface ICoreWebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2)（SDK 0.9.430 で登場。`AddHostObjectToScript`、`PostWebMessageAsJson`、`add_WebMessageReceived`）
 * [interface ICoreWebView2SharedBuffer](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2sharedbuffer)（SDK 1.0.1661.34 で登場）
 * [Shared Buffer Between Native Application Code and Script](https://github.com/MicrosoftEdge/WebView2Feedback/blob/4794d2fca7ab574f3546c9e05da45f4bf98c640b/specs/SharedBuffer.md)（SharedBuffer の仕様。背景に下の 2 つの要望を挙げている）
@@ -324,7 +374,21 @@ Web ページとローカルのアプリの連携は、誰でも触れられる 
 * [http_connection.cc](https://github.com/chromium/chromium/blob/e8f2f6f1a988166465b719de8d3f803176cea827/net/server/http_connection.cc#L118-L121)（Chromium。上限を超えると「Too large write data is pending」として送れない）
 * [String data type](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/string-data-type)（VBA。可変長の文字列は約 20 億（2^31）文字まで）
 
-### Electron・Tauri
+### Electron・Office アドイン・Tauri
 
+* [10 years of Electron](https://www.electronjs.org/blog/10-years-of-electron)（Electron のブログ、2023年3月。最初のコミットは 2013年3月13日。Atom Shell は Atom エディターの基盤として作られた）
+* [Atom Shell is now Electron](https://www.electronjs.org/blog/electron)（Electron のブログ、2015年4月）
+* [Electron 1.0](https://www.electronjs.org/blog/electron-1-0)（Electron のブログ、2016年5月。メールやチャット、Git のアプリまで作られている）
 * [Electron のドキュメント](https://www.electronjs.org/docs/latest/)（Chromium と Node.js をバイナリに埋め込む）
+* [Introducing the new Office cloud app model](https://learn.microsoft.com/en-us/archive/blogs/officeapps/introducing-the-new-office-cloud-app-model)（Office Apps ブログ、2012年7月。apps for Office は隔離されたサンドボックスで動く）
+* [Office Add-ins platform overview](https://learn.microsoft.com/en-us/office/dev/add-ins/overview/office-add-ins)（Office アドインのコードは、ブラウザや Web ビューの中のサンドボックスで動く）
 * [Tauri の前提条件](https://v2.tauri.app/start/prerequisites/)（Windows では WebView2 で描画する）
+
+### 2025年〜
+
+* [インターネットからのマクロは、Office で既定でブロックされます](https://learn.microsoft.com/ja-jp/microsoft-365-apps/security/internet-macros-blocked)（Microsoft Learn。2022年4月からロールアウト）
+* [New permission prompt for Local Network Access](https://developer.chrome.com/blog/local-network-access?hl=ja)（Chrome のブログ、2025年6月。許可のプロンプトは Chrome 142 から）
+* [Windows App Development CLI v0.3: new run and ui commands](https://devblogs.microsoft.com/ifdef-windows/windows-app-development-cli-v0-3-new-run-and-ui-commands-plus-dotnet-run-support-for-packaged-apps/)（Microsoft、2026年4月。`winapp ui`）
+* [Announcing winapp, the Windows App Development CLI](https://blogs.windows.com/windowsdeveloper/2026/01/22/announcing-winapp-the-windows-app-development-cli/)（Windows Developer Blog、2026年1月）
+* [Microsoft is building a Windows 11 team focused on creating "100% native" Windows apps and experiences](https://www.windowscentral.com/microsoft/windows-11/microsoft-is-building-a-windows-11-team-focused-on-creating-100-percent-native-windows-apps-and-experiences)（Windows Central。Rudy Huyn の発言の報道）
+* [Microsoft uses Build 2026 to push developers toward fully native Windows apps, not web wrappers](https://www.windowscentral.com/software-apps/microsoft-drives-developers-toward-native-windows-apps-at-build-2026)（Windows Central、Build 2026 の報道）
