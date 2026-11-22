@@ -105,7 +105,68 @@ t.ExecuteCDP "Runtime.addBinding", params
 
 ### SharedBuffer
 
-WebView2 の `ICoreWebView2SharedBuffer` で、VBA とページの JavaScript が同じメモリ領域を読み書きします。使い方は [WebView2モードでできること](/webview2/capabilities) の「共有バッファ」を参照してください。
+WebView2 の `ICoreWebView2SharedBuffer` で、VBA とページの JavaScript が同じメモリ領域を読み書きします。各メンバーは [WebView2モードでできること](/webview2/capabilities) の「共有バッファ」を参照してください。
+
+次のデモは、ページの HTML を JavaScript が共有バッファへ書き込み、VBA が読み出します。JavaScript 側には「書き終わった」ことを知らせる仕組みが無いので、書いたバイト数を `window.__sbRes` に置いてもらい、VBA は `jsEval` でそれを待ちます。
+
+```vb
+Sub SharedBufferDemo()
+    Dim wv2 As CDPCoreViaWebView2, t As CDPContext
+    WebView2Form.StartCDPModeWebView2
+    Set wv2 = WebView2Form.ThisWebView2
+    Set t = WebView2Form.ThisCDPContext
+    t.navigate "https://example.com"
+
+    '1. 受け取る側（JS）のリスナーを先に登録する
+    '   HTML を UTF-8 で書き込み、releaseBuffer してから、書いたバイト数を window.__sbRes に置く
+    t.jsEval "chrome.webview.addEventListener('sharedbufferreceived', e => {" & _
+             " const buf = e.getBuffer();" & _
+             " const n = new TextEncoder().encodeInto(document.documentElement.outerHTML, new Uint8Array(buf)).written;" & _
+             " chrome.webview.releaseBuffer(buf);" & _
+             " window.__sbRes = n; }); 0"
+
+    '2. 共有バッファ（1MB）を作り、ページへ渡す
+    Dim sb As WebView2SharedBuffer
+    Set sb = wv2.CreateSharedBuffer(CLngLng(1024& * 1024&))
+    If sb Is Nothing Then Exit Sub
+    t.jsEval "window.__sbRes = undefined; 0"
+    sb.PostToScript SharedBuffer_ReadWrite
+
+    '3. JS が書き終わるのを待つ（書いたバイト数が返る）
+    Dim written As Long
+    written = Val(WaitJs(t, "window.__sbRes", 10))
+
+    '4. 先頭から読み出して、UTF-8 から文字列に戻す
+    Dim bytes() As Byte
+    bytes = sb.ReadBytes(written)
+    Dim conv As New CharacterCodeConversion
+    Debug.Print conv.BytesToString(bytes)
+
+    Set sb = Nothing
+    Unload WebView2Form
+End Sub
+
+'JS の変数に値が入るまで待つ（タイムアウト時は空文字）
+Private Function WaitJs(t As CDPContext, ByVal jsVar As String, ByVal timeoutSec As Double) As String
+    Dim t0 As Single: t0 = Timer
+    Dim v As Variant
+    Do
+        v = t.jsEval(jsVar & " === undefined ? '' : String(" & jsVar & ")")
+        If Not IsError(v) Then
+            If Len(v) > 0 Then WaitJs = v: Exit Function
+        End If
+        DoEvents
+    Loop Until Timer - t0 > timeoutSec
+End Function
+```
+
+VBA → JS の向きも同じです。VBA が `WriteBytes` で書いてから `PostToScript` し、JavaScript が `TextDecoder` などで読みます。
+
+::: tip 大きなデータはファイルへ直接書く
+数百 MB のデータを `ReadBytes` で VBA の Byte 配列に丸ごと読むと、メモリを圧迫します。ファイルに保存したいだけなら、`get_Buffer`（共有メモリの先頭アドレス）を Windows API の `WriteFile` にそのまま渡せば、VBA の配列を経由せずに書き出せます。
+:::
+
+動作確認用のテストは、dev-xlflow ブランチの `ForDevelopers/OperationCheck/WebView2/WebView2SharedBuffer/` にあります。`Test_WebView2SharedBuffer.bas` は読み書き・往復・100MB・サイズ上限などの単体テスト、`Test_WV2SharedBufferHLS.bas` は HLS の動画（映像と音声）を JavaScript で集め、共有バッファ経由でファイルに保存するテストです。
 
 - **メリット**
   - 大きなデータを、base64 にもせず、ディスクも経由せずに渡せます
@@ -113,7 +174,7 @@ WebView2 の `ICoreWebView2SharedBuffer` で、VBA とページの JavaScript �
 - **デメリット**
   - WebView2 でだけ使えます。それも、トップレベルのページ（UserForm に表示しているページ）だけです
   - 「書き込み終わり」の合図がありません。`Runtime.addBinding` で合図を送るか、同期の `jsEval` で書き込みを済ませてから読みます
-  - 確保したサイズは、あとから変えられません。上限は今のところ 2GB です
+  - 確保したサイズは、あとから変えられません。2GB（2^31 バイト）は確保できません
 
 大きなデータを VBA の中だけで受け渡したいときの本命です。
 
@@ -132,7 +193,51 @@ WebView2 の `ICoreWebView2SharedBuffer` で、VBA とページの JavaScript �
 
 ### `AddHostObjectToScript`
 
-WebView2 の `AddHostObjectToScript` で、VBA のクラスのオブジェクトをページに公開します。ページの JavaScript から `chrome.webview.hostObjects.{名前}.{メソッド名}(...)` で呼ぶと、VBA のメソッドが動き、その戻り値が JavaScript に返ります。IE 時代の `window.external` や、`onclick` に VBA のオブジェクトを代入するやり方に近いものです。使い方は [WebView2モードでできること](/webview2/capabilities) の「ホストオブジェクトの公開」を参照してください。
+WebView2 の `AddHostObjectToScript` で、VBA のクラスのオブジェクトをページに公開します。ページの JavaScript から `chrome.webview.hostObjects.{名前}.{メソッド名}(...)` で呼ぶと、VBA のメソッドが動き、その戻り値が JavaScript に返ります。IE 時代の `window.external` や、`onclick` に VBA のオブジェクトを代入するやり方に近いものです。
+
+次のデモは、UserForm に表示したページのボタンから VBA を呼び、Excel の A1 セルに値を書き込んで、A1:A10 の合計をページに表示します。
+
+```vb
+' クラスモジュール「clsWebBridge」
+' JS から呼ばれるメソッドの引数は ByVal にする（ByRef のままだと型の不一致エラーになりやすい）
+Public Function UpdateSheet(ByVal targetCell As String, ByVal numValue As Long) As Double
+    ActiveSheet.Range(targetCell).Value = numValue
+    UpdateSheet = Application.WorksheetFunction.Sum(ActiveSheet.Range("A1:A10"))
+End Function
+```
+
+```vb
+' 標準モジュール
+Sub HostObjectDemo()
+    With WebView2Form
+        '1. WebView2 を起動する
+        .StartCDPModeWebView2
+
+        '2. クラスのオブジェクトを "vba" という名前でページに公開する
+        Dim bridge As New clsWebBridge
+        .ThisWebView2.AddHostObjectToScript "vba", bridge
+
+        '3. ボタンが 1 つだけのページを表示する
+        Dim html As String
+        html = "<button onclick=""send()"">A1 に 50 を書き込む</button><div id=""out""></div>" & _
+               "<script>async function send() {" & _
+               " const sum = await chrome.webview.hostObjects.vba.UpdateSheet('A1', 50);" & _
+               " document.getElementById('out').innerText = 'A1:A10 の合計 = ' + sum; }</script>"
+
+        Dim params As New Dictionary
+        params.Add "frameId", .ThisCDPContext.CurrentTargetID
+        params.Add "html", html
+        .ThisCDPContext.ExecuteCDP "Page.setDocumentContent", params
+
+        '4. フォームを開いたまま、VBA の処理を終える
+        .show vbModeless
+    End With
+End Sub
+```
+
+ページの JavaScript からの呼び出しは、VBA がウィンドウメッセージを処理しているときに実行されます。このデモのように、モードレスでフォームを開いて VBA の処理を終えておけば、ボタンを押すたびに `UpdateSheet` が呼ばれます。VBA のマクロの実行中に呼ばれた場合は、`DoEvents` などでメッセージが処理されるまで待たされます。
+
+動作確認用のテストは、dev-xlflow ブランチの `ForDevelopers/OperationCheck/WebView2/WebView2HostObject/` にあります。`Excel連携/` はこのデモの元になった UserForm のデモ（フォルダ選択ダイアログや音声読み上げも VBA に頼む例）、`HeadlessTest/` は Property や Public 変数の読み書き、同期で呼ぶ `hostObjects.sync`、`RemoveHostObjectFromScript` などのテストです。
 
 - **メリット**
   - ページから VBA を呼び、戻り値を受け取れます
