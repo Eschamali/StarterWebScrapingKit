@@ -112,6 +112,7 @@ export default withMermaid(
             { text: '入力とクリック', link: '/guides/input' },
             { text: 'JavaScript 実行', link: '/guides/javascript' },
             { text: 'イベント購読', link: '/guides/events' },
+            { text: 'ブラウザと VBA の双方向やり取り', link: '/guides/two-way' },
             { text: 'マルチタブ', link: '/guides/multi-tab' },
             { text: 'タイムアウト設定方法について', link: '/guides/timeout' },
             { text: '再接続 (reattach)', link: '/guides/reattach' },
