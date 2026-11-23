@@ -141,8 +141,9 @@ Private Const MSG_WAITALL   As Long = &H8           ' 要求したバイト数�
 Private Const SOCKET_ERROR  As Long = -1            ' ioctlsocket や recv、send などの関数が失敗したことを示します
 
 'デフォルト値
-Private Const D_port        As Long = 9222
-Private Const D_host        As String = "127.0.0.1"
+Private Const D_port                As Long = 9222          'CDPでWebSocket制御する際のデフォルトポート
+Private Const D_host                As String = "127.0.0.1" 'ローカルIPアドレス
+Private Const SwitchingProtocols    As Long = 101           'WebSocketへ切り替え成功コード
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
@@ -329,7 +330,8 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError & ", Details: " & WinApiError.GetMessage(Err.LastDllError, "ws2_32"), FromProcedureName, doRaiseError:=True
 
     '8. WebSocketハンドシェイクの実行結果確認
-    If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
+    Dim ErrorMes As String
+    If Not ReadHandshakeResponse(ErrorMes) Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed. reason: " & ErrorMes, FromProcedureName, doRaiseError:=True
 
     '9. 接続したWinSock情報を記録
     serialize UserName
@@ -492,16 +494,13 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：「edge://inspect/#remote-debugging」への接続の場合は、ダイアログに応答しないと一生フリーズします
 '***************************************************************************************************
-Private Function ReadHandshakeResponse() As Boolean
-    Const FromProcedureName As String = ThisClassName & ".ReadHandshakeResponse"
-
-
+Private Function ReadHandshakeResponse(ByRef ErrorMessage) As Boolean
     Dim response As String
     Dim buf(0 To 511) As Byte
     Dim bytesRead As Long
     Dim i As Long
 
-    ' ハンドシェイク応答が終わる(CRLF * 2)まで、またはタイムアウトするまでブロッキングで読み取る
+    'ヘッダー情報を全て、読み取り終えるまでループ
     Do
         bytesRead = recv(m_hSocket, buf(0), 512, 0)
         If bytesRead <= 0 Then Exit Do
@@ -520,11 +519,60 @@ Private Function ReadHandshakeResponse() As Boolean
         End If
     Loop
 
-    ' 「101 Switching Protocols」が含まれていればハンドシェイク成功
-    printMsg Debug_, "Result-Handshake: " & Replace(response, vbCrLf, Chr(30)), FromProcedureName
-    If InStr(response, "HTTP/1.1 101") > 0 Then
-        ReadHandshakeResponse = True
-    End If
+    'httpレスポンス解析を行う
+    Dim ResultResponse As Dictionary
+    Set ResultResponse = ParserHttpResponse(response)
+
+    '切り替え成功したかを返す
+    ReadHandshakeResponse = (ResultResponse("StatusCode") = SwitchingProtocols)
+    If ResultResponse.Exists("BodyContent") Then ErrorMessage = ResultResponse("BodyContent")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：前述の`SendHandshake`の応答結果を`Dictionary`型として良い感じに整形します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：KeyにHeader名を置き、Valueでそのひもづけをします
+'***************************************************************************************************
+Private Function ParserHttpResponse(httpRes As String) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".ParserHttpResponse"
+
+
+    '1. 改行コードごとに区切り、分割数をカウントし、どこまでがヘッダー情報かを計算
+    Dim ResponseSplit:              ResponseSplit = Split(httpRes, vbCrLf)  '改行コードで大雑把に分割
+    Dim SplitNum As Long:           SplitNum = UBound(ResponseSplit)        '改行コードによる分割数をカウント(※0スタート)
+    Dim HeaderLimitIndex As Long:   HeaderLimitIndex = SplitNum - 2         '本文(Body)は、改行コード2回分以降の部分がそれなのでその分、減算
+
+    '2. ヘッダー情報を記録する準備
+    printMsg Debug_, String(100, "="), FromProcedureName
+    printMsg Debug_, "Http Header information", FromProcedureName
+    printMsg Debug_, String(100, "-"), FromProcedureName
+    Set ParserHttpResponse = New Dictionary
+    Dim tmp
+    '2-1. ステータスコードを解析
+    '[httpversion] [Status code] [StatusMessage]というスペース区切りなので、ここだけ特別な処理を施す
+    tmp = Split(ResponseSplit(0), " ", 3)
+    ParserHttpResponse.Add "Http-Version", tmp(0):      printMsg Debug_, "Http-Version      : " & tmp(0), FromProcedureName
+    ParserHttpResponse.Add "StatusCode", CLng(tmp(1)):  printMsg Debug_, "StatusCode        : " & tmp(1), FromProcedureName
+    ParserHttpResponse.Add "StatusDescription", tmp(2): printMsg Debug_, "StatusDescription : " & tmp(2), FromProcedureName
+
+    '2-2. 残りのヘッダー情報格納
+    Dim i As Long
+    For i = 1 To HeaderLimitIndex
+        '2-3. 「:」で一旦区切って格納
+        tmp = Split(ResponseSplit(i), ":"): printMsg Debug_, CStr(ResponseSplit(i)), FromProcedureName
+
+        '2-4. Dictionaryに格納
+        ParserHttpResponse.Add tmp(0), Trim$(tmp(1))    '前後のスペースを除去
+    Next
+    printMsg Debug_, String(100, "="), FromProcedureName
+
+    '3. httpステータスコードがWebSocket切り替え成功の場合は、ここで抜ける
+    '※101の場合は、Bodyなしなので
+    If ParserHttpResponse.Item("StatusCode") = SwitchingProtocols Then printMsg info_, "Chromium has sent a signal that the WebSocket switch was successful.", FromProcedureName: Exit Function
+
+    '4. Bodyを取り出す
+    '※本来はメッセージ欠けも考慮するべきだが、面倒なのと、「StatusCode」でおおよそ意味は分かるので簡略化する
+    ParserHttpResponse.Add "BodyContent", ResponseSplit(SplitNum)
 End Function
 
 

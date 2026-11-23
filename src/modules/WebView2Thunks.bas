@@ -888,18 +888,14 @@ End Function
 
 
 '***************************************************************************************************
-'                              ■■■ 文字列/プロパティヘルパー ■■■
+'                        ■■■ VBAで扱える型変換プロパティヘルパー ■■■
 '***************************************************************************************************
-'* 機能　　：LPWSTR(UTF-16終端文字列ポインタ)をVBAのStringに変換します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：入力ポインタはCoTaskMemAllocで確保されている前提。呼び出し側が
-'            変換後に`CoTaskMemFree`で解放する責任を持つ(`GetStringProperty`は一括で行う)
+' [ SECTION ] VtableIndexを指定した簡易呼び出し。 入力なし・出力1つの時のみ有効
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
-Public Function PtrToString(ByVal p As LongPtr) As String
-    If p <> 0 Then SysReAllocString VarPtr(PtrToString), p
-End Function
-
 '* 機能　　：`HRESULT get_Xxx([out,retval] LPWSTR *value)`形のCOMメソッドを呼び、Stringで返します
+'***************************************************************************************************
 Public Function GetStringProperty( _
     ByVal pInterface As LongPtr, _
     ByVal vtblIndex As Long, _
@@ -916,7 +912,9 @@ Public Function GetStringProperty( _
     End If
 End Function
 
+'***************************************************************************************************
 '* 機能　　：`HRESULT get_Xxx([out,retval] BOOL *value)`形のCOMメソッドを呼び、Booleanで返します
+'***************************************************************************************************
 Public Function GetBoolProperty( _
     ByVal pInterface As LongPtr, _
     ByVal vtblIndex As Long, _
@@ -929,7 +927,9 @@ Public Function GetBoolProperty( _
     GetBoolProperty = (v <> 0)
 End Function
 
+'***************************************************************************************************
 '* 機能　　：`HRESULT get_Xxx([out,retval] LONG/INT32/enum *value)`形のCOMメソッドを呼び、Longで返します
+'***************************************************************************************************
 Public Function GetLongProperty( _
     ByVal pInterface As LongPtr, _
     ByVal vtblIndex As Long, _
@@ -942,10 +942,60 @@ Public Function GetLongProperty( _
     GetLongProperty = v
 End Function
 
+'***************************************************************************************************
+'* 機能　　：`HRESULT get_Xxx([out,retval] UINT64/INT64 *value)`形のCOMメソッドを呼び、LongLongで返します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：受け皿が8バイト必要な型(例: `ICoreWebView2SharedBuffer::get_Size`)は、`GetLongProperty`
+'            (4バイト)で受けるとはみ出した分がスタックを上書きするため、必ずこちらを使うこと
+'***************************************************************************************************
+Public Function GetLongLongProperty( _
+    ByVal pInterface As LongPtr, _
+    ByVal vtblIndex As Long, _
+    Optional ByVal funcName As String = "") As LongLong
+
+    If pInterface = 0 Then Exit Function
+
+    Dim v As LongLong
+    dcf pInterface, vtblIndex, funcName, VarPtr(v)
+    GetLongLongProperty = v
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`HRESULT get_Xxx([out,retval] BYTE**/HANDLE/void* *value)`形のCOMメソッドを呼び、LongPtrで返します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ポインター/ハンドル(例: `ICoreWebView2SharedBuffer::get_Buffer`/`get_FileMappingHandle`)用。
+'            COMインターフェースを返すget_Xxxにも使えるが、その場合は参照が1つ増えているため、
+'            使い終わったら呼び出し側で`ComRelease`すること
+'***************************************************************************************************
+Public Function GetPtrProperty( _
+    ByVal pInterface As LongPtr, _
+    ByVal vtblIndex As Long, _
+    Optional ByVal funcName As String = "") As LongPtr
+
+    If pInterface = 0 Then Exit Function
+
+    Dim p As LongPtr
+    dcf pInterface, vtblIndex, funcName, VarPtr(p)
+    GetPtrProperty = p
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 文字列ポインターをVBAのStringへ
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：LPWSTR(UTF-16終端文字列ポインタ)をVBAのStringに変換します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：入力ポインタはCoTaskMemAllocで確保されている前提。呼び出し側が
+'            変換後に`CoTaskMemFree`で解放する責任を持つ(`GetStringProperty`は一括で行う)
+'***************************************************************************************************
+Public Function PtrToString(ByVal p As LongPtr) As String
+    If p <> 0 Then SysReAllocString VarPtr(PtrToString), p
+End Function
+
 
 
 '***************************************************************************************************
-'                              ■■■ Thunks_Init / AcquireSlot / ReleaseSlot / Shutdown ■■■
+'                  ■■■ Thunks_Init / AcquireSlot / ReleaseSlot / Shutdown ■■■
 '***************************************************************************************************
 '* 機能　　：サンク領域をVirtualAllocで確保し、全スロットへスタブをコピーし、
 '            フリーリストを初期化します(初回のみ実行)
