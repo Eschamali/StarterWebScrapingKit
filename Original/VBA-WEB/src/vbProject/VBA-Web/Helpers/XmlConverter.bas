@@ -5,6 +5,14 @@ Attribute VB_Name = "XmlConverter"
 '
 ' XML Converter for VBA
 '
+' TODO:
+' 1) Support numeric character references (&#...;)
+' 2) Add CDATA node detection.
+' 3) Fix whitespace handling inside mixed content. (<p>Hello <b>world</b>!</p>) would lose whitespace after 'Hello'.
+' 4) Improve attribute parsing around malformed input due to whitespace. (attr =    "value" or attr= value).
+' 5) Attribute/Node parsing accepts invalid XML names.
+' 6) Handle namespaces in internal parser (already correctly handled in DomDocument/CustomXml).
+'
 ' Design:
 ' The goal is to have the general form of MSXML2.DOMDocument (albeit not feature complete)
 '
