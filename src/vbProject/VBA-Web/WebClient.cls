@@ -225,11 +225,11 @@ Public UseXmlClient As Boolean
 ' False if VBA.DoEvents is causing performance issues. This will mean Excel goes
 ' unresponsive if timeout is long.
 '
-' @property WaitLoop
+' @property AllowEvents
 ' @type Boolean
 ' @default True
 ''
-Public WaitLoop As Boolean
+Public AllowEvents As Boolean
 
 ''
 ' Proxy server to pass requests through (except for those that match `ProxyBypassList`).
@@ -355,7 +355,7 @@ Public Function Execute(Request As WebRequest) As WebResponse
     Set web_Http = Me.PrepareHttpRequest(Request)
     web_Http.Send Request.Body
 
-    If Me.WaitLoop Then
+    If Me.AllowEvents Then
         Do While Not web_Http.WaitForResponse(0.025)
             VBA.DoEvents
         Loop
@@ -827,6 +827,6 @@ Private Sub Class_Initialize()
     Me.Insecure = False
     Me.FollowRedirects = True
     Me.UseXmlClient = False
-    Me.WaitLoop = True
+    Me.AllowEvents = True
 End Sub
 

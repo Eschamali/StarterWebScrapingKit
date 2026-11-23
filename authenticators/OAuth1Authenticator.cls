@@ -201,7 +201,7 @@ End Function
 ' @return {String}
 ''
 Public Function CreateSignature(auth_Base As String, auth_SigningKey As String) As String
-    CreateSignature = WebHelpers.HMACSHA1(auth_Base, auth_SigningKey, "Base64")
+    CreateSignature = WebHelpers.HMACSHA1(auth_Base, auth_SigningKey, vbWebEncodingBase64)
 End Function
 
 ''

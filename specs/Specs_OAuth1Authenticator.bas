@@ -105,7 +105,7 @@ Public Function Specs() As SpecSuite
             "&oauth_token=" & Token & _
             "&oauth_version=1.0")
     
-    ExpectedSignature = WebHelpers.HMACSHA1(ExpectedBaseString, ConsumerSecret & "&" & TokenSecret, "Base64")
+    ExpectedSignature = WebHelpers.HMACSHA1(ExpectedBaseString, ConsumerSecret & "&" & TokenSecret, vbWebEncodingBase64)
     
     With Specs.It("should include method, resource, parameters, and oauth values in base string")
         .Expect(Auth.CreateBaseString(Auth.Nonce, Auth.Timestamp, Client, Request)).ToEqual ExpectedBaseString
