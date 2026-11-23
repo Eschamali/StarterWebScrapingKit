@@ -103,7 +103,7 @@ t.ExecuteCDP "Runtime.addBinding", params
 
 合図は `Runtime.addBinding`、返事は `jsEval`、と組み合わせて使うのが基本です。
 
-`Runtime.addBinding` が普通のブラウザで使えるようになった経緯は、[Web とローカルの双方向やり取り秘話](/stories/DevHistory/Two-wayInteractionStory)にまとめています。
+`Runtime.addBinding` が普通のブラウザで使えるようになった経緯は、[技術資料: Web とローカルの双方向やり取り](/stories/DebugRouteTech/Two-wayInteractionStory)にまとめています。
 
 ### SharedBuffer
 

@@ -173,8 +173,7 @@ export default withMermaid(
             { text: 'BiDi 登場秘話', link: '/stories/DevHistory/bidi-story' },
             { text: 'BiDi 登場秘話・その後', link: '/stories/DevHistory/bidi-story2' },
             { text: 'WebView2 登場秘話', link: '/stories/DevHistory/webview2-story' },
-            { text: 'GetTcpTable 秘話', link: '/stories/DevHistory/gettcptable-story' },
-            { text: 'Web とローカルの双方向やり取り秘話', link: '/stories/DevHistory/Two-wayInteractionStory' }
+            { text: 'GetTcpTable 秘話', link: '/stories/DevHistory/gettcptable-story' }
           ]
         },
         {
@@ -187,7 +186,8 @@ export default withMermaid(
             { text: 'WebSocket 経路・その後', link: '/stories/DebugRouteTech/websocket-tech2' },
             { text: 'WebView2 経路', link: '/stories/DebugRouteTech/webview2-tech' },
             { text: 'ポリシーの壁', link: '/stories/DebugRouteTech/Policy' },
-            { text: 'ポリシーの壁 2（PAD と chrome.debugger）', link: '/stories/DebugRouteTech/Policy2' }
+            { text: 'ポリシーの壁 2（PAD と chrome.debugger）', link: '/stories/DebugRouteTech/Policy2' },
+            { text: 'Web とローカルの双方向やり取り', link: '/stories/DebugRouteTech/Two-wayInteractionStory' }
           ]
         },
         {
