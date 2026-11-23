@@ -25,12 +25,12 @@ Private m_data As Variant
 Public Event TimerCall(ByVal wTime As Long, ByRef varData As Variant)
 
 Public Sub StartTimer(ByVal uElapse As Long, Optional ByRef varData As Variant)
+    If IsObject(varData) Then Set m_data = varData Else m_data = varData
     If uElapse = m_uElapse Then Exit Sub
     Set m_form = Nothing 'Kills existing timer, if any
+    m_uElapse = uElapse
     If uElapse = 0 Then Exit Sub
     '
-    m_uElapse = uElapse
-    If IsObject(varData) Then Set m_data = varData Else m_data = varData
 #If Windows Then
     SetTimer m_form.Controls.Add("Forms.Frame.1").[_GethWnd], ObjPtr(Me) _
            , uElapse, GetTimerProc(Me)
