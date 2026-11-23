@@ -611,9 +611,11 @@ End Function
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
 '                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます(既定)
 '
-'            userGesture                    True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'            userGesture                    True ：ページを「ユーザーがクリックやキー入力をした直後」の状態(user activation)にしてから実行します。ファイル選択ダイアログやポップアップなど、ユーザー操作が要る機能で必要です
 '                                           False：特に施しません(既定)
-'                                           ※この引数はどうやらクールタイム制のようで、例えば最初に`userGesture:=True`すれば以降のJavaScript実行に`userGesture:=True`を付与しなくてもしばらくは、「人間がクリックやキーボード操作をした結果」とみなす仕様みたいです
+'                                           ※変わるのはuser activationの状態だけで、イベントの`isTrusted`は`False`のままです。ボット対策をすり抜けるものではありません
+'                                           ※user activationの有効期間は5秒です(Chromiumの`kActivationLifespan`)。一度`userGesture:=True`で実行すると、5秒以内なら省略しても、ユーザー操作があった扱いになります
+'                                           　ただし、ポップアップやファイル選択ダイアログを開くと、5秒以内でもその時点で切れます
 '
 '            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します(既定)
 '                                           False：サイトの外部JavaScript実行規制に従います

@@ -151,14 +151,14 @@ Sub JapaneseElementTest()
 
     ' ボタンクリック
     Demo_Japanese.ResetWaitState
-    Demo_Japanese.getElementByID("executebtn").SimpleClick
-    Demo_Japanese.WaitEvents
-    Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
-    CDPHelpers.Sleep 3
+    Demo_Japanese.getElementByXPath("//button[text()='計算' and @type='submit']").SimpleClick
 
     ' 体脂肪率を取得
     Dim 体脂肪率 As Double
-    体脂肪率 = Demo_Japanese.getElementByID("ans1").innerText
+    体脂肪率 = Demo_Japanese.getElementByID("ans1").onExist.innerText
+    Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
+    CDPHelpers.Sleep 3
+
     Debug.Print "体脂肪率は、" & 体脂肪率 & "% です。"
 
 
@@ -1067,7 +1067,7 @@ Sub AutoConnectDevToolsActivePort()
 
     '6. WebSocketから切断
     '※下記をコメントアウト後、処理を済ませ、`reuseMode:=True`にすると、このプロシージャを実行するたびに、新規タブが湧き出します
-    t.ThisCDPBrowser.DisconnectCDP
+    b.DisconnectCDP
 End Sub
 
 '***************************************************************************************************
