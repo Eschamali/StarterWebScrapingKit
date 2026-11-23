@@ -27,8 +27,7 @@
 	"dependencies": {
 		"VBA-Scripting": {
 			"git": "https://github.com/VBA-Tools-v2/vba-scripting/",
-			"tag": "v0.2.2",
-			"key": "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",
+			"tag": "v0.2.3",
 			"src": ["Dictionary.cls"]
 		}
 	},
