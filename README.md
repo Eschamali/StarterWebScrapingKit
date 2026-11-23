@@ -6,7 +6,7 @@ VBA-Web (formerly Excel-REST) makes working with complex webservices and APIs ea
 Getting started
 ---------------
 
-- Download the [latest release (v5.3.5)](https://github.com/VBA-tools-v2/VBA-Web/releases)
+- Download the [latest release (v5.4.0)](https://github.com/VBA-tools-v2/VBA-Web/releases)
 - To include in an existing file, manually import or use [VBA-Git](https://github.com/VBA-Tools-v2/VBA-Git) to include as a build [dependency](https://github.com/VBA-Tools-v2/VBA-Git/blob/master/design.md#vb-dependencies).
 
 For more details see the [Wiki](https://github.com/VBA-tools/VBA-Web/wiki)
