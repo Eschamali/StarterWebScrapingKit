@@ -923,17 +923,9 @@ End Function
 ' @return {String} Encoded string
 ''
 Public Function Base64Encode(Text As String) As String
-#If Mac Then
-    Dim web_Command As String
-    web_Command = "printf " & PrepareTextForPrintf(Text) & " | openssl base64"
-    Base64Encode = ExecuteInShell(web_Command).Output
-#Else
     Dim web_Bytes() As Byte
-    web_Bytes = VBA.StrConv(Text, vbFromUnicode)
+    web_Bytes = StringToUtf8Bytes(Text)
     Base64Encode = web_BytesToBase64(web_Bytes)
-#End If
-
-    Base64Encode = VBA.Replace$(Base64Encode, vbLf, "")
 End Function
 
 ''
@@ -944,24 +936,14 @@ End Function
 ' @return {String|Byte()} Decoded text in given `Format`.
 ''
 Public Function Base64Decode(Encoded As Variant, Optional Format As VbWebEncoding = vbWebEncodingText) As Variant
+    Dim web_Bytes() As Byte
+    web_Bytes = web_Base64ToBytes(VBA.CStr(Encoded)) ' Pure VBA on both platforms; either alphabet, padding optional. Raises on invalid input.
+    
     Select Case Format
     Case vbWebEncodingBytes
-        Base64Decode = web_Base64ToBytes(VBA.CStr(Encoded))
+        Base64Decode = web_Bytes
     Case vbWebEncodingText
-        ' Add trailing padding, if necessary
-        If (VBA.Len(Encoded) Mod 4 > 0) Then
-            Encoded = Encoded & VBA.Left("====", 4 - (VBA.Len(Encoded) Mod 4))
-        End If
-#If Mac Then
-        Dim web_Command As String
-        web_Command = "echo " & PrepareTextForShell(Encoded) & " | openssl base64 -d"
-        Base64Decode = ExecuteInShell(web_Command).Output
-#Else
-        Dim web_Crypto As WebCrypto
-        Set web_Crypto = New WebCrypto
-        Base64Decode = VBA.StrConv(web_Crypto.Decode(Encoded, edfBase64), vbUnicode)
-        Set web_Crypto = Nothing
-#End If
+        Base64Decode = Utf8BytesToString(web_Bytes)
     Case Else
         Err.Raise 5, "Base64Decode", "'Format' must be vbWebEncodingText or vbWebEncodingBytes." ' Invalid procedure call or argument.
     End Select
