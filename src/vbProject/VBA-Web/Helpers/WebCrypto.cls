@@ -467,7 +467,7 @@ Public Function HMACSHA1(ByRef Data() As Byte) As Byte()
                   "No key set, call InitHmac first"
     ElseIf CryptCreateHash(hAdvProvider, CALG_HMAC, hKey, 0, hHmacHash) = 0 Then
         lngErr = Err.LastDllError
-        DestroyHandles
+        crypto_DestroyHandles
         Err.Raise vbObjectError Or &HD32A&, _
                   "HS1.HmacSha1", _
                   "Failed to create HMAC hash object, system error " _
@@ -476,17 +476,14 @@ Public Function HMACSHA1(ByRef Data() As Byte) As Byte()
         HmacInfo.HashAlgId = CALG_SHA1
         If CryptSetHashParam(hHmacHash, HP_HMAC_INFO, HmacInfo, 0&) = 0 Then
             lngErr = Err.LastDllError
-            DestroyHandles
+            crypto_DestroyHandles
             Err.Raise vbObjectError Or &HD32C&, _
                       "HS1.HmacSha1", _
                       "Failed to set HMAC_INFO hash param, system error " _
                     & CStr(lngErr)
-        ElseIf CryptHashData(hHmacHash, _
-                             Data(LBound(Data)), _
-                             UBound(Data) - LBound(Data) + 1, _
-                             0&) = 0 Then
+        ElseIf crypto_HashData(hHmacHash, Data) = 0 Then
             lngErr = Err.LastDllError
-            DestroyHandles
+            crypto_DestroyHandles
             Err.Raise vbObjectError Or &HD32E&, _
                       "HS1.HmacSha1", _
                       "Failed to hash data, system error " _
@@ -495,7 +492,7 @@ Public Function HMACSHA1(ByRef Data() As Byte) As Byte()
             lngDataLen = 4 '4 bytes for Long length.
             If CryptGetHashParam(hHmacHash, HP_HASHSIZE, lngHashSize, lngDataLen, 0&) = 0 Then
                 lngErr = Err.LastDllError
-                DestroyHandles
+                crypto_DestroyHandles
                 Err.Raise vbObjectError Or &HD332&, _
                           "HS1.HmacSha1", _
                           "Failed to obtain hash value length, system error " _
@@ -505,13 +502,13 @@ Public Function HMACSHA1(ByRef Data() As Byte) As Byte()
                 ReDim bytHashValue(lngDataLen - 1)
                 If CryptGetHashParam(hHmacHash, HP_HASHVAL, bytHashValue(0), lngDataLen, 0&) = 0 Then
                     lngErr = Err.LastDllError
-                    DestroyHandles
+                    crypto_DestroyHandles
                     Err.Raise vbObjectError Or &HD334&, _
                               "HS1.HmacSha1", _
                               "Failed to obtain hash value, system error " _
                             & CStr(lngErr)
                 Else
-                    DestroyHandles
+                    crypto_DestroyHandles
                     HMACSHA1 = bytHashValue
                 End If
             End If
@@ -542,7 +539,7 @@ Public Function HMACSHA256(ByRef Data() As Byte) As Byte()
                   "No key set, call InitHmac first"
     ElseIf CryptCreateHash(hAdvProvider, CALG_HMAC, hKey, 0, hHmacHash) = 0 Then
         lngErr = Err.LastDllError
-        DestroyHandles
+        crypto_DestroyHandles
         Err.Raise vbObjectError Or &HC32A&, _
                   TypeNameOfMe, _
                   "Failed to create HMAC hash object, system error " _
@@ -551,17 +548,14 @@ Public Function HMACSHA256(ByRef Data() As Byte) As Byte()
         HmacInfo.HashAlgId = CALG_SHA_256
         If CryptSetHashParam(hHmacHash, HP_HMAC_INFO, HmacInfo, 0) = 0 Then
             lngErr = Err.LastDllError
-            DestroyHandles
+            crypto_DestroyHandles
             Err.Raise vbObjectError Or &HC32C&, _
                       TypeNameOfMe, _
                       "Failed to set HMAC_INFO hash param, system error " _
                     & VBA.CStr(lngErr)
-        ElseIf CryptHashData(hHmacHash, _
-                             Data(LBound(Data)), _
-                             UBound(Data) - LBound(Data) + 1, _
-                             0&) = 0 Then
+        ElseIf crypto_HashData(hHmacHash, Data) = 0 Then
             lngErr = Err.LastDllError
-            DestroyHandles
+            crypto_DestroyHandles
             Err.Raise vbObjectError Or &HC32E&, _
                       TypeNameOfMe, _
                       "Failed to hash data, system error " _
@@ -570,7 +564,7 @@ Public Function HMACSHA256(ByRef Data() As Byte) As Byte()
             lngDataLen = 4 '4 bytes for Long length.
             If CryptGetHashParam(hHmacHash, HP_HASHSIZE, lngHashSize, lngDataLen, 0&) = 0 Then
                 lngErr = Err.LastDllError
-                DestroyHandles
+                crypto_DestroyHandles
                 Err.Raise vbObjectError Or &HC332&, _
                           TypeNameOfMe, _
                           "Failed to obtain hash value length, system error " _
@@ -580,13 +574,13 @@ Public Function HMACSHA256(ByRef Data() As Byte) As Byte()
                 ReDim bytHashValue(lngDataLen - 1)
                 If CryptGetHashParam(hHmacHash, HP_HASHVAL, bytHashValue(0), lngDataLen, 0&) = 0 Then
                     lngErr = Err.LastDllError
-                    DestroyHandles
+                    crypto_DestroyHandles
                     Err.Raise vbObjectError Or &HC334&, _
                               TypeNameOfMe, _
                               "Failed to obtain hash value, system error " _
                             & VBA.CStr(lngErr)
                 Else
-                    DestroyHandles
+                    crypto_DestroyHandles
                     HMACSHA256 = bytHashValue
                 End If
             End If
@@ -605,7 +599,7 @@ Public Sub InitHMAC(ByRef Key() As Byte)
     Dim bytKbKey() As Byte
     Dim lngErr As Long
 
-    DestroyHandles
+    crypto_DestroyHandles
     If hAdvProvider = 0 Then
         Err.Raise vbObjectError Or &HC342&, _
                   TypeNameOfMe, _
@@ -629,7 +623,7 @@ Public Sub InitHMAC(ByRef Key() As Byte)
                           CRYPT_IPSEC_HMAC_KEY, _
                           hKey) = 0 Then
             lngErr = Err.LastDllError
-            DestroyHandles
+            crypto_DestroyHandles
             Err.Raise vbObjectError Or &HC344&, _
                       TypeNameOfMe, _
                       "Failed to import key, system error " _
@@ -661,10 +655,7 @@ Public Function MD5(ByRef Data() As Byte) As Byte()
                   TypeNameOfMe, _
                   "Failed to create CryptoAPI Hash object, system error " _
                 & VBA.CStr(Err.LastDllError)
-    ElseIf CryptHashData(hHash, _
-                         Data(LBound(Data)), _
-                         UBound(Data) - LBound(Data) + 1, _
-                         0&) = 0 Then
+    ElseIf crypto_HashData(hHash, Data) = 0 Then
         CryptDestroyHash hHash
         Err.Raise vbObjectError Or &HC356&, _
                   TypeNameOfMe, _
@@ -719,10 +710,7 @@ Public Function SHA256(ByRef Data() As Byte) As Byte()
                   TypeNameOfMe, _
                   "Failed to create CryptoAPI Hash object, system error " _
                 & VBA.CStr(Err.LastDllError)
-    ElseIf CryptHashData(hHash, _
-                         Data(LBound(Data)), _
-                         UBound(Data) - LBound(Data) + 1, _
-                         0&) = 0 Then
+    ElseIf crypto_HashData(hHash, Data) = 0 Then
         CryptDestroyHash hHash
         Err.Raise vbObjectError Or &HC356&, _
                   TypeNameOfMe, _
@@ -758,21 +746,34 @@ End Function
 ' Private Methods
 ' ============================================= '
 
-Private Sub DestroyHandles(Optional ByVal Release As Boolean = False)
+Private Sub crypto_DestroyHandles(Optional ByVal Release As Boolean = False)
     On Error Resume Next 'Handle all exceptions here!
-    If hHmacHash <> 0 Then CryptDestroyHash hHmacHash: hHmacHash = 0
-    If hKey <> 0 Then CryptDestroyKey hKey: hKey = 0
-    If Release And (hBaseProvider <> 0) Then CryptReleaseContext hBaseProvider, 0&: hBaseProvider = 0
-    If Release And (hAdvProvider <> 0) Then CryptReleaseContext hAdvProvider, 0&: hAdvProvider = 0
-    Err.Clear
+        If Not (hHmacHash = 0) Then CryptDestroyHash hHmacHash: hHmacHash = 0
+        If Not (hKey = 0) Then CryptDestroyKey hKey: hKey = 0
+        If Release And Not (hBaseProvider = 0) Then CryptReleaseContext hBaseProvider, 0&: hBaseProvider = 0
+        If Release And Not (hAdvProvider = 0) Then CryptReleaseContext hAdvProvider, 0&: hAdvProvider = 0
+    On Error GoTo 0
 End Sub
+
+''
+' CryptHashData over a byte array, including an empty one (zero bytes still needs a valid buffer reference).
+''
+Private Function crypto_HashData(ByVal Hash As LongPtr, ByRef Data() As Byte) As Long
+    Dim bytNone As Byte
+    
+    If UBound(Data) < LBound(Data) Then
+        crypto_HashData = CryptHashData(Hash, bytNone, 0&, 0&)
+    Else
+        crypto_HashData = CryptHashData(Hash, Data(LBound(Data)), UBound(Data) - LBound(Data) + 1, 0&)
+    End If
+End Function
 
 ' ============================================= '
 ' Initialize/Terminate Methods
 ' ============================================= '
 
 Private Sub Class_Terminate()
-    DestroyHandles Release:=True
+    crypto_DestroyHandles Release:=True
 End Sub
 
 Private Sub Class_Initialize()
