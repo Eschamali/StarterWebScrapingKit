@@ -957,7 +957,7 @@ End Function
 ' @return {String} Encoded string
 ''
 Public Function Base64UrlEncode(Text As String) As String
-    Base64UrlEncode = VBA.Replace(VBA.Replace(Base64Encode(Text), "+", "-"), "/", "_")
+    Base64UrlEncode = VBA.Replace(VBA.Replace(VBA.Replace(Base64Encode(Text), "+", "-"), "/", "_"), "=", vbNullString)
 End Function
 
 ''
