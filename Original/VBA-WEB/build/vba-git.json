@@ -3,7 +3,7 @@
 		"name": "VBA-Web",
 		"target": "xlam",
 		"authors": "Tim Hall, RadiusCore",
-		"version": "5.3.0",
+		"version": "5.4.1",
 		"description": "Connect VBA, Excel, Access, and Office for Windows and Mac to web services and the web."
 	},
 	"components": {
@@ -27,8 +27,7 @@
 	"dependencies": {
 		"VBA-Scripting": {
 			"git": "https://github.com/VBA-Tools-v2/vba-scripting/",
-			"tag": "v0.2.2",
-			"key": "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",
+			"tag": "v0.2.3",
 			"src": ["Dictionary.cls"]
 		}
 	},
