@@ -1465,12 +1465,30 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
             '2-1. `Runtime.ExecutionContextDescription`を取り出す
             Set tmpNode = BiDiCDPJConv.Parse(RawJson).NodeKey("params").NodeKey("context")
 
-            '2-2. `auxData`から、このタブクラスのTargetIDと一致するか確認する
-            '※このClassの`TargetID`と本来の住人（実ページのJS）であるかの確認
-            Dim auxData As BiDiCDPJConv
-            Set auxData = tmpNode.NodeKey("auxData")
-            If auxData.StringKey("frameId") = brTab.targetID And auxData.BoolKey("isDefault") Then
-                '2-2. 各種statusを上書き
+            'Worker系かの判定
+            '※`auxData`の有無で、処理を分ける
+            If tmpNode.ExistsKey("auxData") Then
+                'Webページ等のフレームを持つターゲット系の処理
+                Dim auxData As BiDiCDPJConv
+                Set auxData = tmpNode.NodeKey("auxData")
+
+                'メインとなるJS環境かの判定
+                If auxData.StringKey("frameId") = brTab.targetID And auxData.BoolKey("isDefault") Then
+                    '2-2. 各種statusを上書き
+                    With brTabRuntime
+                        .IsValid = True '使えるよサイン
+
+                        .ExecutionContextId = tmpNode.NumberKey("id")
+                        .origin = tmpNode.StringKey("origin")
+                        .Name = tmpNode.StringKey("name")
+                        .uniqueId = tmpNode.StringKey("uniqueId")
+                    End With
+
+                    '2-3. ログ化
+                    printMsg info_, "The JavaScript execution environment for targetID:" & brTab.targetID & " has been updated.", FromProcedureName
+                End If
+            Else
+                '2-2. `Worker`系のターゲットは、一意なのでそのまま、各種statusを適用
                 With brTabRuntime
                     .IsValid = True '使えるよサイン
 
@@ -1481,7 +1499,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
                 End With
 
                 '2-3. ログ化
-                printMsg info_, "The JavaScript execution environment for targetID:" & brTab.targetID & " has been updated.", FromProcedureName
+                printMsg info_, "The JavaScript execution environment for targetID(Worker):" & brTab.targetID & " has been updated.", FromProcedureName
             End If
 
         'JavaScript実行環境情報の破棄更新を行います
