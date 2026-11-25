@@ -295,9 +295,6 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
         '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
-
-        '3. URLが指定されてる場合は読み込み状況を更新
-        If LenB(Url) Then .PageReadyState (True)
     End With
 End Function
 
