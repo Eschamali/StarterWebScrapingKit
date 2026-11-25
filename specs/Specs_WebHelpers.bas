@@ -427,6 +427,8 @@ Public Function Specs() As SpecSuite
         .Expect(WebHelpers.Base64Decode("SG93ZHk")).ToEqual "Howdy"
         .Expect(WebHelpers.Base64Decode("eyJzdWIiOjEyMzQ1Njc4OTAsIm5hbWUiOiJKb2huIERvZSIsImFkbWluIjp0cnVlfQ")).ToEqual _
             "{""sub"":1234567890,""name"":""John Doe"",""admin"":true}"
+        .Expect(WebHelpers.Base64Decode("Sm9zw6kgTmfEgXRp")).ToEqual "Jos" & ChrW(&HE9) & " Ng" & ChrW(&H101) & "ti"    ' "José Ngāti"
+        .Expect(WebHelpers.Base64UrlDecode("Sm9zw6kgTmfEgXRp")).ToEqual "Jos" & ChrW(&HE9) & " Ng" & ChrW(&H101) & "ti"
     End With
     
     ' RegisterConverter
