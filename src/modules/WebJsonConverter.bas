@@ -10,6 +10,25 @@ Attribute VB_Name = "WebJsonConverter"
 '' Description:
 ''  - RFC 8259 compliant: https://datatracker.ietf.org/doc/html/rfc8259
 ''                        https://www.rfc-editor.org/rfc/rfc8259
+''  - Does not throw
+''      Where VBA-JSON (JsonConverter.bas) raises
+''      `Err.Raise 10001, "JSONConverter", <message>`, this returns
+''      IsValid = False with Error (message) and Position (1-based) set instead.
+''      Callers should check IsValid before using Value.
+''  - Returns a convenient custom Type and it's .Value can be an object or not
+''  - Supports UTF8, UTF16 (LE and BE) and UTF32 (LE and BE on Mac only)
+''  - Returns UTF16LE texts only
+''  - Accepts Default Class Members
+''  - Numbers are rounded to the nearest Double and if possible Decimal is used
+''      Unlike VBA-JSON (JsonConverter.bas), large numbers are not returned as
+''      String, so there is no `UseDoubleForLargeNumbers` option:
+''      ```Quoted from VBA-JSON/JsonConverter.bas
+''        By default, VBA-JSON will use String for numbers longer than 15 characters that contain only digits
+''        to override set `JsonConverter.JsonOptions.UseDoubleForLargeNumbers = True`
+''      ```
+''      Instead, numbers with more than 15 digits are returned as Decimal
+''      (exact up to 28-29 digits); beyond that range, Double is used.
+''      Note: writing a Decimal to a worksheet cell rounds it to 15 digits.
 ''  - Mac OS compatible
 ''  - Performant, for a native VBA implementation
 ''  - Parser:
