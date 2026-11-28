@@ -559,7 +559,7 @@ Private Function ParserHttpResponse(httpRes As String) As Dictionary
     Dim i As Long
     For i = 1 To HeaderLimitIndex
         '2-3. 「:」で一旦区切って格納
-        tmp = Split(ResponseSplit(i), ":"): printMsg Debug_, CStr(ResponseSplit(i)), FromProcedureName
+        tmp = Split(ResponseSplit(i), ":", 2): printMsg Debug_, CStr(ResponseSplit(i)), FromProcedureName
 
         '2-4. Dictionaryに格納
         ParserHttpResponse.Add tmp(0), Trim$(tmp(1))    '前後のスペースを除去
